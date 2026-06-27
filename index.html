@@ -380,10 +380,10 @@ function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yo
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
 function togglePwd(){const i=document.getElementById('login-password');const ic=document.getElementById('eye-icon');i.type=i.type==='password'?'text':'password';ic.className=i.type==='password'?'ti ti-eye':'ti ti-eye-off';}
 
-function switchTab(t){
+async function switchTab(t){
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
-  render();
+  await render();
 }
 
 // Status dropdown shows/hides discharge fields
@@ -394,6 +394,11 @@ document.getElementById('f-status').addEventListener('change',function(){
 });
 
 // AUTH
+async function goRegisterPatient(){
+  await switchTab('patients');
+  openAddPatient();
+}
+
 async function doLogin(){
   const un=document.getElementById('login-username').value.trim();
   const pw=document.getElementById('login-password').value;
@@ -474,7 +479,7 @@ async function renderHome(){
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
-  const greeting = hour<12?'Good morning':'hour'<17?'Good afternoon':'Good evening';
+  const greeting = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
 
   let h = `
   <div class="dash-hero">
@@ -523,7 +528,7 @@ async function renderHome(){
 
   <div class="dash-section-title" style="margin-top:8px">Quick access</div>
   <div class="dash-cards">
-    <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
+    <div class="dash-card" onclick="goRegisterPatient()">
       <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
       <h3>Register patient</h3>
       <p>Add a new patient to the system with their IP number, personal details, and station assignment.</p>

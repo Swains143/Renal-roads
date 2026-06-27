@@ -134,15 +134,12 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--navy-pale)}
 tr.row-deceased td{background:#FEF0F0;color:#6B1515}
 tr.row-discharged td{background:#F0EFFE;color:#2A2870}
-tr.row-transferred td{background:#FFFBEB;color:#78350F}
 tr.row-deceased:hover td{background:#FDDDDD}
 tr.row-discharged:hover td{background:#E4E0FC}
-tr.row-transferred:hover td{background:#FEF3C7}
 .status-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .s-active{background:var(--green-pale);color:#2E6B10}
 .s-discharged{background:#EEEDFE;color:#3C3489}
 .s-deceased{background:#FCEBEB;color:#791F1F}
-.s-transferred{background:#FEF3C7;color:#92400E}
 .s-in{background:var(--green-pale);color:#2E6B10}
 .s-out{background:#FCEBEB;color:#791F1F}
 .alert{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
@@ -285,7 +282,6 @@ tr.row-transferred:hover td{background:#FEF3C7}
       <select id="f-status">
         <option value="Active">Active</option>
         <option value="Discharged">Discharged</option>
-        <option value="Transferred">Transferred</option>
         <option value="Deceased">Deceased</option>
       </select>
     </div>
@@ -380,10 +376,10 @@ function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yo
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
 function togglePwd(){const i=document.getElementById('login-password');const ic=document.getElementById('eye-icon');i.type=i.type==='password'?'text':'password';ic.className=i.type==='password'?'ti ti-eye':'ti ti-eye-off';}
 
-async function switchTab(t){
+function switchTab(t){
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
-  await render();
+  render();
 }
 
 // Status dropdown shows/hides discharge fields
@@ -394,11 +390,6 @@ document.getElementById('f-status').addEventListener('change',function(){
 });
 
 // AUTH
-async function goRegisterPatient(){
-  await switchTab('patients');
-  openAddPatient();
-}
-
 async function doLogin(){
   const un=document.getElementById('login-username').value.trim();
   const pw=document.getElementById('login-password').value;
@@ -479,7 +470,7 @@ async function renderHome(){
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
-  const greeting = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const greeting = hour<12?'Good morning':'hour'<17?'Good afternoon':'Good evening';
 
   let h = `
   <div class="dash-hero">
@@ -504,10 +495,6 @@ async function renderHome(){
       <div class="dash-stat-icon" style="background:#EEEDFE"><i class="ti ti-door-exit" style="color:#3C3489"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:#3C3489">${discharged}</div><div class="lbl">Discharged</div></div>
     </div>
-    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Transferred';">
-      <div class="dash-stat-icon" style="background:#FEF3C7"><i class="ti ti-transfer" style="color:#D97706"></i></div>
-      <div class="dash-stat-info"><div class="num" style="color:#D97706">${transferred}</div><div class="lbl">Transferred</div></div>
-    </div>
     <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Deceased';">
       <div class="dash-stat-icon" style="background:var(--red-pale)"><i class="ti ti-heart-off" style="color:var(--red)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
@@ -528,7 +515,7 @@ async function renderHome(){
 
   <div class="dash-section-title" style="margin-top:8px">Quick access</div>
   <div class="dash-cards">
-    <div class="dash-card" onclick="goRegisterPatient()">
+    <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
       <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
       <h3>Register patient</h3>
       <p>Add a new patient to the system with their IP number, personal details, and station assignment.</p>
@@ -582,13 +569,11 @@ async function renderPatients(){
   });
   const active=patients.filter(p=>p.status==='Active').length;
   const discharged=patients.filter(p=>p.status==='Discharged').length;
-  const transferred=patients.filter(p=>p.status==='Transferred').length;
   const deceased=patients.filter(p=>p.status==='Deceased').length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${patients.length}</div><div class="lbl">Total</div></div>
     <div class="metric"><div class="num" style="color:var(--green)">${active}</div><div class="lbl">Active</div></div>
     <div class="metric"><div class="num" style="color:#534AB7">${discharged}</div><div class="lbl">Discharged</div></div>
-    <div class="metric"><div class="num" style="color:#D97706">${transferred}</div><div class="lbl">Transferred</div></div>
     <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
   </div>
   <div class="toolbar">
@@ -597,7 +582,6 @@ async function renderPatients(){
       <option value="">All statuses</option>
       <option value="Active"${f.status==='Active'?' selected':''}>Active</option>
       <option value="Discharged"${f.status==='Discharged'?' selected':''}>Discharged</option>
-      <option value="Transferred"${f.status==='Transferred'?' selected':''}>Transferred</option>
       <option value="Deceased"${f.status==='Deceased'?' selected':''}>Deceased</option>
     </select>
     <select onchange="patientFilter.gender=this.value;renderPatients()">
@@ -619,8 +603,8 @@ async function renderPatients(){
     <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Age</th><th>Gender</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="9"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
   else filtered.forEach(p=>{
-    const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':'';
-    const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':'s-deceased';
+    const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':'';
+    const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':'s-deceased';
     h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
       <td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button>${isAdmin?` <button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;

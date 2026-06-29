@@ -330,6 +330,32 @@ td { font-size: 13px; }
 .loading-box p { font-weight: 600; }
 input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, sans-serif; }
 
+
+/* ── VIEWER ROLE ── */
+.role-viewer { background: #F3EEFF; color: #6B21A8; }
+.viewer-banner { background: linear-gradient(90deg,#F3EEFF,#EDE9FE); border:1.5px solid #C4B5FD;
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px; font-weight: 600; color: #6B21A8; font-size: 13px; }
+.viewer-banner i { font-size: 18px; }
+
+/* Comment box on supplies */
+.supply-comment-btn { background: #F3EEFF; border-color: #C4B5FD; color: #6B21A8; font-weight: 600; }
+.supply-comment-btn:hover { background: #EDE9FE !important; }
+
+/* Comment modal */
+#comment-modal .modal h2 { font-family: 'Playfair Display', Georgia, serif; color: #6B21A8; }
+#comment-modal .modal { max-width: 430px; }
+.comment-item { padding: 10px 12px; border-radius: var(--radius); background: var(--gray-50);
+  border: 1px solid var(--gray-200); margin-bottom: 8px; }
+.comment-item .comment-meta { font-size: 11px; color: var(--gray-500); margin-bottom: 4px; font-weight: 600; }
+.comment-item .comment-text { font-size: 13px; font-weight: 500; color: var(--gray-800); }
+.comment-item.unread { border-left: 3px solid #7C3AED; background: #FAFAFF; }
+.comment-empty { text-align:center; color: var(--gray-400); padding: 20px 0; font-size: 13px; }
+
+/* Admin notification dot on Supplies tab */
+#supply-comment-dot { display:none; width:7px; height:7px; background:#7C3AED; border-radius:50%;
+  margin-left:5px; vertical-align: middle; display:inline-block; }
+
 </style>
 </head>
 <body>
@@ -398,7 +424,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="tabs">
     <div class="tab active" onclick="switchTab('home')" id="tab-home"><i class="ti ti-home" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Home</div>
     <div class="tab" onclick="switchTab('patients')" id="tab-patients"><i class="ti ti-users" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patients</div>
-    <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies</div>
+    <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
   </div>
@@ -525,7 +551,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Full name *</label><input id="u-name" placeholder="Display name"></div>
     <div class="form-group"><label>Username *</label><input id="u-username" placeholder="Login username"></div>
     <div class="form-group"><label>Password *</label><input id="u-password" type="password" placeholder="Set password"></div>
-    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Staff</option><option value="admin">Admin</option></select></div>
+    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Staff</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
   </div>
   <div class="modal-err" id="user-error"><i class="ti ti-alert-circle"></i><span id="user-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('user-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUser()"><i class="ti ti-check"></i> Register</button></div>
@@ -605,9 +631,12 @@ async function doLogin(){
     document.getElementById('app-page').classList.add('visible');
     document.getElementById('tab-requests').style.display=data.role==='admin'?'':'none';
     document.getElementById('tab-users').style.display=data.role==='admin'?'':'none';
+    // Viewer: hide patients tab (sensitive data) - only Home & Supplies
+    document.getElementById('tab-patients').style.display=data.role==='viewer'?'none':'';
     currentTab='home';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
+    if(data.role==='admin') updateCommentDot();
     await render();
   }catch(e){
     const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':'Invalid username or password.';
@@ -662,6 +691,7 @@ async function renderHome(){
   const deceased = pts.filter(p=>p.status==='Deceased').length;
   const lowStock = sups.filter(s=>getStock(s)<=s.threshold).length;
   const isAdmin = currentUser&&currentUser.role==='admin';
+  const isViewer = currentUser&&currentUser.role==='viewer';
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
@@ -911,9 +941,11 @@ async function renderSupplies(){
     <button class="btn btn-green" onclick="openRequestModal()"><i class="ti ti-send"></i> Request item</button>
     ${isAdmin?'<button class="btn" onclick="exportSupplies()"><i class="ti ti-download"></i> Export</button>':''}
   </div>`;
-  if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit supply items.</div></div>`;
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items for the admin to review.</div>`;
+  else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit supply items.</div></div>`;
   if(isAdmin&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
-  h+=`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Stock</th>${isAdmin?'<th>Threshold</th>':''}<th>Log</th>${isAdmin?'<th>IN</th><th>OUT</th><th></th>':''}</tr></thead><tbody>`;
+  h+=`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Stock</th>${isAdmin?'<th>Threshold</th>':''}<th>Log</th>${isAdmin?'<th>IN</th><th>OUT</th><th></th>':''}${(isViewer||isAdmin)?'<th>Comments</th>':''}</tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ti-package"></i>No supplies found</div></td></tr>`;
   else filtered.forEach(s=>{
     const stock=getStock(s);const isLow=stock<=s.threshold;
@@ -921,7 +953,8 @@ async function renderSupplies(){
       <td class="${isLow&&isAdmin?'stock-low':''}">${stock}${isLow&&isAdmin?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
-      ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}</tr>`;
+      ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}
+      ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${isAdmin?' View/Add':'Comment'}</button></td>`:''}</tr>`;
   });
   h+=`</tbody></table></div>`;
   document.getElementById('main-content').innerHTML=h;
@@ -1083,6 +1116,84 @@ async function rejectRequest(id){
 }
 
 // USERS
+
+// ─── SUPPLY COMMENTS ───────────────────────────────────────────────────────
+let commentSupplyId = null;
+
+async function openCommentModal(supplyId, supplyName) {
+  commentSupplyId = supplyId;
+  document.getElementById('cm-supply-name').textContent = supplyName;
+  document.getElementById('cm-text').value = '';
+  document.getElementById('cm-error').classList.remove('show');
+
+  // Show/hide input area based on role
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  document.getElementById('cm-input-area').style.display = isViewer ? '' : (isAdmin ? '' : 'none');
+  document.getElementById('cm-submit-btn').style.display = isViewer ? '' : (isAdmin ? '' : 'none');
+
+  // Load existing comments
+  await loadComments(supplyId);
+  document.getElementById('comment-modal').classList.add('open');
+
+  // Mark as read if admin
+  if (isAdmin) {
+    await db.from('supply_comments').update({ read_by_admin: true }).eq('supply_id', supplyId).eq('read_by_admin', false);
+    await updateCommentDot();
+  }
+}
+
+async function loadComments(supplyId) {
+  const { data } = await db.from('supply_comments')
+    .select('*')
+    .eq('supply_id', supplyId)
+    .order('created_at', { ascending: false });
+
+  const box = document.getElementById('cm-existing-comments');
+  if (!data || !data.length) {
+    box.innerHTML = '<div class="comment-empty"><i class="ti ti-message-off" style="font-size:22px;display:block;margin-bottom:6px"></i>No comments yet</div>';
+    return;
+  }
+  box.innerHTML = data.map(c => `
+    <div class="comment-item ${!c.read_by_admin && currentUser.role==='admin' ? 'unread' : ''}">
+      <div class="comment-meta"><i class="ti ti-user" style="font-size:11px"></i> ${c.by_user} &nbsp;·&nbsp; ${new Date(c.created_at).toLocaleString()}</div>
+      <div class="comment-text">${c.comment}</div>
+    </div>
+  `).join('');
+}
+
+async function submitComment() {
+  const text = document.getElementById('cm-text').value.trim();
+  if (!text) {
+    document.getElementById('cm-error-msg').textContent = 'Please type a comment before submitting.';
+    document.getElementById('cm-error').classList.add('show');
+    return;
+  }
+  showLoading('Sending comment...');
+  await db.from('supply_comments').insert({
+    supply_id: commentSupplyId,
+    by_user: currentUser.name,
+    by_role: currentUser.role,
+    comment: text,
+    read_by_admin: false
+  });
+  hideLoading();
+  document.getElementById('cm-text').value = '';
+  document.getElementById('cm-error').classList.remove('show');
+  await loadComments(commentSupplyId);
+  await updateCommentDot();
+}
+
+async function updateCommentDot() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const { count } = await db.from('supply_comments')
+    .select('id', { count: 'exact', head: true })
+    .eq('read_by_admin', false);
+  const dot = document.getElementById('supply-comment-dot');
+  if (dot) dot.style.display = count > 0 ? 'inline-block' : 'none';
+}
+
+
 async function renderUsers(){
   showLoading('Loading users...');
   const {data}=await db.from('users').select('*').order('name');
@@ -1100,7 +1211,7 @@ async function renderUsers(){
     const isSelf=u.id===currentUser.id;
     h+=`<tr><td>${u.name}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}</td>
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${u.username}</code></td>
-      <td><span class="role-tag ${u.role==='admin'?'role-admin':'role-staff'}">${u.role}</span></td>
+      <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':'role-staff'}">${u.role}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
       <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
@@ -1129,5 +1240,24 @@ function exportPatients(){dlCSV(toCSV(['IP No','Name','ID No','Phone','YOB','Age
 function exportSupplies(){dlCSV(toCSV(['Item','Unit','Stock','Threshold','Low Stock'],supplies.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])),'supplies_'+new Date().toISOString().slice(0,10)+'.csv');}
 function exportRequests(){dlCSV(toCSV(['Item','Qty','By','Notes','Status','Date'],requests.map(r=>[r.supplies?r.supplies.name:'?',r.qty,r.requested_by,r.notes,r.status,new Date(r.created_at).toLocaleDateString()])),'requests_'+new Date().toISOString().slice(0,10)+'.csv');}
 </script>
+
+<!-- Supply Comment Modal -->
+<div class="modal-bg" id="comment-modal"><div class="modal">
+  <h2><i class="ti ti-message-circle" style="margin-right:6px"></i>Comment on Supply</h2>
+  <div class="modal-sub" id="cm-supply-name" style="font-weight:700;color:#6B21A8"></div>
+  <div id="cm-existing-comments" style="margin:12px 0;max-height:200px;overflow-y:auto"></div>
+  <div class="form-group" id="cm-input-area">
+    <label>Your comment (visible to admin only)</label>
+    <textarea id="cm-text" rows="3" placeholder="Type your comment or observation here..." style="resize:vertical"></textarea>
+  </div>
+  <div class="modal-err" id="cm-error"><i class="ti ti-alert-circle"></i><span id="cm-error-msg"></span></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('comment-modal')">Close</button>
+    <button class="btn btn-primary supply-comment-btn" id="cm-submit-btn" onclick="submitComment()" style="background:#7C3AED;border-color:#7C3AED;color:#fff">
+      <i class="ti ti-send"></i> Send comment
+    </button>
+  </div>
+</div></div>
+
 </body>
 </html>

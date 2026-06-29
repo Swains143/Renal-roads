@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Renal Roads — Ward Management</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -17,7 +20,7 @@
   --radius:10px;--radius-lg:16px;
   --shadow:0 4px 24px rgba(46,45,159,0.10);--shadow-lg:0 8px 40px rgba(46,45,159,0.16);
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
 @keyframes float{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-40px) rotate(180deg)}100%{transform:translateY(0) rotate(360deg)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
@@ -187,6 +190,108 @@ tr.row-transferred:hover td{background:#FBE6C7}
 .dot-active{background:var(--green)}
 .dot-inactive{background:var(--gray-400)}
 @media(max-width:600px){.form-grid{grid-template-columns:1fr}.form-group.full{grid-column:1}.dash-hero{padding:24px 20px}.dash-hero h1{font-size:20px}}
+
+/* ── FANCY FONTS & ANIMATION ADDITIONS ── */
+.font-display { font-family: 'Playfair Display', Georgia, serif; }
+
+/* Keyframes */
+@keyframes fadeSlideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes scaleIn    { from{opacity:0;transform:scale(0.94)}      to{opacity:1;transform:scale(1)} }
+@keyframes shimmer    { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+@keyframes ripple     { from{transform:scale(0);opacity:0.6} to{transform:scale(4);opacity:0} }
+@keyframes gradientShift {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+/* Animated hero gradient */
+.dash-hero {
+  background: linear-gradient(135deg, #1E1D70, #2E2D9F, #4A49C4, #6BBF3E, #2E2D9F) !important;
+  background-size: 300% 300% !important;
+  animation: gradientShift 8s ease infinite !important;
+}
+.dash-hero h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 28px; }
+
+/* Content fade-in on tab switch */
+.content-animate { animation: fadeSlideIn 0.35s cubic-bezier(.22,.68,0,1.2) both; }
+
+/* Stat card pulse on hover */
+.dash-stat { transition: all 0.25s cubic-bezier(.22,.68,0,1.2) !important; }
+.dash-stat:hover { transform: translateY(-5px) scale(1.02) !important; box-shadow: 0 12px 32px rgba(46,45,159,0.18) !important; }
+
+/* Dashboard quick-access cards */
+.dash-card { transition: all 0.28s cubic-bezier(.22,.68,0,1.2) !important; }
+.dash-card:hover { transform: translateY(-6px) scale(1.01) !important; box-shadow: 0 16px 40px rgba(46,45,159,0.15) !important; }
+.dash-card:hover .dash-arrow { opacity: 1 !important; transform: translateX(5px); }
+.dash-arrow { transition: all 0.2s ease; }
+
+/* Table row hover animation */
+tr { transition: background 0.15s ease; }
+
+/* Topbar gradient */
+.topbar {
+  background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 60%, var(--navy-light) 100%) !important;
+}
+
+/* Tabs animated underline */
+.tab { transition: color 0.2s ease; }
+.tab::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 50%; right: 50%;
+  height: 2.5px; background: var(--navy);
+  transition: left 0.25s ease, right 0.25s ease;
+}
+.tab.active::after { left: 0; right: 0; }
+
+/* Login card scaleIn */
+.login-card { animation: scaleIn 0.45s cubic-bezier(.22,.68,0,1.2) 0.1s both !important; }
+
+/* Metric cards pop */
+.metric {
+  transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease;
+}
+.metric:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.metric .num { font-family: 'Playfair Display', Georgia, serif; }
+
+/* Buttons ripple/lift effect */
+.btn { position: relative; overflow: hidden; transition: all 0.18s ease !important; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.btn:active { transform: scale(0.97) !important; }
+
+/* Modal animated entry */
+.modal { animation: scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) !important; }
+
+/* Loading spinner glow */
+.loading-box i { filter: drop-shadow(0 0 8px rgba(46,45,159,0.4)); }
+
+/* Request card hover */
+.request-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.request-card:hover { transform: translateX(3px); box-shadow: var(--shadow); }
+
+/* Skeleton shimmer (used in JS) */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f8 25%, #e0e0f0 50%, #f0f0f8 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+  min-height: 14px;
+}
+
+/* Badge pulse */
+.tab .badge { animation: pulse 2s ease-in-out infinite; }
+
+/* Topbar logo glow on hover */
+.topbar-logo { transition: filter 0.3s ease; }
+.topbar-logo:hover { filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(107,191,62,0.7)); }
+
+/* Approve-with-edit modal special */
+#approve-modal .modal { max-width: 420px; }
+#approve-modal .modal h2 { font-family: 'Playfair Display', Georgia, serif; color: var(--green-dark); }
+#approve-modal .qty-row { display:flex; gap:10px; align-items:flex-end; margin: 12px 0; }
+#approve-modal .qty-row .form-group { flex:1; }
+#approve-modal .qty-note { font-size:12px; color:var(--gray-600); margin-top:4px; }
+
 </style>
 </head>
 <body>
@@ -332,6 +437,37 @@ tr.row-transferred:hover td{background:#FBE6C7}
   <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('movements-view-modal')">Close</button></div>
 </div></div>
 
+
+<!-- Approve-with-Edit Modal -->
+<div class="modal-bg" id="approve-modal"><div class="modal">
+  <h2>Approve Request</h2>
+  <div class="modal-sub" id="approve-modal-sub">Review and adjust the quantity before approving</div>
+  <div class="form-grid">
+    <div class="form-group full">
+      <label>Item</label>
+      <input id="ap-item-name" readonly style="background:var(--gray-100);color:var(--gray-600)">
+    </div>
+    <div class="form-group">
+      <label>Requested qty</label>
+      <input id="ap-requested-qty" readonly style="background:var(--gray-100);color:var(--gray-600)">
+    </div>
+    <div class="form-group">
+      <label>Qty to dispense *</label>
+      <input id="ap-dispense-qty" type="number" min="1" placeholder="Enter amount">
+    </div>
+    <div class="form-group full">
+      <label>Note (optional)</label>
+      <input id="ap-note" placeholder="Reason for adjustment, if any">
+    </div>
+  </div>
+  <div class="qty-note" id="ap-stock-note"></div>
+  <div class="modal-err" id="ap-error"><i class="ti ti-alert-circle"></i><span id="ap-error-msg"></span></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('approve-modal')">Cancel</button>
+    <button class="btn btn-green" onclick="confirmApprove()"><i class="ti ti-check"></i> Approve & dispense</button>
+  </div>
+</div></div>
+
 <!-- Request Modal -->
 <div class="modal-bg" id="request-modal"><div class="modal">
   <h2>Request supply item</h2><div class="modal-sub">Admin will review and approve</div>
@@ -384,7 +520,10 @@ function togglePwd(){const i=document.getElementById('login-password');const ic=
 function switchTab(t){
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
-  render();
+  render().then(()=>{
+    const mc = document.getElementById('main-content');
+    if(mc){ mc.classList.remove('content-animate'); void mc.offsetWidth; mc.classList.add('content-animate'); }
+  });
 }
 
 // Status dropdown shows/hides discharge/transfer fields
@@ -843,11 +982,61 @@ async function renderRequests(){
   }
   document.getElementById('main-content').innerHTML=h;
 }
-async function approveRequest(id,supplyId,qty,by){
+// Pending approval state
+let pendingApproval = null;
+
+function approveRequest(id, supplyId, qty, by) {
+  const s = supplies.find(x => x.id === supplyId);
+  const supplyName = s ? s.name : 'Unknown item';
+  const unit = s ? s.unit : '';
+  const currentStock = s ? getStock(s) : 0;
+
+  pendingApproval = { id, supplyId, qty, by };
+
+  document.getElementById('ap-item-name').value = supplyName;
+  document.getElementById('ap-requested-qty').value = qty + (unit ? ' ' + unit : '');
+  document.getElementById('ap-dispense-qty').value = qty;
+  document.getElementById('ap-note').value = '';
+  document.getElementById('ap-stock-note').textContent =
+    'Current stock: ' + currentStock + (unit ? ' ' + unit : '') +
+    (currentStock < qty ? ' — ⚠ Insufficient stock for full request' : '');
+  document.getElementById('ap-error').classList.remove('show');
+  document.getElementById('approve-modal-sub').textContent =
+    'Requested by: ' + (by || 'Staff') + ' · Adjust quantity if needed before dispensing';
+  document.getElementById('approve-modal').classList.add('open');
+}
+
+async function confirmApprove() {
+  if (!pendingApproval) return;
+  const dispenseQty = parseInt(document.getElementById('ap-dispense-qty').value);
+  const note = document.getElementById('ap-note').value.trim();
+  const showErr = msg => {
+    document.getElementById('ap-error-msg').textContent = msg;
+    document.getElementById('ap-error').classList.add('show');
+  };
+  if (!dispenseQty || dispenseQty <= 0) return showErr('Enter a valid quantity to dispense.');
+  const s = supplies.find(x => x.id === pendingApproval.supplyId);
+  if (s && dispenseQty > getStock(s)) return showErr('Insufficient stock. Available: ' + getStock(s) + ' ' + s.unit);
+
   showLoading('Approving...');
-  await db.from('movements').insert({supply_id:supplyId,type:'OUT',qty,note:'Approved request from '+(by||'staff'),by_user:'Admin'});
-  await db.from('requests').update({status:'approved'}).eq('id',id);
-  hideLoading();await renderRequests();await updateBadge();
+  const noteText = note
+    ? 'Approved request from ' + (pendingApproval.by || 'staff') + ' — ' + note
+    : 'Approved request from ' + (pendingApproval.by || 'staff') +
+      (dispenseQty !== pendingApproval.qty ? ' (requested ' + pendingApproval.qty + ', dispensed ' + dispenseQty + ')' : '');
+
+  await db.from('movements').insert({
+    supply_id: pendingApproval.supplyId,
+    type: 'OUT',
+    qty: dispenseQty,
+    note: noteText,
+    by_user: 'Admin'
+  });
+  await db.from('requests').update({ status: 'approved' }).eq('id', pendingApproval.id);
+  hideLoading();
+  closeModal('approve-modal');
+  pendingApproval = null;
+  await renderRequests();
+  await updateBadge();
 }
 async function rejectRequest(id){
   showLoading('Rejecting...');

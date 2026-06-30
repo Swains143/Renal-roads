@@ -977,8 +977,13 @@ async function renderSupplies(){
   showLoading('Loading supplies...');
   const {data}=await db.from('supplies').select('*, movements(*)').order('name');
   supplies=data||[];
-  hideLoading();
   const isAdmin=currentUser&&currentUser.role==='admin';
+  let unreadBySupply={};
+  if(isAdmin){
+    const {data:unread}=await db.from('supply_comments').select('supply_id').eq('read_by_admin',false);
+    (unread||[]).forEach(c=>{unreadBySupply[c.supply_id]=(unreadBySupply[c.supply_id]||0)+1;});
+  }
+  hideLoading();
   const f=supplyFilter;
   const filtered=supplies.filter(s=>!f.search||s.name.toLowerCase().includes(f.search.toLowerCase()));
   const low=supplies.filter(s=>getStock(s)<=s.threshold);
@@ -991,16 +996,21 @@ async function renderSupplies(){
   if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items for the admin to review.</div>`;
   else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit supply items.</div></div>`;
   if(isAdmin&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
+  if(isAdmin&&Object.keys(unreadBySupply).length){
+    const names=Object.keys(unreadBySupply).map(id=>supplies.find(s=>s.id===id)).filter(Boolean).map(s=>s.name);
+    h+=`<div class="alert" style="background:#F3EEFF;border-color:#C4B5FD;color:#6B21A8"><i class="ti ti-message-circle"></i><div><strong>New comments on:</strong> ${names.join(', ')}</div></div>`;
+  }
   h+=`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Stock</th>${isAdmin?'<th>Threshold</th>':''}<th>Log</th>${isAdmin?'<th>IN</th><th>OUT</th><th></th>':''}${(isViewer||isAdmin)?'<th>Comments</th>':''}</tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ti-package"></i>No supplies found</div></td></tr>`;
   else filtered.forEach(s=>{
     const stock=getStock(s);const isLow=stock<=s.threshold;
-    h+=`<tr><td><strong>${s.name}</strong></td><td>${s.unit}</td>
+    const unreadCount=unreadBySupply[s.id]||0;
+    h+=`<tr style="${unreadCount?'background:#FAF5FF':''}"><td><strong>${s.name}</strong>${unreadCount?` <span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px;vertical-align:middle">${unreadCount} new</span>`:''}</td><td>${s.unit}</td>
       <td class="${isLow&&isAdmin?'stock-low':''}">${stock}${isLow&&isAdmin?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
       ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}
-      ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${isAdmin?' View/Add':'Comment'}</button></td>`:''}</tr>`;
+      ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" style="${unreadCount?'background:#7C3AED;color:#fff;border-color:#7C3AED':''}" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${isAdmin?(unreadCount?` ${unreadCount} New`:' View/Add'):'Comment'}</button></td>`:''}</tr>`;
   });
   h+=`</tbody></table></div>`;
   document.getElementById('main-content').innerHTML=h;

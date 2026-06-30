@@ -1190,10 +1190,12 @@ async function openCommentModal(supplyId, supplyName) {
 }
 
 async function loadComments(supplyId) {
-  const { data } = await db.from('supply_comments')
+  const { data, error } = await db.from('supply_comments')
     .select('*')
     .eq('supply_id', supplyId)
     .order('created_at', { ascending: false });
+
+  if (error) console.error('Failed to load comments:', error);
 
   const box = document.getElementById('cm-existing-comments');
   if (!data || !data.length) {
@@ -1222,14 +1224,20 @@ async function submitComment() {
     return;
   }
   showLoading('Sending comment...');
-  await db.from('supply_comments').insert({
+  const { data, error } = await db.from('supply_comments').insert({
     supply_id: commentSupplyId,
     by_user: currentUser.name,
     by_role: currentUser.role,
     comment: text,
     read_by_admin: false
-  });
+  }).select();
   hideLoading();
+  if (error) {
+    console.error('Comment insert failed:', error);
+    document.getElementById('cm-error-msg').textContent = 'Failed to send comment: ' + error.message;
+    document.getElementById('cm-error').classList.add('show');
+    return;
+  }
   document.getElementById('cm-text').value = '';
   document.getElementById('cm-error').classList.remove('show');
   await loadComments(commentSupplyId);
@@ -1238,9 +1246,10 @@ async function submitComment() {
 
 async function updateCommentDot() {
   if (!currentUser || currentUser.role !== 'admin') return;
-  const { count } = await db.from('supply_comments')
+  const { count, error } = await db.from('supply_comments')
     .select('id', { count: 'exact', head: true })
     .eq('read_by_admin', false);
+  if (error) { console.error('Failed to fetch comment count:', error); return; }
   const dot = document.getElementById('supply-comment-dot');
   if (dot) {
     if (count > 0) {

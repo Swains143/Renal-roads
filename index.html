@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -191,8 +191,8 @@ tr.row-transferred:hover td{background:#FBE6C7}
 .dot-inactive{background:var(--gray-400)}
 @media(max-width:600px){.form-grid{grid-template-columns:1fr}.form-group.full{grid-column:1}.dash-hero{padding:24px 20px}.dash-hero h1{font-size:20px}}
 
-/* ── FANCY FONTS & ANIMATION ADDITIONS ── */
-.font-display { font-family: 'Playfair Display', Georgia, serif; }
+/* ── LOGO FONT (Lora) ── */
+.font-display { font-family: 'Lora', Georgia, serif; }
 
 /* Keyframes */
 @keyframes fadeSlideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
@@ -211,7 +211,7 @@ tr.row-transferred:hover td{background:#FBE6C7}
   background-size: 300% 300% !important;
   animation: gradientShift 8s ease infinite !important;
 }
-.dash-hero h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 28px; }
+.dash-hero h1 { font-family: 'Lora', Georgia, serif; font-size: 28px; }
 
 /* Content fade-in on tab switch */
 .content-animate { animation: fadeSlideIn 0.35s cubic-bezier(.22,.68,0,1.2) both; }
@@ -252,7 +252,7 @@ tr { transition: background 0.15s ease; }
   transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease;
 }
 .metric:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-.metric .num { font-family: 'Playfair Display', Georgia, serif; }
+.metric .num { font-family: 'Lora', Georgia, serif; font-weight: 800 !important; }
 
 /* Buttons ripple/lift effect */
 .btn { position: relative; overflow: hidden; transition: all 0.18s ease !important; }
@@ -287,7 +287,7 @@ tr { transition: background 0.15s ease; }
 
 /* Approve-with-edit modal special */
 #approve-modal .modal { max-width: 420px; }
-#approve-modal .modal h2 { font-family: 'Playfair Display', Georgia, serif; color: var(--green-dark); }
+#approve-modal .modal h2 { font-family: 'Lora', Georgia, serif; color: var(--green-dark); }
 #approve-modal .qty-row { display:flex; gap:10px; align-items:flex-end; margin: 12px 0; }
 #approve-modal .qty-row .form-group { flex:1; }
 #approve-modal .qty-note { font-size:12px; color:var(--gray-600); margin-top:4px; }
@@ -314,11 +314,10 @@ p, .dash-hero p, .dash-card p { font-weight: 500; }
 .dash-hero p { font-weight: 500 !important; opacity: 0.95 !important; }
 .dash-hero-time { font-weight: 600 !important; opacity: 0.85 !important; }
 .dash-section-title { font-weight: 800 !important; letter-spacing: 0.08em; }
-.dash-stat-info .num { font-weight: 800 !important; }
+.dash-stat-info .num { font-family: 'Lora', Georgia, serif; font-weight: 800 !important; }
 .dash-stat-info .lbl { font-weight: 600 !important; color: var(--gray-600) !important; }
-.dash-card h3 { font-weight: 800 !important; }
+.dash-card h3 { font-family: 'Lora', Georgia, serif; font-weight: 700 !important; }
 .dash-card p { font-weight: 500 !important; }
-.metric .num { font-weight: 800 !important; }
 .metric .lbl { font-weight: 600 !important; }
 th { font-weight: 800 !important; font-size: 12px !important; }
 td { font-size: 13px; }
@@ -329,6 +328,8 @@ td { font-size: 13px; }
 .section-label { font-weight: 800 !important; }
 .loading-box p { font-weight: 600; }
 input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, sans-serif; }
+.modal h2 { font-family: 'Lora', Georgia, serif; font-weight: 700 !important; }
+.login-card h2 { font-family: 'Lora', Georgia, serif; font-weight: 800 !important; }
 
 
 /* ── VIEWER ROLE ── */
@@ -343,7 +344,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .supply-comment-btn:hover { background: #EDE9FE !important; }
 
 /* Comment modal */
-#comment-modal .modal h2 { font-family: 'Playfair Display', Georgia, serif; color: #6B21A8; }
+#comment-modal .modal h2 { font-family: 'Lora', Georgia, serif; color: #6B21A8; }
 #comment-modal .modal { max-width: 430px; }
 .comment-item { padding: 10px 12px; border-radius: var(--radius); background: var(--gray-50);
   border: 1px solid var(--gray-200); margin-bottom: 8px; }
@@ -352,9 +353,10 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .comment-item.unread { border-left: 3px solid #7C3AED; background: #FAFAFF; }
 .comment-empty { text-align:center; color: var(--gray-400); padding: 20px 0; font-size: 13px; }
 
-/* Admin notification dot on Supplies tab */
-#supply-comment-dot { display:none; width:7px; height:7px; background:#7C3AED; border-radius:50%;
-  margin-left:5px; vertical-align: middle; display:inline-block; }
+/* Admin notification badge on Supplies tab */
+#supply-comment-dot { display:none; background:#7C3AED; color:#fff; border-radius:10px;
+  font-size:10px; padding:1px 5px; line-height:1.4; margin-left:3px; vertical-align:middle;
+  animation:pulse 2s ease-in-out infinite; }
 
 </style>
 </head>
@@ -642,6 +644,8 @@ async function doLogin(){
     if(data.role==='admin') updateCommentDot();
     localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
     await render();
+    // Poll for new viewer comments every 30 seconds
+    if(data.role==='admin') setInterval(updateCommentDot, 30000);
   }catch(e){
     const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':'Invalid username or password.';
     document.getElementById('login-error-msg').textContent=msg;
@@ -682,6 +686,8 @@ async function restoreSession(){
     document.getElementById('tab-home').classList.add('active');
     if(data.role==='admin') updateCommentDot();
     await render();
+    // Poll for new viewer comments every 30 seconds
+    if(data.role==='admin') setInterval(updateCommentDot, 30000);
     return true;
   }catch(e){ return false; }
 }
@@ -722,6 +728,11 @@ async function renderHome(){
   const lowStock = sups.filter(s=>getStock(s)<=s.threshold).length;
   const isAdmin = currentUser&&currentUser.role==='admin';
   const isViewer = currentUser&&currentUser.role==='viewer';
+  let unreadComments = 0;
+  if (isAdmin) {
+    const { count } = await db.from('supply_comments').select('id', { count: 'exact', head: true }).eq('read_by_admin', false);
+    unreadComments = count || 0;
+  }
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
@@ -769,6 +780,10 @@ async function renderHome(){
     ${isAdmin&&pendingCount>0?`<div class="dash-stat" onclick="switchTab('requests')" style="border-color:var(--amber)">
       <div class="dash-stat-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--amber)">${pendingCount}</div><div class="lbl">Pending requests</div></div>
+    </div>`:''}
+    ${isAdmin&&unreadComments>0?`<div class="dash-stat" onclick="switchTab('supplies')" style="border-color:#7C3AED">
+      <div class="dash-stat-icon" style="background:#F3EEFF"><i class="ti ti-message-circle" style="color:#6B21A8"></i></div>
+      <div class="dash-stat-info"><div class="num" style="color:#6B21A8">${unreadComments}</div><div class="lbl">Unread comments</div></div>
     </div>`:''}
   </div>
 
@@ -1187,7 +1202,13 @@ async function loadComments(supplyId) {
   }
   box.innerHTML = data.map(c => `
     <div class="comment-item ${!c.read_by_admin && currentUser.role==='admin' ? 'unread' : ''}">
-      <div class="comment-meta"><i class="ti ti-user" style="font-size:11px"></i> ${c.by_user} &nbsp;·&nbsp; ${new Date(c.created_at).toLocaleString()}</div>
+      <div class="comment-meta">
+        <i class="ti ti-user" style="font-size:11px"></i>
+        <strong>${c.by_user}</strong>
+        <span style="background:${c.by_role==='viewer'?'#F3EEFF':c.by_role==='admin'?'var(--navy-pale)':'var(--green-pale)'};color:${c.by_role==='viewer'?'#6B21A8':c.by_role==='admin'?'var(--navy)':'#2E6B10'};padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${c.by_role}</span>
+        &nbsp;·&nbsp; ${new Date(c.created_at).toLocaleString()}
+        ${!c.read_by_admin && currentUser.role==='admin' ? '<span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:700">NEW</span>' : ''}
+      </div>
       <div class="comment-text">${c.comment}</div>
     </div>
   `).join('');
@@ -1221,7 +1242,14 @@ async function updateCommentDot() {
     .select('id', { count: 'exact', head: true })
     .eq('read_by_admin', false);
   const dot = document.getElementById('supply-comment-dot');
-  if (dot) dot.style.display = count > 0 ? 'inline-block' : 'none';
+  if (dot) {
+    if (count > 0) {
+      dot.style.display = 'inline';
+      dot.textContent = count;
+    } else {
+      dot.style.display = 'none';
+    }
+  }
 }
 
 

@@ -609,6 +609,9 @@ document.getElementById('f-status').addEventListener('change',function(){
   updateStatusFieldLabels(this.value);
 });
 
+// Restore session on page load
+(async()=>{ await restoreSession(); })();
+
 // AUTH
 async function doLogin(){
   const un=document.getElementById('login-username').value.trim();
@@ -637,6 +640,7 @@ async function doLogin(){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
     if(data.role==='admin') updateCommentDot();
+    localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
     await render();
   }catch(e){
     const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':'Invalid username or password.';
@@ -649,11 +653,37 @@ async function doLogin(){
 
 function doLogout(){
   currentUser=null;
+  localStorage.removeItem('rr_session');
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('app-page').classList.remove('visible');
   document.getElementById('login-username').value='';
   document.getElementById('login-password').value='';
   document.getElementById('login-error').classList.remove('show');
+}
+
+async function restoreSession(){
+  try{
+    const saved=localStorage.getItem('rr_session');
+    if(!saved)return false;
+    const {id}=JSON.parse(saved);
+    const {data,error}=await db.from('users').select('*').eq('id',id).single();
+    if(error||!data||!data.active)return false;
+    currentUser=data;
+    document.getElementById('tbu').textContent=data.name;
+    document.getElementById('tbr').textContent=data.role;
+    document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('login-page').classList.add('hidden');
+    document.getElementById('app-page').classList.add('visible');
+    document.getElementById('tab-requests').style.display=data.role==='admin'?'':'none';
+    document.getElementById('tab-users').style.display=data.role==='admin'?'':'none';
+    document.getElementById('tab-patients').style.display=data.role==='viewer'?'none':'';
+    currentTab='home';
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-home').classList.add('active');
+    if(data.role==='admin') updateCommentDot();
+    await render();
+    return true;
+  }catch(e){ return false; }
 }
 
 async function render(){
@@ -788,6 +818,7 @@ function ipSortValue(ip){
   return m?parseInt(m[1],10):Number.MAX_SAFE_INTEGER;
 }
 async function renderPatients(){
+  const isViewer=currentUser&&currentUser.role==='viewer';
   showLoading('Loading patients...');
   const {data}=await db.from('patients').select('*');
   patients=(data||[]).sort((a,b)=>{
@@ -849,7 +880,7 @@ async function renderPatients(){
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':'s-deceased';
     h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
-      <td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button>${isAdmin?` <button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
+      <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button>`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
   document.getElementById('main-content').innerHTML=h;

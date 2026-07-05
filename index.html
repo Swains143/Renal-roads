@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -748,6 +749,299 @@ async function updateBadge(){
 }
 
 // HOME DASHBOARD
+// ══════════════════════════════════════════════
+// DISINFECTION TAB
+// ══════════════════════════════════════════════
+
+const DIS_HUBS = ['kigumo', 'truck'];
+const DIS_MACHINES = {
+  kigumo: ['Machine 1','Machine 2','Machine 3','Machine 4','Machine 5'],
+  truck:  ['Machine 1','Machine 2','Machine 3']
+};
+// Water plant is stored separately per hub under key: hub_water_disinfection, hub_water_rinse_N
+
+function disAddMonths(dateStr, months) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0,10);
+}
+function disFormatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+function disDaysUntil(dateStr) {
+  if (!dateStr) return null;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  return Math.round((d - now) / 86400000);
+}
+function disStatusBadge(nextDate) {
+  if (!nextDate) return '<span class="dis-status not-set"><i class="ti ti-clock-off"></i> Not set</span>';
+  const days = disDaysUntil(nextDate);
+  if (days < 0)  return `<span class="dis-status overdue"><i class="ti ti-alert-triangle"></i> Overdue ${Math.abs(days)}d</span>`;
+  if (days <= 7) return `<span class="dis-status due-soon"><i class="ti ti-alert-circle"></i> Due in ${days}d</span>`;
+  return `<span class="dis-status ok"><i class="ti ti-circle-check"></i> In ${days}d</span>`;
+}
+
+// Load all disinfection records from Supabase (single key-value table: machine_disinfection)
+// Schema: id, hub TEXT, machine_key TEXT, last_date DATE, notes TEXT, created_at
+// We use hub + machine_key as the composite unique identifier.
+// For rinse-back: machine_key = 'water_rinse_1', 'water_rinse_2' etc, result in notes JSON
+
+let disData = {}; // { 'kigumo::Machine 1': {last_date, notes, id}, ... }
+
+async function loadDisData() {
+  const { data, error } = await db.from('machine_disinfection').select('*');
+  disData = {};
+  if (data) data.forEach(r => { disData[r.hub + '::' + r.machine_key] = r; });
+}
+
+async function saveDisRecord(hub, machineKey, lastDate, notes) {
+  const existing = disData[hub + '::' + machineKey];
+  if (existing) {
+    await db.from('machine_disinfection').update({ last_date: lastDate || null, notes: notes || null }).eq('id', existing.id);
+  } else {
+    await db.from('machine_disinfection').insert({ hub, machine_key: machineKey, last_date: lastDate || null, notes: notes || null });
+  }
+  await loadDisData();
+}
+
+function disGetVal(hub, key, field) {
+  const r = disData[hub + '::' + key];
+  return r ? r[field] : null;
+}
+
+function disParseRinseNotes(notes) {
+  // notes format: JSON string {"status":"Completed"|"Missed","reason":"..."}
+  try { return JSON.parse(notes); } catch(e) { return {status: notes||'', reason:''}; }
+}
+
+function disRinseRows(hub) {
+  // 2 rinses per month — show current month + 2 previous months = 6 slots total
+  const now = new Date();
+  const slots = [];
+  for (let m = 0; m < 3; m++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    const monthLabel = d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+    slots.push({ key:`water_rinse_${d.getFullYear()}_${d.getMonth()+1}_1`, label:'1st Rinse', month:monthLabel });
+    slots.push({ key:`water_rinse_${d.getFullYear()}_${d.getMonth()+1}_2`, label:'2nd Rinse', month:monthLabel });
+  }
+
+  // Build log list + entry form
+  let logItems = '';
+  let lastMonth = '';
+  slots.forEach(slot => {
+    const lastDate = disGetVal(hub, slot.key, 'last_date') || '';
+    const raw = disGetVal(hub, slot.key, 'notes') || '';
+    const parsed = disParseRinseNotes(raw);
+    const status = parsed.status || '';
+    const reason = parsed.reason || '';
+
+    if (slot.month !== lastMonth) {
+      lastMonth = slot.month;
+      logItems += `<div style="padding:8px 24px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);background:var(--gray-50);border-top:1px solid var(--gray-200);border-bottom:1px solid var(--gray-100)">${slot.month}</div>`;
+    }
+
+    const statusBadge = !status
+      ? `<span style="background:var(--gray-100);color:var(--gray-400);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Not recorded</span>`
+      : status === 'Completed'
+        ? `<span style="background:var(--green-pale);color:var(--green-dark);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-circle-check"></i> Completed</span>`
+        : `<span style="background:var(--red-pale);color:var(--red);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-circle-x"></i> Missed</span>`;
+
+    logItems += `
+    <div style="display:grid;grid-template-columns:140px 150px 160px 1fr;align-items:center;gap:12px;padding:11px 24px;border-bottom:1px solid var(--gray-100)">
+      <div style="font-weight:700;font-size:13px;color:var(--navy);display:flex;align-items:center;gap:6px"><i class="ti ti-droplets" style="color:#0EA5E9"></i>${slot.label}</div>
+      <div style="font-size:12px;color:var(--gray-600)">${lastDate ? disFormatDate(lastDate) : '<span style="color:var(--gray-400)">—</span>'}</div>
+      <div>${statusBadge}</div>
+      <div style="font-size:12px;color:var(--gray-500)">${status==='Missed'&&reason ? '<i class="ti ti-notes" style="margin-right:3px"></i>'+reason : ''}</div>
+    </div>`;
+  });
+
+  // Entry form — record a new rinse
+  const entryForm = `
+  <div style="padding:16px 24px;background:#F8FAFF;border-top:2px solid var(--gray-200)">
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:12px"><i class="ti ti-edit" style="margin-right:4px"></i>Record a Rinse</div>
+    <div style="display:grid;grid-template-columns:160px 150px 180px 1fr auto;gap:10px;align-items:end">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">RINSE</label>
+        <select class="dis-date-input" id="dis-${hub}-rinse-slot" style="padding:7px 8px">
+          ${slots.map(s=>`<option value="${s.key}">${s.month} · ${s.label}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">DATE DONE</label>
+        <input type="date" class="dis-date-input" id="dis-${hub}-rinse-date" />
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">STATUS</label>
+        <select class="dis-date-input" id="dis-${hub}-rinse-status" style="padding:7px 8px" onchange="disToggleRinseReason('${hub}')">
+          <option value="">— Select —</option>
+          <option value="Completed">✅ Completed</option>
+          <option value="Missed">❌ Missed</option>
+        </select>
+      </div>
+      <div id="dis-${hub}-rinse-reason-wrap" style="display:none">
+        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">REASON FOR MISSING</label>
+        <input type="text" class="dis-date-input" id="dis-${hub}-rinse-reason" placeholder="e.g. Machine under maintenance" />
+      </div>
+      <div style="padding-top:18px">
+        <button class="btn btn-sm btn-green" onclick="disSaveRinse('${hub}')"><i class="ti ti-device-floppy"></i> Save</button>
+      </div>
+    </div>
+  </div>`;
+
+  return `
+  <!-- Log list header -->
+  <div style="display:grid;grid-template-columns:140px 150px 160px 1fr;gap:12px;padding:9px 24px;background:var(--gray-50);border-top:1px solid var(--gray-200);border-bottom:2px solid var(--gray-200);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400)">
+    <div>Session</div><div>Date</div><div>Status</div><div>Notes</div>
+  </div>
+  ${logItems}
+  ${entryForm}`;
+}
+
+function disToggleRinseReason(hub) {
+  const status = document.getElementById('dis-'+hub+'-rinse-status').value;
+  const wrap = document.getElementById('dis-'+hub+'-rinse-reason-wrap');
+  if (wrap) wrap.style.display = status === 'Missed' ? 'block' : 'none';
+}
+
+function disMachineRows(hub, machines, intervalMonths) {
+  let rows = '';
+  machines.forEach(name => {
+    const key = name;
+    const lastDate = disGetVal(hub, key, 'last_date') || '';
+    const nextDate = lastDate ? disAddMonths(lastDate, intervalMonths) : null;
+    rows += `<div class="dis-machine-row">
+      <div class="dis-machine-name"><i class="ti ti-dialpad"></i>${name}</div>
+      <input type="date" class="dis-date-input" id="dis-${hub}-${encodeURIComponent(key)}-last" value="${lastDate}" />
+      <div class="dis-next" style="color:var(--gray-600)">
+        ${nextDate ? '<i class="ti ti-calendar-due" style="color:var(--navy)"></i> ' + disFormatDate(nextDate) : '<span style="color:var(--gray-400)">—</span>'}
+      </div>
+      ${disStatusBadge(nextDate)}
+      <button class="btn btn-sm btn-green" onclick="disSaveMachine('${hub}','${key}',${intervalMonths})"><i class="ti ti-device-floppy"></i> Save</button>
+    </div>`;
+  });
+  return rows;
+}
+
+function disWaterPlantBlock(hub, intervalMonths, hasRinse) {
+  const key = 'Water Plant';
+  const lastDate = disGetVal(hub, key, 'last_date') || '';
+  const nextDate = lastDate ? disAddMonths(lastDate, intervalMonths) : null;
+  const rinseSection = hasRinse ? `
+    <div class="dis-section-label" style="color:#0369A1;padding-top:4px">Reverse Rinse (Rinse Back) Log</div>
+    <div class="dis-machine-row header-row" style="grid-template-columns:1fr 170px 120px 1fr">
+      <div>Rinse Session</div><div>Date</div><div>Result</div><div>Recorded</div>
+    </div>
+    <div class="dis-rinse-rows">${disRinseRows(hub)}</div>
+` : '';
+  return `
+  <div class="dis-waterplant">
+    <div class="dis-section-label" style="color:#0369A1"><i class="ti ti-droplet" style="margin-right:4px"></i> Water Plant</div>
+    <div class="dis-machine-row" style="background:var(--gray-50)">
+      <div class="dis-machine-name" style="color:#0369A1"><i class="ti ti-wave-square" style="color:#0EA5E9"></i>Water Plant Disinfection</div>
+      <input type="date" class="dis-date-input" id="dis-${hub}-waterplant-last" value="${lastDate}" />
+      <div class="dis-next" style="color:#0369A1">
+        ${nextDate ? '<i class="ti ti-calendar-due"></i> ' + disFormatDate(nextDate) : '<span style="color:var(--gray-400)">—</span>'}
+      </div>
+      ${disStatusBadge(nextDate)}
+      <button class="btn btn-sm" style="background:#E0F2FE;color:#0369A1;border-color:#BAE6FD" onclick="disSaveWater('${hub}')"><i class="ti ti-device-floppy"></i> Save</button>
+    </div>
+    ${rinseSection}
+  </div>`;
+}
+
+async function renderDisinfection() {
+  showLoading('Loading disinfection records...');
+  await loadDisData();
+  hideLoading();
+
+  const hubs = [
+    { key:'kigumo', label:'Kigumo Hub', icon:'ti-building-hospital', iconBg:'#EEF2FF', iconColor:'var(--navy)', machines: DIS_MACHINES.kigumo, machineInterval:1, waterInterval:6, hasRinse:true },
+    { key:'truck',  label:'Truck',       icon:'ti-truck',             iconBg:'#FFF7ED', iconColor:'var(--amber)', machines: DIS_MACHINES.truck,  machineInterval:1, waterInterval:6, hasRinse:true }
+  ];
+
+  let h = '<div class="dis-page">';
+
+  hubs.forEach(hub => {
+    h += `<div class="dis-hub">
+      <div class="dis-hub-header">
+        <div class="dis-hub-icon" style="background:${hub.iconBg}"><i class="ti ${hub.icon}" style="color:${hub.iconColor}"></i></div>
+        <div>
+          <h2>${hub.label}</h2>
+          <p>Dialysis machines (monthly heat disinfection) &amp; Water Plant (6-monthly)</p>
+        </div>
+      </div>
+      <div class="dis-section-label">Dialysis Machines — Heat Disinfection (Every Month)</div>
+      <div class="dis-machine-row header-row">
+        <div>Machine</div><div>Last Done</div><div>Next Due</div><div>Status</div><div>Action</div>
+      </div>
+      <div class="dis-machines">${disMachineRows(hub.key, hub.machines, hub.machineInterval)}</div>
+      ${disWaterPlantBlock(hub.key, hub.waterInterval, hub.hasRinse)}
+    </div>`;
+  });
+
+  h += '</div>';
+  document.getElementById('main-content').innerHTML = h;
+  updateDisinfectionAlertDot();
+}
+
+async function disSaveMachine(hub, machineKey, intervalMonths) {
+  const input = document.getElementById('dis-' + hub + '-' + encodeURIComponent(machineKey) + '-last');
+  if (!input) return;
+  showLoading('Saving...');
+  await saveDisRecord(hub, machineKey, input.value, null);
+  hideLoading();
+  await renderDisinfection();
+}
+
+async function disSaveWater(hub) {
+  const input = document.getElementById('dis-' + hub + '-waterplant-last');
+  if (!input) return;
+  showLoading('Saving...');
+  await saveDisRecord(hub, 'Water Plant', input.value, null);
+  hideLoading();
+  await renderDisinfection();
+}
+
+async function disSaveRinse(hub) {
+  const slotKey = document.getElementById('dis-'+hub+'-rinse-slot').value;
+  const date    = document.getElementById('dis-'+hub+'-rinse-date').value;
+  const status  = document.getElementById('dis-'+hub+'-rinse-status').value;
+  const reason  = document.getElementById('dis-'+hub+'-rinse-reason') ? document.getElementById('dis-'+hub+'-rinse-reason').value : '';
+  if (!status) { alert('Please select a status (Completed or Missed).'); return; }
+  if (status === 'Missed' && !reason.trim()) { alert('Please provide a reason for the missed rinse.'); return; }
+  if (status === 'Completed' && !date) { alert('Please select the date the rinse was done.'); return; }
+  showLoading('Saving rinse...');
+  const notes = JSON.stringify({ status, reason: status==='Missed' ? reason.trim() : '' });
+  await saveDisRecord(hub, slotKey, date||null, notes);
+  hideLoading();
+  await renderDisinfection();
+}
+
+function updateDisinfectionAlertDot() {
+  // Count overdue/due-soon items across all hubs
+  let alerts = 0;
+  DIS_HUBS.forEach(hub => {
+    [...DIS_MACHINES[hub], 'Water Plant'].forEach(key => {
+      const lastDate = disGetVal(hub, key, 'last_date');
+      const interval = key === 'Water Plant' ? 6 : 1;
+      const nextDate = lastDate ? disAddMonths(lastDate, interval) : null;
+      if (!nextDate) { alerts++; return; }
+      const days = disDaysUntil(nextDate);
+      if (days <= 7) alerts++;
+    });
+  });
+  const dot = document.getElementById('disinfection-alert-dot');
+  if (dot) {
+    if (alerts > 0) { dot.style.display = 'inline'; dot.textContent = alerts; }
+    else dot.style.display = 'none';
+  }
+}
+
+
 async function renderHome(){
   showLoading('Loading dashboard...');
   const [{data:pData},{data:sData},{count:pendingCount}] = await Promise.all([
@@ -755,6 +1049,7 @@ async function renderHome(){
     db.from('supplies').select('*, movements(*)'),
     db.from('requests').select('*',{count:'exact',head:true}).eq('status','pending')
   ]);
+  await loadDisData();
   hideLoading();
   const pts = pData||[];
   const sups = sData||[];
@@ -773,7 +1068,54 @@ async function renderHome(){
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
-  const greeting = hour<12?'Good morning':'hour'<17?'Good afternoon':'Good evening';
+  const greeting = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+
+  function disHomeBadge(nextDate) {
+    if (!nextDate) return `<span style="background:var(--gray-100);color:var(--gray-400);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700">Not set</span>`;
+    const days = disDaysUntil(nextDate);
+    if (days < 0)  return `<span style="background:var(--red-pale);color:var(--red);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-alert-triangle"></i> Overdue ${Math.abs(days)}d</span>`;
+    if (days <= 7) return `<span style="background:var(--amber-pale);color:var(--amber);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-alert-circle"></i> Due in ${days}d</span>`;
+    return `<span style="background:var(--green-pale);color:var(--green-dark);padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-circle-check"></i> In ${days}d</span>`;
+  }
+
+  function disHomeRows(hubKey, hubLabel, hubColor, machines) {
+    let rows = `<div style="padding:7px 18px 5px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:${hubColor};background:var(--gray-50);border-bottom:1px solid var(--gray-100)">${hubLabel}</div>`;
+    [...machines, 'Water Plant'].forEach(name => {
+      const isWater = name === 'Water Plant';
+      const interval = isWater ? 6 : 1;
+      const lastDate = disGetVal(hubKey, name, 'last_date');
+      const nextDate = lastDate ? disAddMonths(lastDate, interval) : null;
+      rows += `<div style="display:grid;grid-template-columns:1fr 120px 140px;align-items:center;gap:8px;padding:8px 18px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''" onclick="switchTab('disinfection')">
+        <div style="font-weight:600;font-size:12px;color:var(--navy);display:flex;align-items:center;gap:6px">
+          <i class="ti ${isWater?'ti-droplet':'ti-dialpad'}" style="color:${isWater?'#0EA5E9':'var(--gray-300)'}"></i>${name}
+          <span style="font-size:10px;color:var(--gray-300);font-weight:500">${isWater?'6-monthly':'monthly'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--gray-500)">${lastDate ? disFormatDate(lastDate) : '<span style="color:var(--gray-300)">—</span>'}</div>
+        <div>${disHomeBadge(nextDate)}</div>
+      </div>`;
+    });
+    return rows;
+  }
+
+  function disRinseSummary() {
+    const hubs = [{key:'kigumo',label:'Kigumo'},{key:'truck',label:'Truck'}];
+    let rows = '';
+    hubs.forEach(h => {
+      const r1 = disParseRinseNotes(disGetVal(h.key,`water_rinse_${now.getFullYear()}_${now.getMonth()+1}_1`,'notes')||'');
+      const r2 = disParseRinseNotes(disGetVal(h.key,`water_rinse_${now.getFullYear()}_${now.getMonth()+1}_2`,'notes')||'');
+      function rBadge(r) {
+        if (!r.status) return `<span style="background:var(--gray-100);color:var(--gray-400);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">Pending</span>`;
+        if (r.status==='Completed') return `<span style="background:var(--green-pale);color:var(--green-dark);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">✓ Done</span>`;
+        return `<span style="background:var(--red-pale);color:var(--red);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700" title="${r.reason||''}">✗ Missed</span>`;
+      }
+      rows += `<div style="display:grid;grid-template-columns:90px 1fr 1fr;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''" onclick="switchTab('disinfection')">
+        <div style="font-weight:700;font-size:13px;color:var(--navy)">${h.label}</div>
+        <div style="display:flex;align-items:center;gap:5px"><span style="font-size:10px;color:var(--gray-400);font-weight:700">1st</span>${rBadge(r1)}</div>
+        <div style="display:flex;align-items:center;gap:5px"><span style="font-size:10px;color:var(--gray-400);font-weight:700">2nd</span>${rBadge(r2)}</div>
+      </div>`;
+    });
+    return rows;
+  }
 
   let h = `
   <div class="dash-hero">
@@ -824,7 +1166,46 @@ async function renderHome(){
     </div>`:''}
   </div>
 
-  <div class="dash-section-title" style="margin-top:8px">Quick access</div>
+  <!-- DISINFECTION SUMMARY -->
+  <div class="dash-section-title">Disinfection Status</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <div style="background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow);overflow:hidden">
+      <div style="padding:13px 18px 10px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:30px;height:30px;background:#EEF2FF;border-radius:8px;display:flex;align-items:center;justify-content:center"><i class="ti ti-virus-off" style="color:var(--navy);font-size:15px"></i></div>
+          <div>
+            <div style="font-family:'Lora',Georgia,serif;font-weight:700;font-size:13px;color:var(--navy)">Machine Disinfection</div>
+            <div style="font-size:11px;color:var(--gray-400)">Heat disinfection · next due dates</div>
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="switchTab('disinfection')" style="font-size:11px;padding:4px 10px">View all <i class="ti ti-arrow-right"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 120px 140px;padding:7px 18px 5px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400);border-bottom:1px solid var(--gray-100)">
+        <div>Machine</div><div>Last Done</div><div>Status</div>
+      </div>
+      ${disHomeRows('kigumo','Kigumo Hub','var(--navy)',DIS_MACHINES.kigumo)}
+      ${disHomeRows('truck','Truck','var(--amber)',DIS_MACHINES.truck)}
+    </div>
+
+    <div style="background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow);overflow:hidden">
+      <div style="padding:13px 18px 10px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:30px;height:30px;background:#E0F2FE;border-radius:8px;display:flex;align-items:center;justify-content:center"><i class="ti ti-droplets" style="color:#0369A1;font-size:15px"></i></div>
+          <div>
+            <div style="font-family:'Lora',Georgia,serif;font-weight:700;font-size:13px;color:var(--navy)">Reverse Rinse (Rinse Back)</div>
+            <div style="font-size:11px;color:var(--gray-400)">${now.toLocaleDateString('en-GB',{month:'long',year:'numeric'})} · 2 sessions per hub</div>
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="switchTab('disinfection')" style="font-size:11px;padding:4px 10px">Log <i class="ti ti-arrow-right"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:90px 1fr 1fr;padding:7px 18px 5px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400);border-bottom:1px solid var(--gray-100)">
+        <div>Hub</div><div>1st Rinse</div><div>2nd Rinse</div>
+      </div>
+      ${disRinseSummary()}
+    </div>
+  </div>
+
+  <div class="dash-section-title">Quick access</div>
   <div class="dash-cards">
     <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
       <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
@@ -842,6 +1223,12 @@ async function renderHome(){
       <div class="dash-card-icon" style="background:#EEEDFE"><i class="ti ti-package" style="color:#3C3489;font-size:26px"></i></div>
       <h3>Supplies</h3>
       <p>Manage inventory, record stock IN/OUT movements, and request items from the admin.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('disinfection')">
+      <div class="dash-card-icon" style="background:#EEF2FF"><i class="ti ti-virus-off" style="color:var(--navy);font-size:26px"></i></div>
+      <h3>Disinfection</h3>
+      <p>Track machine heat disinfection schedules and log reverse rinse sessions for Kigumo and Truck.</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
     </div>
     ${isAdmin?`
@@ -862,6 +1249,7 @@ async function renderHome(){
   document.getElementById('main-content').innerHTML=h;
 }
 
+
 // PATIENTS
 function ipSortValue(ip){
   // Extracts the numeric portion of an IP number (e.g. "IP-002" -> 2) so patients
@@ -881,14 +1269,7 @@ async function renderPatients(){
   hideLoading();
   const isAdmin=currentUser&&currentUser.role==='admin';
   const f=patientFilter;
-  const filtered=patients.filter(p=>{
-    const s=(p.ip+p.name+(p.id_no||'')+(p.phone||'')+(p.station||'')).toLowerCase();
-    if(f.search&&!s.includes(f.search.toLowerCase()))return false;
-    if(f.status&&p.status!==f.status)return false;
-    if(f.gender&&p.gender!==f.gender)return false;
-    if(f.station&&p.station!==f.station)return false;
-    return true;
-  });
+  const filtered=getFilteredPatients();
   const active=patients.filter(p=>p.status==='Active').length;
   const discharged=patients.filter(p=>p.status==='Discharged').length;
   const transferred=patients.filter(p=>p.status==='Transferred').length;
@@ -1022,7 +1403,7 @@ async function renderSupplies(){
   }
   hideLoading();
   const f=supplyFilter;
-  const filtered=supplies.filter(s=>!f.search||s.name.toLowerCase().includes(f.search.toLowerCase()));
+  const filtered=getFilteredSupplies();
   const low=supplies.filter(s=>getStock(s)<=s.threshold);
   let h=`<div class="toolbar"><input placeholder="Search supplies..." value="${f.search}" oninput="supplyFilter.search=this.value;renderSupplies()">
     ${isAdmin?'<button class="btn btn-primary" onclick="openAddSupply()"><i class="ti ti-plus"></i> Add item</button>':''}
@@ -1348,304 +1729,46 @@ async function saveUser(){
 async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.from('users').update({active}).eq('id',id);hideLoading();await renderUsers();}
 async function deleteUser(id){if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.from('users').delete().eq('id',id);hideLoading();await renderUsers();}
 
-// ══════════════════════════════════════════════
-// DISINFECTION TAB
-// ══════════════════════════════════════════════
-
-const DIS_HUBS = ['kigumo', 'truck'];
-const DIS_MACHINES = {
-  kigumo: ['Machine 1','Machine 2','Machine 3','Machine 4','Machine 5'],
-  truck:  ['Machine 1','Machine 2','Machine 3']
-};
-// Water plant is stored separately per hub under key: hub_water_disinfection, hub_water_rinse_N
-
-function disAddMonths(dateStr, months) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0,10);
+// EXPORT (always as real Excel .xlsx files, via SheetJS)
+function dlXLSX(headers,rows,fn,sheetName){
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheetName||'Sheet1');
+  XLSX.writeFile(wb,fn);
 }
-function disFormatDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-}
-function disDaysUntil(dateStr) {
-  if (!dateStr) return null;
-  const now = new Date(); now.setHours(0,0,0,0);
-  const d = new Date(dateStr + 'T00:00:00');
-  return Math.round((d - now) / 86400000);
-}
-function disStatusBadge(nextDate) {
-  if (!nextDate) return '<span class="dis-status not-set"><i class="ti ti-clock-off"></i> Not set</span>';
-  const days = disDaysUntil(nextDate);
-  if (days < 0)  return `<span class="dis-status overdue"><i class="ti ti-alert-triangle"></i> Overdue ${Math.abs(days)}d</span>`;
-  if (days <= 7) return `<span class="dis-status due-soon"><i class="ti ti-alert-circle"></i> Due in ${days}d</span>`;
-  return `<span class="dis-status ok"><i class="ti ti-circle-check"></i> In ${days}d</span>`;
-}
-
-// Load all disinfection records from Supabase (single key-value table: machine_disinfection)
-// Schema: id, hub TEXT, machine_key TEXT, last_date DATE, notes TEXT, created_at
-// We use hub + machine_key as the composite unique identifier.
-// For rinse-back: machine_key = 'water_rinse_1', 'water_rinse_2' etc, result in notes JSON
-
-let disData = {}; // { 'kigumo::Machine 1': {last_date, notes, id}, ... }
-
-async function loadDisData() {
-  const { data, error } = await db.from('machine_disinfection').select('*');
-  disData = {};
-  if (data) data.forEach(r => { disData[r.hub + '::' + r.machine_key] = r; });
-}
-
-async function saveDisRecord(hub, machineKey, lastDate, notes) {
-  const existing = disData[hub + '::' + machineKey];
-  if (existing) {
-    await db.from('machine_disinfection').update({ last_date: lastDate || null, notes: notes || null }).eq('id', existing.id);
-  } else {
-    await db.from('machine_disinfection').insert({ hub, machine_key: machineKey, last_date: lastDate || null, notes: notes || null });
-  }
-  await loadDisData();
-}
-
-function disGetVal(hub, key, field) {
-  const r = disData[hub + '::' + key];
-  return r ? r[field] : null;
-}
-
-function disParseRinseNotes(notes) {
-  // notes format: JSON string {"status":"Completed"|"Missed","reason":"..."}
-  try { return JSON.parse(notes); } catch(e) { return {status: notes||'', reason:''}; }
-}
-
-function disRinseRows(hub) {
-  // 2 rinses per month — show current month + 2 previous months = 6 slots total
-  const now = new Date();
-  const slots = [];
-  for (let m = 0; m < 3; m++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-    const monthLabel = d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
-    slots.push({ key:`water_rinse_${d.getFullYear()}_${d.getMonth()+1}_1`, label:'1st Rinse', month:monthLabel });
-    slots.push({ key:`water_rinse_${d.getFullYear()}_${d.getMonth()+1}_2`, label:'2nd Rinse', month:monthLabel });
-  }
-
-  // Build log list + entry form
-  let logItems = '';
-  let lastMonth = '';
-  slots.forEach(slot => {
-    const lastDate = disGetVal(hub, slot.key, 'last_date') || '';
-    const raw = disGetVal(hub, slot.key, 'notes') || '';
-    const parsed = disParseRinseNotes(raw);
-    const status = parsed.status || '';
-    const reason = parsed.reason || '';
-
-    if (slot.month !== lastMonth) {
-      lastMonth = slot.month;
-      logItems += `<div style="padding:8px 24px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);background:var(--gray-50);border-top:1px solid var(--gray-200);border-bottom:1px solid var(--gray-100)">${slot.month}</div>`;
-    }
-
-    const statusBadge = !status
-      ? `<span style="background:var(--gray-100);color:var(--gray-400);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">Not recorded</span>`
-      : status === 'Completed'
-        ? `<span style="background:var(--green-pale);color:var(--green-dark);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-circle-check"></i> Completed</span>`
-        : `<span style="background:var(--red-pale);color:var(--red);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700"><i class="ti ti-circle-x"></i> Missed</span>`;
-
-    logItems += `
-    <div style="display:grid;grid-template-columns:140px 150px 160px 1fr;align-items:center;gap:12px;padding:11px 24px;border-bottom:1px solid var(--gray-100)">
-      <div style="font-weight:700;font-size:13px;color:var(--navy);display:flex;align-items:center;gap:6px"><i class="ti ti-droplets" style="color:#0EA5E9"></i>${slot.label}</div>
-      <div style="font-size:12px;color:var(--gray-600)">${lastDate ? disFormatDate(lastDate) : '<span style="color:var(--gray-400)">—</span>'}</div>
-      <div>${statusBadge}</div>
-      <div style="font-size:12px;color:var(--gray-500)">${status==='Missed'&&reason ? '<i class="ti ti-notes" style="margin-right:3px"></i>'+reason : ''}</div>
-    </div>`;
+// Re-usable filter logic, shared with the on-screen tables so exports always match what's visible.
+function getFilteredPatients(){
+  const f=patientFilter;
+  return patients.filter(p=>{
+    const s=(p.ip+p.name+(p.id_no||'')+(p.phone||'')+(p.station||'')).toLowerCase();
+    if(f.search&&!s.includes(f.search.toLowerCase()))return false;
+    if(f.status&&p.status!==f.status)return false;
+    if(f.gender&&p.gender!==f.gender)return false;
+    if(f.station&&p.station!==f.station)return false;
+    return true;
   });
-
-  // Entry form — record a new rinse
-  const entryForm = `
-  <div style="padding:16px 24px;background:#F8FAFF;border-top:2px solid var(--gray-200)">
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--navy);margin-bottom:12px"><i class="ti ti-edit" style="margin-right:4px"></i>Record a Rinse</div>
-    <div style="display:grid;grid-template-columns:160px 150px 180px 1fr auto;gap:10px;align-items:end">
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">RINSE</label>
-        <select class="dis-date-input" id="dis-${hub}-rinse-slot" style="padding:7px 8px">
-          ${slots.map(s=>`<option value="${s.key}">${s.month} · ${s.label}</option>`).join('')}
-        </select>
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">DATE DONE</label>
-        <input type="date" class="dis-date-input" id="dis-${hub}-rinse-date" />
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">STATUS</label>
-        <select class="dis-date-input" id="dis-${hub}-rinse-status" style="padding:7px 8px" onchange="disToggleRinseReason('${hub}')">
-          <option value="">— Select —</option>
-          <option value="Completed">✅ Completed</option>
-          <option value="Missed">❌ Missed</option>
-        </select>
-      </div>
-      <div id="dis-${hub}-rinse-reason-wrap" style="display:none">
-        <label style="font-size:11px;font-weight:700;color:var(--gray-400);display:block;margin-bottom:4px">REASON FOR MISSING</label>
-        <input type="text" class="dis-date-input" id="dis-${hub}-rinse-reason" placeholder="e.g. Machine under maintenance" />
-      </div>
-      <div style="padding-top:18px">
-        <button class="btn btn-sm btn-green" onclick="disSaveRinse('${hub}')"><i class="ti ti-device-floppy"></i> Save</button>
-      </div>
-    </div>
-  </div>`;
-
-  return `
-  <!-- Log list header -->
-  <div style="display:grid;grid-template-columns:140px 150px 160px 1fr;gap:12px;padding:9px 24px;background:var(--gray-50);border-top:1px solid var(--gray-200);border-bottom:2px solid var(--gray-200);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400)">
-    <div>Session</div><div>Date</div><div>Status</div><div>Notes</div>
-  </div>
-  ${logItems}
-  ${entryForm}`;
 }
-
-function disToggleRinseReason(hub) {
-  const status = document.getElementById('dis-'+hub+'-rinse-status').value;
-  const wrap = document.getElementById('dis-'+hub+'-rinse-reason-wrap');
-  if (wrap) wrap.style.display = status === 'Missed' ? 'block' : 'none';
+function getFilteredSupplies(){
+  const f=supplyFilter;
+  return supplies.filter(s=>!f.search||s.name.toLowerCase().includes(f.search.toLowerCase()));
 }
-
-function disMachineRows(hub, machines, intervalMonths) {
-  let rows = '';
-  machines.forEach(name => {
-    const key = name;
-    const lastDate = disGetVal(hub, key, 'last_date') || '';
-    const nextDate = lastDate ? disAddMonths(lastDate, intervalMonths) : null;
-    rows += `<div class="dis-machine-row">
-      <div class="dis-machine-name"><i class="ti ti-dialpad"></i>${name}</div>
-      <input type="date" class="dis-date-input" id="dis-${hub}-${encodeURIComponent(key)}-last" value="${lastDate}" />
-      <div class="dis-next" style="color:var(--gray-600)">
-        ${nextDate ? '<i class="ti ti-calendar-due" style="color:var(--navy)"></i> ' + disFormatDate(nextDate) : '<span style="color:var(--gray-400)">—</span>'}
-      </div>
-      ${disStatusBadge(nextDate)}
-      <button class="btn btn-sm btn-green" onclick="disSaveMachine('${hub}','${key}',${intervalMonths})"><i class="ti ti-device-floppy"></i> Save</button>
-    </div>`;
-  });
-  return rows;
+function exportPatients(){
+  const rows=getFilteredPatients();
+  dlXLSX(['IP No','Name','ID No','Phone','YOB','Age','Gender','Station','Status','Discharge Date','Discharge Notes'],
+    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.yob,calcAge(p),p.gender,p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
+    'patients_'+new Date().toISOString().slice(0,10)+'.xlsx','Patients');
 }
-
-function disWaterPlantBlock(hub, intervalMonths, hasRinse) {
-  const key = 'Water Plant';
-  const lastDate = disGetVal(hub, key, 'last_date') || '';
-  const nextDate = lastDate ? disAddMonths(lastDate, intervalMonths) : null;
-  const rinseSection = hasRinse ? `
-    <div class="dis-section-label" style="color:#0369A1;padding-top:4px">Reverse Rinse (Rinse Back) Log</div>
-    <div class="dis-machine-row header-row" style="grid-template-columns:1fr 170px 120px 1fr">
-      <div>Rinse Session</div><div>Date</div><div>Result</div><div>Recorded</div>
-    </div>
-    <div class="dis-rinse-rows">${disRinseRows(hub)}</div>
-` : '';
-  return `
-  <div class="dis-waterplant">
-    <div class="dis-section-label" style="color:#0369A1"><i class="ti ti-droplet" style="margin-right:4px"></i> Water Plant</div>
-    <div class="dis-machine-row" style="background:var(--gray-50)">
-      <div class="dis-machine-name" style="color:#0369A1"><i class="ti ti-wave-square" style="color:#0EA5E9"></i>Water Plant Disinfection</div>
-      <input type="date" class="dis-date-input" id="dis-${hub}-waterplant-last" value="${lastDate}" />
-      <div class="dis-next" style="color:#0369A1">
-        ${nextDate ? '<i class="ti ti-calendar-due"></i> ' + disFormatDate(nextDate) : '<span style="color:var(--gray-400)">—</span>'}
-      </div>
-      ${disStatusBadge(nextDate)}
-      <button class="btn btn-sm" style="background:#E0F2FE;color:#0369A1;border-color:#BAE6FD" onclick="disSaveWater('${hub}')"><i class="ti ti-device-floppy"></i> Save</button>
-    </div>
-    ${rinseSection}
-  </div>`;
+function exportSupplies(){
+  const rows=getFilteredSupplies();
+  dlXLSX(['Item','Unit','Stock','Threshold','Low Stock'],
+    rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO']),
+    'supplies_'+new Date().toISOString().slice(0,10)+'.xlsx','Supplies');
 }
-
-async function renderDisinfection() {
-  showLoading('Loading disinfection records...');
-  await loadDisData();
-  hideLoading();
-
-  const hubs = [
-    { key:'kigumo', label:'Kigumo Hub', icon:'ti-building-hospital', iconBg:'#EEF2FF', iconColor:'var(--navy)', machines: DIS_MACHINES.kigumo, machineInterval:1, waterInterval:6, hasRinse:true },
-    { key:'truck',  label:'Truck',       icon:'ti-truck',             iconBg:'#FFF7ED', iconColor:'var(--amber)', machines: DIS_MACHINES.truck,  machineInterval:1, waterInterval:6, hasRinse:true }
-  ];
-
-  let h = '<div class="dis-page">';
-
-  hubs.forEach(hub => {
-    h += `<div class="dis-hub">
-      <div class="dis-hub-header">
-        <div class="dis-hub-icon" style="background:${hub.iconBg}"><i class="ti ${hub.icon}" style="color:${hub.iconColor}"></i></div>
-        <div>
-          <h2>${hub.label}</h2>
-          <p>Dialysis machines (monthly heat disinfection) &amp; Water Plant (6-monthly)</p>
-        </div>
-      </div>
-      <div class="dis-section-label">Dialysis Machines — Heat Disinfection (Every Month)</div>
-      <div class="dis-machine-row header-row">
-        <div>Machine</div><div>Last Done</div><div>Next Due</div><div>Status</div><div>Action</div>
-      </div>
-      <div class="dis-machines">${disMachineRows(hub.key, hub.machines, hub.machineInterval)}</div>
-      ${disWaterPlantBlock(hub.key, hub.waterInterval, hub.hasRinse)}
-    </div>`;
-  });
-
-  h += '</div>';
-  document.getElementById('main-content').innerHTML = h;
-  updateDisinfectionAlertDot();
+function exportRequests(){
+  dlXLSX(['Item','Qty','By','Notes','Status','Date'],
+    requests.map(r=>[r.supplies?r.supplies.name:'?',r.qty,r.requested_by,r.notes,r.status,new Date(r.created_at).toLocaleDateString()]),
+    'requests_'+new Date().toISOString().slice(0,10)+'.xlsx','Requests');
 }
-
-async function disSaveMachine(hub, machineKey, intervalMonths) {
-  const input = document.getElementById('dis-' + hub + '-' + encodeURIComponent(machineKey) + '-last');
-  if (!input) return;
-  showLoading('Saving...');
-  await saveDisRecord(hub, machineKey, input.value, null);
-  hideLoading();
-  await renderDisinfection();
-}
-
-async function disSaveWater(hub) {
-  const input = document.getElementById('dis-' + hub + '-waterplant-last');
-  if (!input) return;
-  showLoading('Saving...');
-  await saveDisRecord(hub, 'Water Plant', input.value, null);
-  hideLoading();
-  await renderDisinfection();
-}
-
-async function disSaveRinse(hub) {
-  const slotKey = document.getElementById('dis-'+hub+'-rinse-slot').value;
-  const date    = document.getElementById('dis-'+hub+'-rinse-date').value;
-  const status  = document.getElementById('dis-'+hub+'-rinse-status').value;
-  const reason  = document.getElementById('dis-'+hub+'-rinse-reason') ? document.getElementById('dis-'+hub+'-rinse-reason').value : '';
-  if (!status) { alert('Please select a status (Completed or Missed).'); return; }
-  if (status === 'Missed' && !reason.trim()) { alert('Please provide a reason for the missed rinse.'); return; }
-  if (status === 'Completed' && !date) { alert('Please select the date the rinse was done.'); return; }
-  showLoading('Saving rinse...');
-  const notes = JSON.stringify({ status, reason: status==='Missed' ? reason.trim() : '' });
-  await saveDisRecord(hub, slotKey, date||null, notes);
-  hideLoading();
-  await renderDisinfection();
-}
-
-function updateDisinfectionAlertDot() {
-  // Count overdue/due-soon items across all hubs
-  let alerts = 0;
-  DIS_HUBS.forEach(hub => {
-    [...DIS_MACHINES[hub], 'Water Plant'].forEach(key => {
-      const lastDate = disGetVal(hub, key, 'last_date');
-      const interval = key === 'Water Plant' ? 6 : 1;
-      const nextDate = lastDate ? disAddMonths(lastDate, interval) : null;
-      if (!nextDate) { alerts++; return; }
-      const days = disDaysUntil(nextDate);
-      if (days <= 7) alerts++;
-    });
-  });
-  const dot = document.getElementById('disinfection-alert-dot');
-  if (dot) {
-    if (alerts > 0) { dot.style.display = 'inline'; dot.textContent = alerts; }
-    else dot.style.display = 'none';
-  }
-}
-
-// EXPORT
-function toCSV(h,r){return[h,...r].map(row=>row.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');}
-function dlCSV(csv,fn){const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();}
-function exportPatients(){dlCSV(toCSV(['IP No','Name','ID No','Phone','YOB','Age','Gender','Station','Status','Discharge Date','Discharge Notes'],patients.map(p=>[p.ip,p.name,p.id_no,p.phone,p.yob,calcAge(p),p.gender,p.station,p.status,p.discharge_date||'',p.discharge_notes||''])),'patients_'+new Date().toISOString().slice(0,10)+'.csv');}
-function exportSupplies(){dlCSV(toCSV(['Item','Unit','Stock','Threshold','Low Stock'],supplies.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])),'supplies_'+new Date().toISOString().slice(0,10)+'.csv');}
-function exportRequests(){dlCSV(toCSV(['Item','Qty','By','Notes','Status','Date'],requests.map(r=>[r.supplies?r.supplies.name:'?',r.qty,r.requested_by,r.notes,r.status,new Date(r.created_at).toLocaleDateString()])),'requests_'+new Date().toISOString().slice(0,10)+'.csv');}
 </script>
 
 <!-- Supply Comment Modal -->

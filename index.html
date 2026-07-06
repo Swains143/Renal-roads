@@ -1126,6 +1126,47 @@ async function renderHome(){
     </div>
   </div>
 
+  <div class="dash-section-title">Quick access</div>
+  <div class="dash-cards">
+    <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
+      <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
+      <h3>Register patient</h3>
+      <p>Add a new patient to the system with their IP number, personal details, and station assignment.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('patients')">
+      <div class="dash-card-icon" style="background:var(--green-pale)"><i class="ti ti-users" style="color:var(--green-dark);font-size:26px"></i></div>
+      <h3>View patients</h3>
+      <p>Browse, search, and filter all patient records. Update status and view detailed information.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('supplies')">
+      <div class="dash-card-icon" style="background:#EEEDFE"><i class="ti ti-package" style="color:#3C3489;font-size:26px"></i></div>
+      <h3>Supplies</h3>
+      <p>Manage inventory, record stock IN/OUT movements, and request items from the admin.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('disinfection')">
+      <div class="dash-card-icon" style="background:#EEF2FF"><i class="ti ti-virus-off" style="color:var(--navy);font-size:26px"></i></div>
+      <h3>Disinfection</h3>
+      <p>Track machine heat disinfection schedules and log reverse rinse sessions for Kigumo and Truck.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    ${isAdmin?`
+    <div class="dash-card" onclick="switchTab('requests')">
+      <div class="dash-card-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber);font-size:26px"></i></div>
+      <h3>Supply requests</h3>
+      <p>Review and approve or reject supply requests submitted by staff members.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('users')">
+      <div class="dash-card-icon" style="background:var(--red-pale)"><i class="ti ti-shield-check" style="color:var(--red);font-size:26px"></i></div>
+      <h3>User access</h3>
+      <p>Register new users, assign roles, and activate or deactivate staff login access.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>`:''}
+  </div>
+
   <div class="dash-section-title">Overview</div>
   <div class="dash-stats">
     <div class="dash-stat" onclick="switchTab('patients')">
@@ -1203,47 +1244,6 @@ async function renderHome(){
       </div>
       ${disRinseSummary()}
     </div>
-  </div>
-
-  <div class="dash-section-title">Quick access</div>
-  <div class="dash-cards">
-    <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
-      <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
-      <h3>Register patient</h3>
-      <p>Add a new patient to the system with their IP number, personal details, and station assignment.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
-    <div class="dash-card" onclick="switchTab('patients')">
-      <div class="dash-card-icon" style="background:var(--green-pale)"><i class="ti ti-users" style="color:var(--green-dark);font-size:26px"></i></div>
-      <h3>View patients</h3>
-      <p>Browse, search, and filter all patient records. Update status and view detailed information.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
-    <div class="dash-card" onclick="switchTab('supplies')">
-      <div class="dash-card-icon" style="background:#EEEDFE"><i class="ti ti-package" style="color:#3C3489;font-size:26px"></i></div>
-      <h3>Supplies</h3>
-      <p>Manage inventory, record stock IN/OUT movements, and request items from the admin.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
-    <div class="dash-card" onclick="switchTab('disinfection')">
-      <div class="dash-card-icon" style="background:#EEF2FF"><i class="ti ti-virus-off" style="color:var(--navy);font-size:26px"></i></div>
-      <h3>Disinfection</h3>
-      <p>Track machine heat disinfection schedules and log reverse rinse sessions for Kigumo and Truck.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
-    ${isAdmin?`
-    <div class="dash-card" onclick="switchTab('requests')">
-      <div class="dash-card-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber);font-size:26px"></i></div>
-      <h3>Supply requests</h3>
-      <p>Review and approve or reject supply requests submitted by staff members.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
-    <div class="dash-card" onclick="switchTab('users')">
-      <div class="dash-card-icon" style="background:var(--red-pale)"><i class="ti ti-shield-check" style="color:var(--red);font-size:26px"></i></div>
-      <h3>User access</h3>
-      <p>Register new users, assign roles, and activate or deactivate staff login access.</p>
-      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>`:''}
   </div>`;
 
   document.getElementById('main-content').innerHTML=h;

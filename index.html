@@ -121,6 +121,19 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color
 .toolbar input,.toolbar select{padding:8px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius);background:var(--white);color:var(--gray-800);font-size:13px;outline:none;transition:border-color 0.15s}
 .toolbar input:focus,.toolbar select:focus{border-color:var(--navy)}
 .toolbar input{flex:1;min-width:180px}
+
+/* Multi-select filter dropdown */
+.filter-dropdown{position:relative;display:inline-block}
+.filter-dropdown-btn{position:relative}
+.filter-dropdown-btn.active{border-color:var(--navy);color:var(--navy);background:var(--navy-pale)}
+.filter-badge{background:var(--navy);color:var(--white);border-radius:20px;font-size:10px;font-weight:700;padding:1px 6px;line-height:1.4}
+.filter-dropdown-btn.active .filter-badge{background:var(--navy)}
+.filter-dropdown-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:180px;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px;z-index:50;display:flex;flex-direction:column;gap:2px}
+.filter-option{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:13px;color:var(--gray-800);cursor:pointer;user-select:none;white-space:nowrap}
+.filter-option:hover{background:var(--gray-50)}
+.filter-option input[type="checkbox"]{width:15px;height:15px;accent-color:var(--navy);cursor:pointer;flex-shrink:0}
+.filter-clear{margin-top:4px;padding-top:8px;border-top:1px solid var(--gray-100);background:none;border:none;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;text-align:left}
+.filter-clear:hover{text-decoration:underline}
 .btn{padding:8px 14px;border:1.5px solid var(--gray-200);border-radius:var(--radius);background:var(--white);color:var(--gray-800);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;white-space:nowrap;font-weight:500}
 .btn:hover{background:var(--gray-100)}
 .btn-primary{background:var(--navy);color:var(--white);border-color:var(--navy)}
@@ -606,7 +619,8 @@ let requests = [];
 let pendingMovement = null;
 let editingPatientId = null;
 let editingSupplyId = null;
-let patientFilter = {search:'',status:'',gender:'',station:''};
+let patientFilter = {search:'',status:[],gender:[],station:[]};
+let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};
 
 function showLoading(msg='Loading...'){document.getElementById('loading-overlay').classList.remove('hidden');document.getElementById('loading-msg').textContent=msg;}
@@ -1173,19 +1187,19 @@ async function renderHome(){
       <div class="dash-stat-icon" style="background:var(--navy-pale)"><i class="ti ti-users" style="color:var(--navy)"></i></div>
       <div class="dash-stat-info"><div class="num">${pts.length}</div><div class="lbl">Total patients</div></div>
     </div>
-    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Active';">
+    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status=['Active'];">
       <div class="dash-stat-icon" style="background:var(--green-pale)"><i class="ti ti-heartbeat" style="color:var(--green-dark)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--green-dark)">${active}</div><div class="lbl">Active patients</div></div>
     </div>
-    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Discharged';">
+    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status=['Discharged'];">
       <div class="dash-stat-icon" style="background:#EEEDFE"><i class="ti ti-door-exit" style="color:#3C3489"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:#3C3489">${discharged}</div><div class="lbl">Discharged</div></div>
     </div>
-    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Transferred';">
+    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status=['Transferred'];">
       <div class="dash-stat-icon" style="background:var(--amber-pale)"><i class="ti ti-transfer" style="color:var(--amber)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--amber)">${transferred}</div><div class="lbl">Transferred</div></div>
     </div>
-    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status='Deceased';">
+    <div class="dash-stat" onclick="switchTab('patients');patientFilter.status=['Deceased'];">
       <div class="dash-stat-icon" style="background:var(--red-pale)"><i class="ti ti-heart-off" style="color:var(--red)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
     </div>
@@ -1257,6 +1271,41 @@ function ipSortValue(ip){
   const m=String(ip||'').match(/(\d+)/);
   return m?parseInt(m[1],10):Number.MAX_SAFE_INTEGER;
 }
+// Multi-select filter dropdown (checkbox list) shared by the patients toolbar
+function filterDropdownHTML(field,{label,options}){
+  const selected=patientFilter[field];
+  const open=patientFilterOpenDropdown===field;
+  return `<div class="filter-dropdown">
+    <button type="button" class="btn filter-dropdown-btn${selected.length?' active':''}" onclick="toggleFilterDropdown('${field}',event)">
+      ${label}${selected.length?`<span class="filter-badge">${selected.length}</span>`:''} <i class="ti ti-chevron-down" style="font-size:12px"></i>
+    </button>
+    ${open?`<div class="filter-dropdown-menu" onclick="event.stopPropagation()">
+      ${options.map(v=>`<label class="filter-option"><input type="checkbox" ${selected.includes(v)?'checked':''} onchange="toggleFilterValue('${field}','${v}')"> ${v}</label>`).join('')}
+      ${selected.length?`<button type="button" class="filter-clear" onclick="clearFilterField('${field}')">Clear ${label.toLowerCase()}</button>`:''}
+    </div>`:''}
+  </div>`;
+}
+function toggleFilterDropdown(field,ev){
+  if(ev)ev.stopPropagation();
+  patientFilterOpenDropdown = patientFilterOpenDropdown===field ? null : field;
+  renderPatients();
+}
+function toggleFilterValue(field,value){
+  const arr=patientFilter[field];
+  const idx=arr.indexOf(value);
+  if(idx>-1)arr.splice(idx,1);else arr.push(value);
+  renderPatients();
+}
+function clearFilterField(field){
+  patientFilter[field]=[];
+  renderPatients();
+}
+document.addEventListener('click',()=>{
+  if(patientFilterOpenDropdown){
+    patientFilterOpenDropdown=null;
+    if(typeof currentTab!=='undefined'&&currentTab==='patients')renderPatients();
+  }
+});
 async function renderPatients(){
   const isViewer=currentUser&&currentUser.role==='viewer';
   showLoading('Loading patients...');
@@ -1283,25 +1332,10 @@ async function renderPatients(){
   </div>
   <div class="toolbar">
     <input placeholder="Search name, IP, ID, phone..." value="${f.search}" oninput="patientFilter.search=this.value;renderPatients()">
-    <select onchange="patientFilter.status=this.value;renderPatients()">
-      <option value="">All statuses</option>
-      <option value="Active"${f.status==='Active'?' selected':''}>Active</option>
-      <option value="Discharged"${f.status==='Discharged'?' selected':''}>Discharged</option>
-      <option value="Transferred"${f.status==='Transferred'?' selected':''}>Transferred</option>
-      <option value="Deceased"${f.status==='Deceased'?' selected':''}>Deceased</option>
-    </select>
-    <select onchange="patientFilter.gender=this.value;renderPatients()">
-      <option value="">All genders</option>
-      <option value="Male"${f.gender==='Male'?' selected':''}>Male</option>
-      <option value="Female"${f.gender==='Female'?' selected':''}>Female</option>
-    </select>
-    <select onchange="patientFilter.station=this.value;renderPatients()">
-      <option value="">All stations</option>
-      <option value="Gatura"${f.station==='Gatura'?' selected':''}>Gatura</option>
-      <option value="Kirwara"${f.station==='Kirwara'?' selected':''}>Kirwara</option>
-      <option value="Kigumo"${f.station==='Kigumo'?' selected':''}>Kigumo</option>
-      <option value="Maragua"${f.station==='Maragua'?' selected':''}>Maragua</option>
-    </select>
+    ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Deceased']})}
+    ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
+    ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
+    ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatients()"><i class="ti ti-x"></i> Clear filters</button>':''}
     <button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-plus"></i> Register</button>
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
@@ -1742,9 +1776,9 @@ function getFilteredPatients(){
   return patients.filter(p=>{
     const s=(p.ip+p.name+(p.id_no||'')+(p.phone||'')+(p.station||'')).toLowerCase();
     if(f.search&&!s.includes(f.search.toLowerCase()))return false;
-    if(f.status&&p.status!==f.status)return false;
-    if(f.gender&&p.gender!==f.gender)return false;
-    if(f.station&&p.station!==f.station)return false;
+    if(f.status.length&&!f.status.includes(p.status))return false;
+    if(f.gender.length&&!f.gender.includes(p.gender))return false;
+    if(f.station.length&&!f.station.includes(p.station))return false;
     return true;
   });
 }

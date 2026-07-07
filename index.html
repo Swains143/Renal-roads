@@ -86,6 +86,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color
 .tab:hover{color:var(--navy)}
 .tab.active{color:var(--navy);border-bottom-color:var(--navy)}
 .tab .badge{position:absolute;top:8px;right:2px;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4}
+
+/* Compact dropdown nav for narrow screens, hidden by default */
+.tabs-dropdown{display:none;background:var(--white);border-bottom:1px solid var(--gray-200);padding:8px 16px;flex-shrink:0}
+.tabs-dropdown select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-weight:600;color:var(--navy);background:var(--gray-50);cursor:pointer}
+@media(max-width:680px){
+  .tabs{display:none}
+  .tabs-dropdown{display:block}
+}
 .content{padding:20px;flex:1;overflow:auto;background:var(--gray-50)}
 
 /* DASHBOARD */
@@ -476,6 +484,16 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
   </div>
+  <div class="tabs-dropdown">
+    <select id="tab-select" onchange="switchTab(this.value)">
+      <option value="home" id="opt-home">🏠 Home</option>
+      <option value="patients" id="opt-patients">👥 Patients</option>
+      <option value="supplies" id="opt-supplies">📦 Supplies</option>
+      <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
+      <option value="users" id="opt-users" hidden>🛡️ User Access</option>
+      <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
+    </select>
+  </div>
   <div class="content" id="main-content"></div>
 </div>
 
@@ -640,9 +658,22 @@ function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yo
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
 function togglePwd(){const i=document.getElementById('login-password');const ic=document.getElementById('eye-icon');i.type=i.type==='password'?'text':'password';ic.className=i.type==='password'?'ti ti-eye':'ti ti-eye-off';}
 
+// Shows/hides role-restricted tabs (both the tab bar and the dropdown options stay in sync)
+function applyRoleTabVisibility(role){
+  document.getElementById('tab-requests').style.display=role==='admin'?'':'none';
+  document.getElementById('tab-users').style.display=role==='admin'?'':'none';
+  document.getElementById('opt-requests').hidden=role!=='admin';
+  document.getElementById('opt-users').hidden=role!=='admin';
+  // Viewer: hide patients tab (sensitive data) - only Home & Supplies
+  document.getElementById('tab-patients').style.display=role==='viewer'?'none':'';
+  document.getElementById('opt-patients').hidden=role==='viewer';
+}
+
 function switchTab(t){
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
+  const sel=document.getElementById('tab-select');
+  if(sel) sel.value=t;
   render().then(()=>{
     const mc = document.getElementById('main-content');
     if(mc){ mc.classList.remove('content-animate'); void mc.offsetWidth; mc.classList.add('content-animate'); }
@@ -691,13 +722,11 @@ async function doLogin(){
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
-    document.getElementById('tab-requests').style.display=data.role==='admin'?'':'none';
-    document.getElementById('tab-users').style.display=data.role==='admin'?'':'none';
-    // Viewer: hide patients tab (sensitive data) - only Home & Supplies
-    document.getElementById('tab-patients').style.display=data.role==='viewer'?'none':'';
+    applyRoleTabVisibility(data.role);
     currentTab='home';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
+    document.getElementById('tab-select').value='home';
     if(data.role==='admin') updateCommentDot();
     localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
     await loadDisData(); updateDisinfectionAlertDot();
@@ -737,12 +766,11 @@ async function restoreSession(){
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
-    document.getElementById('tab-requests').style.display=data.role==='admin'?'':'none';
-    document.getElementById('tab-users').style.display=data.role==='admin'?'':'none';
-    document.getElementById('tab-patients').style.display=data.role==='viewer'?'none':'';
+    applyRoleTabVisibility(data.role);
     currentTab='home';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
+    document.getElementById('tab-select').value='home';
     if(data.role==='admin') updateCommentDot();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();

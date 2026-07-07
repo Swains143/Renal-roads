@@ -605,6 +605,16 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="modal-footer"><button class="btn" onclick="closeModal('user-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUser()"><i class="ti ti-check"></i> Register</button></div>
 </div></div>
 
+<div class="modal-bg" id="reset-password-modal"><div class="modal">
+  <h2>Reset password</h2><div class="modal-sub">Set a new password for <strong id="rp-user-name"></strong></div>
+  <div class="form-grid">
+    <div class="form-group"><label>New password *</label><input id="rp-password" type="password" placeholder="Enter new password" autocomplete="new-password"></div>
+    <div class="form-group"><label>Confirm password *</label><input id="rp-password-confirm" type="password" placeholder="Re-enter new password" autocomplete="new-password"></div>
+  </div>
+  <div class="modal-err" id="reset-password-error"><i class="ti ti-alert-circle"></i><span id="reset-password-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('reset-password-modal')">Cancel</button><button class="btn btn-primary" onclick="saveResetPassword()"><i class="ti ti-key"></i> Reset password</button></div>
+</div></div>
+
 <script>
 const YEAR = new Date().getFullYear();
 const SB_URL = 'https://vagsqfyedfxfvzzcgoqt.supabase.co';
@@ -1743,7 +1753,7 @@ async function renderUsers(){
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${u.username}</code></td>
       <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':'role-staff'}">${u.role}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
-      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
+      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm" onclick="openResetPassword('${u.id}','${u.name.replace(/'/g,"\\'")}')"><i class="ti ti-key"></i> Reset password</button> <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
   h+=`</tbody></table></div><div class="alert alert-info" style="margin-top:16px"><i class="ti ti-info-circle"></i><div>Only admins can register and manage users. Deactivated users cannot sign in.</div></div>`;
   document.getElementById('main-content').innerHTML=h;
@@ -1762,6 +1772,29 @@ async function saveUser(){
 }
 async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.from('users').update({active}).eq('id',id);hideLoading();await renderUsers();}
 async function deleteUser(id){if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.from('users').delete().eq('id',id);hideLoading();await renderUsers();}
+let resetPasswordUserId=null;
+function openResetPassword(id,name){
+  resetPasswordUserId=id;
+  document.getElementById('rp-user-name').textContent=name;
+  document.getElementById('rp-password').value='';
+  document.getElementById('rp-password-confirm').value='';
+  document.getElementById('reset-password-error').classList.remove('show');
+  document.getElementById('reset-password-modal').classList.add('open');
+}
+async function saveResetPassword(){
+  const pw=document.getElementById('rp-password').value;
+  const pwConfirm=document.getElementById('rp-password-confirm').value;
+  const showErr=msg=>{document.getElementById('reset-password-error-msg').textContent=msg;document.getElementById('reset-password-error').classList.add('show');};
+  if(!pw||!pwConfirm)return showErr('Please fill in both password fields.');
+  if(pw.length<4)return showErr('Password must be at least 4 characters.');
+  if(pw!==pwConfirm)return showErr('Passwords do not match.');
+  showLoading('Resetting password...');
+  const {error}=await db.from('users').update({password:pw}).eq('id',resetPasswordUserId);
+  hideLoading();
+  if(error)return showErr(error.message);
+  closeModal('reset-password-modal');
+  await renderUsers();
+}
 
 // EXPORT (always as real Excel .xlsx files, via SheetJS)
 function dlXLSX(headers,rows,fn,sheetName){

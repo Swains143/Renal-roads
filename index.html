@@ -130,6 +130,12 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color
 .toolbar input:focus,.toolbar select:focus{border-color:var(--navy)}
 .toolbar input{flex:1;min-width:180px}
 
+/* Supplies / Medications category switcher */
+.cat-switch{display:flex;gap:8px;margin-bottom:14px}
+.cat-btn{padding:8px 16px;border-radius:20px;border:1.5px solid var(--gray-200);background:var(--white);color:var(--gray-600);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px}
+.cat-btn:hover{border-color:var(--navy)}
+.cat-btn.active{background:var(--navy);border-color:var(--navy);color:var(--white)}
+
 /* Multi-select filter dropdown */
 .filter-dropdown{position:relative;display:inline-block}
 .filter-dropdown-btn{position:relative}
@@ -650,6 +656,7 @@ let editingSupplyId = null;
 let patientFilter = {search:'',status:[],gender:[],station:[]};
 let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};
+let currentSupplyCategory = 'supply'; // 'supply' | 'medication' — same features, split by category
 
 function showLoading(msg='Loading...'){document.getElementById('loading-overlay').classList.remove('hidden');document.getElementById('loading-msg').textContent=msg;}
 function hideLoading(){document.getElementById('loading-overlay').classList.add('hidden');}
@@ -1195,7 +1202,7 @@ async function renderHome(){
     <div class="dash-card" onclick="switchTab('supplies')">
       <div class="dash-card-icon" style="background:#EEEDFE"><i class="ti ti-package" style="color:#3C3489;font-size:26px"></i></div>
       <h3>Supplies</h3>
-      <p>Manage inventory, record stock IN/OUT movements, and request items from the admin.</p>
+      <p>Manage supply and medication inventory, record stock IN/OUT movements, and request items from the admin.</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
     </div>
     <div class="dash-card" onclick="switchTab('disinfection')">
@@ -1475,23 +1482,30 @@ async function renderSupplies(){
   }
   hideLoading();
   const f=supplyFilter;
+  const isMed=currentSupplyCategory==='medication';
+  const cat={singular:isMed?'medication':'supply',plural:isMed?'Medications':'Supplies',icon:isMed?'ti-pill':'ti-package'};
   const filtered=getFilteredSupplies();
-  const low=supplies.filter(s=>getStock(s)<=s.threshold);
-  let h=`<div class="toolbar"><input placeholder="Search supplies..." value="${f.search}" oninput="supplyFilter.search=this.value;renderSupplies()">
-    ${isAdmin?'<button class="btn btn-primary" onclick="openAddSupply()"><i class="ti ti-plus"></i> Add item</button>':''}
+  const catItems=supplies.filter(s=>(s.category||'supply')===currentSupplyCategory);
+  const low=catItems.filter(s=>getStock(s)<=s.threshold);
+  let h=`<div class="cat-switch">
+    <button class="cat-btn ${currentSupplyCategory==='supply'?'active':''}" onclick="switchSupplyCategory('supply')"><i class="ti ti-package"></i> Supplies</button>
+    <button class="cat-btn ${currentSupplyCategory==='medication'?'active':''}" onclick="switchSupplyCategory('medication')"><i class="ti ti-pill"></i> Medications</button>
+  </div>
+  <div class="toolbar"><input placeholder="Search ${cat.plural.toLowerCase()}..." value="${f.search}" oninput="supplyFilter.search=this.value;renderSupplies()">
+    ${isAdmin?`<button class="btn btn-primary" onclick="openAddSupply()"><i class="ti ti-plus"></i> Add ${cat.singular}</button>`:''}
     <button class="btn btn-green" onclick="openRequestModal()"><i class="ti ti-send"></i> Request item</button>
     ${isAdmin?'<button class="btn" onclick="exportSupplies()"><i class="ti ti-download"></i> Export</button>':''}
   </div>`;
   const isViewer = currentUser && currentUser.role === 'viewer';
   if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items for the admin to review.</div>`;
-  else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit supply items.</div></div>`;
+  else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit ${cat.plural.toLowerCase()}.</div></div>`;
   if(isAdmin&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
   if(isAdmin&&Object.keys(unreadBySupply).length){
-    const names=Object.keys(unreadBySupply).map(id=>supplies.find(s=>s.id===id)).filter(Boolean).map(s=>s.name);
-    h+=`<div class="alert" style="background:#F3EEFF;border-color:#C4B5FD;color:#6B21A8"><i class="ti ti-message-circle"></i><div><strong>New comments on:</strong> ${names.join(', ')}</div></div>`;
+    const names=Object.keys(unreadBySupply).map(id=>supplies.find(s=>s.id===id)).filter(Boolean).filter(s=>(s.category||'supply')===currentSupplyCategory).map(s=>s.name);
+    if(names.length)h+=`<div class="alert" style="background:#F3EEFF;border-color:#C4B5FD;color:#6B21A8"><i class="ti ti-message-circle"></i><div><strong>New comments on:</strong> ${names.join(', ')}</div></div>`;
   }
   h+=`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Stock</th>${isAdmin?'<th>Threshold</th>':''}<th>Log</th>${isAdmin?'<th>IN</th><th>OUT</th><th></th>':''}${(isViewer||isAdmin)?'<th>Comments</th>':''}</tr></thead><tbody>`;
-  if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ti-package"></i>No supplies found</div></td></tr>`;
+  if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ${cat.icon}"></i>No ${cat.plural.toLowerCase()} found</div></td></tr>`;
   else filtered.forEach(s=>{
     const stock=getStock(s);const isLow=stock<=s.threshold;
     const unreadCount=unreadBySupply[s.id]||0;
@@ -1505,12 +1519,24 @@ async function renderSupplies(){
   h+=`</tbody></table></div>`;
   document.getElementById('main-content').innerHTML=h;
 }
-function openAddSupply(){editingSupplyId=null;document.getElementById('supply-modal-title').textContent='Add supply item';document.getElementById('supply-modal-sub').textContent='Register a new supply item';document.getElementById('s-name').value='';document.getElementById('s-unit').value='';document.getElementById('s-thresh').value='10';document.getElementById('supply-error').classList.remove('show');document.getElementById('supply-modal').classList.add('open');}
+function switchSupplyCategory(cat){
+  currentSupplyCategory=cat;
+  supplyFilter.search='';
+  renderSupplies();
+}
+function openAddSupply(){
+  editingSupplyId=null;
+  const isMed=currentSupplyCategory==='medication';
+  document.getElementById('supply-modal-title').textContent=isMed?'Add medication':'Add supply item';
+  document.getElementById('supply-modal-sub').textContent=isMed?'Register a new medication':'Register a new supply item';
+  document.getElementById('s-name').value='';document.getElementById('s-unit').value='';document.getElementById('s-thresh').value='10';document.getElementById('supply-error').classList.remove('show');document.getElementById('supply-modal').classList.add('open');
+}
 function openEditSupply(id){
   const s=supplies.find(x=>x.id===id);if(!s)return;
   editingSupplyId=id;
-  document.getElementById('supply-modal-title').textContent='Edit supply item';
-  document.getElementById('supply-modal-sub').textContent='Update this supply item\'s details';
+  const isMed=(s.category||'supply')==='medication';
+  document.getElementById('supply-modal-title').textContent=isMed?'Edit medication':'Edit supply item';
+  document.getElementById('supply-modal-sub').textContent=isMed?'Update this medication\'s details':'Update this supply item\'s details';
   document.getElementById('s-name').value=s.name;
   document.getElementById('s-unit').value=s.unit;
   document.getElementById('s-thresh').value=s.threshold;
@@ -1521,7 +1547,7 @@ async function saveSupply(){
   const name=document.getElementById('s-name').value.trim();
   if(!name){document.getElementById('supply-error-msg').textContent='Item name required.';document.getElementById('supply-error').classList.add('show');return;}
   showLoading('Saving...');
-  const payload={name,unit:document.getElementById('s-unit').value.trim()||'units',threshold:parseInt(document.getElementById('s-thresh').value)||10};
+  const payload={name,unit:document.getElementById('s-unit').value.trim()||'units',threshold:parseInt(document.getElementById('s-thresh').value)||10,category:currentSupplyCategory};
   let error;
   if(editingSupplyId)({error}=await db.from('supplies').update(payload).eq('id',editingSupplyId));
   else({error}=await db.from('supplies').insert(payload));
@@ -1569,7 +1595,7 @@ async function showMovements(supplyId){
 
 // REQUESTS
 function openRequestModal(){
-  document.getElementById('r-item').innerHTML=supplies.map(s=>`<option value="${s.id}">${s.name} (${getStock(s)} ${s.unit})</option>`).join('');
+  document.getElementById('r-item').innerHTML=supplies.map(s=>`<option value="${s.id}">${(s.category==='medication'?'💊 ':'📦 ')}${s.name} (${getStock(s)} ${s.unit})</option>`).join('');
   document.getElementById('r-qty').value=1;document.getElementById('r-by').value=currentUser?currentUser.name:'';document.getElementById('r-notes').value='';
   document.getElementById('request-modal').classList.add('open');
 }
@@ -1845,7 +1871,7 @@ function getFilteredPatients(){
 }
 function getFilteredSupplies(){
   const f=supplyFilter;
-  return supplies.filter(s=>!f.search||s.name.toLowerCase().includes(f.search.toLowerCase()));
+  return supplies.filter(s=>(s.category||'supply')===currentSupplyCategory && (!f.search||s.name.toLowerCase().includes(f.search.toLowerCase())));
 }
 function exportPatients(){
   const rows=getFilteredPatients();
@@ -1855,9 +1881,10 @@ function exportPatients(){
 }
 function exportSupplies(){
   const rows=getFilteredSupplies();
+  const isMed=currentSupplyCategory==='medication';
   dlXLSX(['Item','Unit','Stock','Threshold','Low Stock'],
     rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO']),
-    'supplies_'+new Date().toISOString().slice(0,10)+'.xlsx','Supplies');
+    (isMed?'medications_':'supplies_')+new Date().toISOString().slice(0,10)+'.xlsx',isMed?'Medications':'Supplies');
 }
 function exportRequests(){
   dlXLSX(['Item','Qty','By','Notes','Status','Date'],

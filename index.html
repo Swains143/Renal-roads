@@ -734,12 +734,12 @@ async function doLogin(){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
-    if(data.role==='admin') updateCommentDot();
+    if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     // Poll for new viewer comments every 30 seconds
-    if(data.role==='admin') setInterval(updateCommentDot, 30000);
+    if(data.role==='admin'||data.role==='viewer') setInterval(updateCommentDot, 30000);
     setInterval(async()=>{await loadDisData();updateDisinfectionAlertDot();}, 60000);
   }catch(e){
     const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':'Invalid username or password.';
@@ -778,11 +778,11 @@ async function restoreSession(){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
-    if(data.role==='admin') updateCommentDot();
+    if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     // Poll for new viewer comments every 30 seconds
-    if(data.role==='admin') setInterval(updateCommentDot, 30000);
+    if(data.role==='admin'||data.role==='viewer') setInterval(updateCommentDot, 30000);
     setInterval(async()=>{await loadDisData();updateDisinfectionAlertDot();}, 60000);
     return true;
   }catch(e){ return false; }
@@ -1123,6 +1123,9 @@ async function renderHome(){
   if (isAdmin) {
     const { count } = await db.from('supply_comments').select('id', { count: 'exact', head: true }).eq('read_by_admin', false);
     unreadComments = count || 0;
+  } else if (isViewer) {
+    const { count } = await db.from('supply_comments').select('id', { count: 'exact', head: true }).eq('read_by_viewer', false);
+    unreadComments = count || 0;
   }
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -1187,6 +1190,7 @@ async function renderHome(){
 
   <div class="dash-section-title">Quick access</div>
   <div class="dash-cards">
+    ${!isViewer?`
     <div class="dash-card" onclick="switchTab('patients');openAddPatient()">
       <div class="dash-card-icon" style="background:var(--navy-pale)"><i class="ti ti-user-plus" style="color:var(--navy);font-size:26px"></i></div>
       <h3>Register patient</h3>
@@ -1198,7 +1202,7 @@ async function renderHome(){
       <h3>View patients</h3>
       <p>Browse, search, and filter all patient records. Update status and view detailed information.</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>
+    </div>`:''}
     <div class="dash-card" onclick="switchTab('supplies')">
       <div class="dash-card-icon" style="background:#EEEDFE"><i class="ti ti-package" style="color:#3C3489;font-size:26px"></i></div>
       <h3>Supplies</h3>
@@ -1228,6 +1232,7 @@ async function renderHome(){
 
   <div class="dash-section-title">Overview</div>
   <div class="dash-stats">
+    ${!isViewer?`
     <div class="dash-stat" onclick="switchTab('patients')">
       <div class="dash-stat-icon" style="background:var(--navy-pale)"><i class="ti ti-users" style="color:var(--navy)"></i></div>
       <div class="dash-stat-info"><div class="num">${pts.length}</div><div class="lbl">Total patients</div></div>
@@ -1247,7 +1252,7 @@ async function renderHome(){
     <div class="dash-stat" onclick="switchTab('patients');patientFilter.status=['Deceased'];">
       <div class="dash-stat-icon" style="background:var(--red-pale)"><i class="ti ti-heart-off" style="color:var(--red)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
-    </div>
+    </div>`:''}
     <div class="dash-stat" onclick="switchTab('supplies')">
       <div class="dash-stat-icon" style="background:var(--navy-pale)"><i class="ti ti-package" style="color:var(--navy)"></i></div>
       <div class="dash-stat-info"><div class="num">${sups.length}</div><div class="lbl">Supply items</div></div>
@@ -1260,9 +1265,9 @@ async function renderHome(){
       <div class="dash-stat-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--amber)">${pendingCount}</div><div class="lbl">Pending requests</div></div>
     </div>`:''}
-    ${isAdmin&&unreadComments>0?`<div class="dash-stat" onclick="switchTab('supplies')" style="border-color:#7C3AED">
+    ${(isAdmin||isViewer)&&unreadComments>0?`<div class="dash-stat" onclick="switchTab('supplies')" style="border-color:#7C3AED">
       <div class="dash-stat-icon" style="background:#F3EEFF"><i class="ti ti-message-circle" style="color:#6B21A8"></i></div>
-      <div class="dash-stat-info"><div class="num" style="color:#6B21A8">${unreadComments}</div><div class="lbl">Unread comments</div></div>
+      <div class="dash-stat-info"><div class="num" style="color:#6B21A8">${unreadComments}</div><div class="lbl">${isAdmin?'Unread comments':'New admin replies'}</div></div>
     </div>`:''}
   </div>
 
@@ -1381,7 +1386,7 @@ async function renderPatients(){
     ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
     ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
     ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatients()"><i class="ti ti-x"></i> Clear filters</button>':''}
-    <button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-plus"></i> Register</button>
+    ${!isViewer?'<button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-plus"></i> Register</button>':''}
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
   <div class="table-wrapper"><table>
@@ -1432,6 +1437,7 @@ function openEditPatient(id){
   document.getElementById('patient-modal').classList.add('open');
 }
 async function savePatient(){
+  if(currentUser&&currentUser.role==='viewer'){alert('Viewers do not have permission to add or edit patients.');return;}
   const ip=document.getElementById('f-ip').value.trim();
   const name=document.getElementById('f-name').value.trim();
   const yob=parseInt(document.getElementById('f-yob').value);
@@ -1475,9 +1481,11 @@ async function renderSupplies(){
   const {data}=await db.from('supplies').select('*, movements(*)').order('name');
   supplies=data||[];
   const isAdmin=currentUser&&currentUser.role==='admin';
+  const isViewer = currentUser && currentUser.role === 'viewer';
   let unreadBySupply={};
-  if(isAdmin){
-    const {data:unread}=await db.from('supply_comments').select('supply_id').eq('read_by_admin',false);
+  if(isAdmin || isViewer){
+    const unreadField = isAdmin ? 'read_by_admin' : 'read_by_viewer';
+    const {data:unread}=await db.from('supply_comments').select('supply_id').eq(unreadField,false);
     (unread||[]).forEach(c=>{unreadBySupply[c.supply_id]=(unreadBySupply[c.supply_id]||0)+1;});
   }
   hideLoading();
@@ -1496,13 +1504,15 @@ async function renderSupplies(){
     <button class="btn btn-green" onclick="openRequestModal()"><i class="ti ti-send"></i> Request item</button>
     ${isAdmin?'<button class="btn" onclick="exportSupplies()"><i class="ti ti-download"></i> Export</button>':''}
   </div>`;
-  const isViewer = currentUser && currentUser.role === 'viewer';
-  if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items for the admin to review.</div>`;
+  if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items and the admin will reply here.</div>`;
   else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit ${cat.plural.toLowerCase()}.</div></div>`;
   if(isAdmin&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
-  if(isAdmin&&Object.keys(unreadBySupply).length){
+  if((isAdmin||isViewer)&&Object.keys(unreadBySupply).length){
     const names=Object.keys(unreadBySupply).map(id=>supplies.find(s=>s.id===id)).filter(Boolean).filter(s=>(s.category||'supply')===currentSupplyCategory).map(s=>s.name);
-    if(names.length)h+=`<div class="alert" style="background:#F3EEFF;border-color:#C4B5FD;color:#6B21A8"><i class="ti ti-message-circle"></i><div><strong>New comments on:</strong> ${names.join(', ')}</div></div>`;
+    if(names.length){
+      const label = isAdmin ? 'New comments on:' : 'New reply from admin on:';
+      h+=`<div class="alert" style="background:#F3EEFF;border-color:#C4B5FD;color:#6B21A8"><i class="ti ti-message-circle"></i><div><strong>${label}</strong> ${names.join(', ')}</div></div>`;
+    }
   }
   h+=`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Stock</th>${isAdmin?'<th>Threshold</th>':''}<th>Log</th>${isAdmin?'<th>IN</th><th>OUT</th><th></th>':''}${(isViewer||isAdmin)?'<th>Comments</th>':''}</tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ${cat.icon}"></i>No ${cat.plural.toLowerCase()} found</div></td></tr>`;
@@ -1514,7 +1524,7 @@ async function renderSupplies(){
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
       ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}
-      ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" style="${unreadCount?'background:#7C3AED;color:#fff;border-color:#7C3AED':''}" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${isAdmin?(unreadCount?` ${unreadCount} New`:' View/Add'):'Comment'}</button></td>`:''}</tr>`;
+      ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" style="${unreadCount?'background:#7C3AED;color:#fff;border-color:#7C3AED':''}" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${unreadCount?` ${unreadCount} New`:(isAdmin?' View/Add':' Comment')}</button></td>`:''}</tr>`;
   });
   h+=`</tbody></table></div>`;
   document.getElementById('main-content').innerHTML=h;
@@ -1703,14 +1713,21 @@ async function openCommentModal(supplyId, supplyName) {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('cm-input-area').style.display = isViewer ? '' : (isAdmin ? '' : 'none');
   document.getElementById('cm-submit-btn').style.display = isViewer ? '' : (isAdmin ? '' : 'none');
+  const label = document.getElementById('cm-input-label');
+  if (label) label.textContent = isAdmin ? 'Your reply (visible to the viewer)' : 'Your comment (the admin will reply here)';
+  const submitBtn = document.getElementById('cm-submit-btn');
+  if (submitBtn) submitBtn.innerHTML = isAdmin ? '<i class="ti ti-send"></i> Send reply' : '<i class="ti ti-send"></i> Send comment';
 
   // Load existing comments
   await loadComments(supplyId);
   document.getElementById('comment-modal').classList.add('open');
 
-  // Mark as read if admin
+  // Mark as read for whichever side just opened the thread
   if (isAdmin) {
     await db.from('supply_comments').update({ read_by_admin: true }).eq('supply_id', supplyId).eq('read_by_admin', false);
+    await updateCommentDot();
+  } else if (isViewer) {
+    await db.from('supply_comments').update({ read_by_viewer: true }).eq('supply_id', supplyId).eq('read_by_viewer', false);
     await updateCommentDot();
   }
 }
@@ -1729,13 +1746,13 @@ async function loadComments(supplyId) {
     return;
   }
   box.innerHTML = data.map(c => `
-    <div class="comment-item ${!c.read_by_admin && currentUser.role==='admin' ? 'unread' : ''}">
+    <div class="comment-item ${(currentUser.role==='admin'&&!c.read_by_admin)||(currentUser.role==='viewer'&&!c.read_by_viewer) ? 'unread' : ''}">
       <div class="comment-meta">
         <i class="ti ti-user" style="font-size:11px"></i>
         <strong>${c.by_user}</strong>
         <span style="background:${c.by_role==='viewer'?'#F3EEFF':c.by_role==='admin'?'var(--navy-pale)':'var(--green-pale)'};color:${c.by_role==='viewer'?'#6B21A8':c.by_role==='admin'?'var(--navy)':'#2E6B10'};padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${c.by_role}</span>
         &nbsp;·&nbsp; ${new Date(c.created_at).toLocaleString()}
-        ${!c.read_by_admin && currentUser.role==='admin' ? '<span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:700">NEW</span>' : ''}
+        ${(currentUser.role==='admin'&&!c.read_by_admin)||(currentUser.role==='viewer'&&!c.read_by_viewer) ? '<span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:700">NEW</span>' : ''}
       </div>
       <div class="comment-text">${c.comment}</div>
     </div>
@@ -1750,12 +1767,16 @@ async function submitComment() {
     return;
   }
   showLoading('Sending comment...');
+  const isAdminSender = currentUser.role === 'admin';
   const { data, error } = await db.from('supply_comments').insert({
     supply_id: commentSupplyId,
     by_user: currentUser.name,
     by_role: currentUser.role,
     comment: text,
-    read_by_admin: false
+    // A message is "read" by its own sender immediately, and unread for the other side —
+    // this is what makes the admin's reply show up as new for the viewer, and vice versa.
+    read_by_admin: isAdminSender,
+    read_by_viewer: !isAdminSender
   }).select();
   hideLoading();
   if (error) {
@@ -1771,10 +1792,11 @@ async function submitComment() {
 }
 
 async function updateCommentDot() {
-  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'viewer')) return;
+  const unreadField = currentUser.role === 'admin' ? 'read_by_admin' : 'read_by_viewer';
   const { count, error } = await db.from('supply_comments')
     .select('id', { count: 'exact', head: true })
-    .eq('read_by_admin', false);
+    .eq(unreadField, false);
   if (error) { console.error('Failed to fetch comment count:', error); return; }
   const dot = document.getElementById('supply-comment-dot');
   if (dot) {
@@ -1895,11 +1917,11 @@ function exportRequests(){
 
 <!-- Supply Comment Modal -->
 <div class="modal-bg" id="comment-modal"><div class="modal">
-  <h2><i class="ti ti-message-circle" style="margin-right:6px"></i>Comment on Supply</h2>
+  <h2><i class="ti ti-message-circle" style="margin-right:6px"></i>Item Discussion</h2>
   <div class="modal-sub" id="cm-supply-name" style="font-weight:700;color:#6B21A8"></div>
   <div id="cm-existing-comments" style="margin:12px 0;max-height:200px;overflow-y:auto"></div>
   <div class="form-group" id="cm-input-area">
-    <label>Your comment (visible to admin only)</label>
+    <label id="cm-input-label">Your comment</label>
     <textarea id="cm-text" rows="3" placeholder="Type your comment or observation here..." style="resize:vertical"></textarea>
   </div>
   <div class="modal-err" id="cm-error"><i class="ti ti-alert-circle"></i><span id="cm-error-msg"></span></div>

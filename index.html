@@ -1257,7 +1257,7 @@ async function renderHome(){
       <div class="dash-stat-icon" style="background:var(--navy-pale)"><i class="ti ti-package" style="color:var(--navy)"></i></div>
       <div class="dash-stat-info"><div class="num">${sups.length}</div><div class="lbl">Supply items</div></div>
     </div>
-    ${isAdmin&&lowStock>0?`<div class="dash-stat" onclick="switchTab('supplies')" style="border-color:var(--amber)">
+    ${(isAdmin||isViewer)&&lowStock>0?`<div class="dash-stat" onclick="switchTab('supplies')" style="border-color:var(--amber)">
       <div class="dash-stat-icon" style="background:var(--amber-pale)"><i class="ti ti-alert-triangle" style="color:var(--amber)"></i></div>
       <div class="dash-stat-info"><div class="num" style="color:var(--amber)">${lowStock}</div><div class="lbl">Low stock items</div></div>
     </div>`:''}
@@ -1506,7 +1506,7 @@ async function renderSupplies(){
   </div>`;
   if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items and the admin will reply here.</div>`;
   else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit ${cat.plural.toLowerCase()}.</div></div>`;
-  if(isAdmin&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
+  if((isAdmin||isViewer)&&low.length)h+=`<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i><div><strong>Low stock:</strong> ${low.map(s=>s.name+' ('+getStock(s)+' '+s.unit+')').join(', ')}</div></div>`;
   if((isAdmin||isViewer)&&Object.keys(unreadBySupply).length){
     const names=Object.keys(unreadBySupply).map(id=>supplies.find(s=>s.id===id)).filter(Boolean).filter(s=>(s.category||'supply')===currentSupplyCategory).map(s=>s.name);
     if(names.length){
@@ -1518,9 +1518,10 @@ async function renderSupplies(){
   if(!filtered.length)h+=`<tr><td colspan="${isAdmin?7:4}"><div class="empty"><i class="ti ${cat.icon}"></i>No ${cat.plural.toLowerCase()} found</div></td></tr>`;
   else filtered.forEach(s=>{
     const stock=getStock(s);const isLow=stock<=s.threshold;
+    const showLow=isLow&&(isAdmin||isViewer);
     const unreadCount=unreadBySupply[s.id]||0;
     h+=`<tr style="${unreadCount?'background:#FAF5FF':''}"><td><strong>${s.name}</strong>${unreadCount?` <span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px;vertical-align:middle">${unreadCount} new</span>`:''}</td><td>${s.unit}</td>
-      <td class="${isLow&&isAdmin?'stock-low':''}">${stock}${isLow&&isAdmin?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
+      <td class="${showLow?'stock-low':''}">${stock}${showLow?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
       ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}

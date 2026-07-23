@@ -1739,9 +1739,9 @@ function downloadDischargeSummary(){
   sectionHeader('Session Summary');
   if(toleranceSel==='complicated'){
     richParagraph([
-      {text:'Patient attended the scheduled haemodialysis session. Haemodialysis was completed as prescribed via ', bold:false},
+      {text:'Patient attended the scheduled hemodialysis/hemodiafiltration session. Hemodialysis/hemodiafiltration was completed as prescribed via ', bold:false},
       {text:blankVal(accessVal), bold:isFilled(accessVal)},
-      {text:' access. A total ultrafiltration of ', bold:false},
+      {text:' access. A total ultrafiltration (UF) of ', bold:false},
       {text:blankVal(ufVal), bold:isFilled(ufVal)},
       {text:' L was achieved. The procedure was complicated by ', bold:false},
       {text:blankVal(complicationVal), bold:isFilled(complicationVal)},
@@ -1749,9 +1749,9 @@ function downloadDischargeSummary(){
     ], 30);
   } else {
     richParagraph([
-      {text:'Patient attended the scheduled haemodialysis session. Haemodialysis was completed as prescribed via ', bold:false},
+      {text:'Patient attended the scheduled hemodialysis/hemodiafiltration session. Hemodialysis/hemodiafiltration was completed as prescribed via ', bold:false},
       {text:blankVal(accessVal), bold:isFilled(accessVal)},
-      {text:' access. A total ultrafiltration of ', bold:false},
+      {text:' access. A total ultrafiltration (UF) of ', bold:false},
       {text:blankVal(ufVal), bold:isFilled(ufVal)},
       {text:' L was achieved. The procedure was well tolerated.', bold:false}
     ], 30);
@@ -1790,7 +1790,7 @@ function downloadDischargeSummary(){
   const nextDateVal = document.getElementById('ds-nextdate').value;
   sectionHeader('Plan');
   richParagraph([
-    {text:'Continue scheduled haemodialysis, prescribed medications, and fluid/dietary restrictions. Next dialysis session on ', bold:false},
+    {text:'Continue scheduled hemodialysis/hemodiafiltration, prescribed medications, and fluid/dietary restrictions. Next dialysis session on ', bold:false},
     {text:nextDateVal ? nextDateVal : '______', bold: isFilled(nextDateVal)},
     {text:'.', bold:false}
   ], 25);

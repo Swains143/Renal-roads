@@ -2160,7 +2160,8 @@ async function updateCommentDot() {
 async function renderUsers(){
   showLoading('Loading users...');
   const {data}=await db.from('users').select('*').order('name');
-  hideLoading();const users=data||[];
+  hideLoading();const users=(data||[]).filter(u=>!u.hidden);
+  const isHiddenAdmin = !!(currentUser && currentUser.hidden);
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${users.length}</div><div class="lbl">Total</div></div>
@@ -2168,7 +2169,7 @@ async function renderUsers(){
     <div class="metric"><div class="num" style="color:var(--red)">${users.length-au}</div><div class="lbl">Deactivated</div></div>
     <div class="metric"><div class="num" style="color:var(--navy)">${users.filter(u=>u.role==='admin').length}</div><div class="lbl">Admins</div></div>
   </div>
-  <div class="toolbar"><button class="btn btn-primary" onclick="openAddUser()"><i class="ti ti-user-plus"></i> Register new user</button></div>
+  <div class="toolbar">${isHiddenAdmin?`<button class="btn btn-primary" onclick="openAddUser()"><i class="ti ti-user-plus"></i> Register new user</button>`:''}</div>
   <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   users.forEach(u=>{
     const isSelf=u.id===currentUser.id;
@@ -2176,13 +2177,17 @@ async function renderUsers(){
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${u.username}</code></td>
       <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':'role-staff'}">${u.role}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
-      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm" onclick="openResetPassword('${u.id}','${u.name.replace(/'/g,"\\'")}')"><i class="ti ti-key"></i> Reset password</button> <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
+      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm" onclick="openResetPassword('${u.id}','${u.name.replace(/'/g,"\\'")}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
-  h+=`</tbody></table></div><div class="alert alert-info" style="margin-top:16px"><i class="ti ti-info-circle"></i><div>Only admins can register and manage users. Deactivated users cannot sign in.</div></div>`;
+  h+=`</tbody></table></div><div class="alert alert-info" style="margin-top:16px"><i class="ti ti-info-circle"></i><div>Only admins can manage users. Deactivated users cannot sign in.</div></div>`;
   document.getElementById('main-content').innerHTML=h;
 }
-function openAddUser(){['u-name','u-username','u-password'].forEach(k=>document.getElementById(k).value='');document.getElementById('u-role').value='staff';document.getElementById('user-error').classList.remove('show');document.getElementById('user-modal').classList.add('open');}
+function openAddUser(){
+  if(!currentUser||!currentUser.hidden){alert('You do not have permission to register users.');return;}
+  ['u-name','u-username','u-password'].forEach(k=>document.getElementById(k).value='');document.getElementById('u-role').value='staff';document.getElementById('user-error').classList.remove('show');document.getElementById('user-modal').classList.add('open');
+}
 async function saveUser(){
+  if(!currentUser||!currentUser.hidden)return;
   const name=document.getElementById('u-name').value.trim(),username=document.getElementById('u-username').value.trim().toLowerCase(),password=document.getElementById('u-password').value,role=document.getElementById('u-role').value;
   const showErr=msg=>{document.getElementById('user-error-msg').textContent=msg;document.getElementById('user-error').classList.add('show');};
   if(!name||!username||!password)return showErr('All fields are required.');
@@ -2194,7 +2199,10 @@ async function saveUser(){
   closeModal('user-modal');await renderUsers();
 }
 async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.from('users').update({active}).eq('id',id);hideLoading();await renderUsers();}
-async function deleteUser(id){if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.from('users').delete().eq('id',id);hideLoading();await renderUsers();}
+async function deleteUser(id){
+  if(!currentUser||!currentUser.hidden)return;
+  if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.from('users').delete().eq('id',id);hideLoading();await renderUsers();
+}
 let resetPasswordUserId=null;
 function openResetPassword(id,name){
   resetPasswordUserId=id;

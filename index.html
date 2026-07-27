@@ -863,6 +863,16 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="modal-footer"><button class="btn" onclick="closeModal('reset-password-modal')">Cancel</button><button class="btn btn-primary" onclick="saveResetPassword()"><i class="ti ti-key"></i> Reset password</button></div>
 </div></div>
 
+<!-- Idle Timeout Warning Modal -->
+<div class="modal-bg" id="idle-warning-modal"><div class="modal" style="max-width:380px;text-align:center">
+  <i class="ti ti-clock-hour-4" style="font-size:38px;color:var(--amber)"></i>
+  <h2 style="margin-top:10px">Still there?</h2>
+  <div class="modal-sub">You've been inactive for a while. For security, you'll be signed out in <strong id="idle-countdown">60</strong> seconds.</div>
+  <div class="modal-footer" style="justify-content:center">
+    <button class="btn btn-primary" onclick="staySignedIn()"><i class="ti ti-check"></i> Stay signed in</button>
+  </div>
+</div></div>
+
 <script>
 const YEAR = new Date().getFullYear();
 const SB_URL = 'https://vagsqfyedfxfvzzcgoqt.supabase.co';
@@ -881,6 +891,82 @@ let patientFilter = {search:'',status:[],gender:[],station:[]};
 let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};
 let currentSupplyCategory = 'supply'; // 'supply' | 'medication' — same features, split by category
+
+// ---- IDLE SESSION TIMEOUT ----
+const IDLE_TIMEOUT_MS = 15*60*1000;   // log out after 15 min of no activity
+const IDLE_WARNING_MS = 60*1000;      // show a 60s warning before logging out
+let idleCheckInterval = null;
+let idleCountdownInterval = null;
+let idleWarningShown = false;
+
+function markActivity(){
+  // Only relevant while signed in; also don't let the warning modal's own re-render loop reset the clock while it's up
+  if(!currentUser || idleWarningShown) return;
+  localStorage.setItem('rr_last_activity', String(Date.now()));
+}
+['mousedown','keydown','scroll','touchstart'].forEach(evt=>{
+  document.addEventListener(evt, markActivity, {passive:true});
+});
+// Keep the timer in sync across tabs of the same browser
+window.addEventListener('storage', e=>{
+  if(e.key==='rr_last_activity' && idleWarningShown){
+    // Activity happened in another tab while warning is up here — dismiss it
+    dismissIdleWarning();
+  }
+});
+
+function startIdleMonitor(){
+  stopIdleMonitor();
+  localStorage.setItem('rr_last_activity', String(Date.now()));
+  idleCheckInterval = setInterval(checkIdle, 5000);
+}
+function stopIdleMonitor(){
+  if(idleCheckInterval) clearInterval(idleCheckInterval);
+  if(idleCountdownInterval) clearInterval(idleCountdownInterval);
+  idleCheckInterval = null; idleCountdownInterval = null;
+  idleWarningShown = false;
+  const m=document.getElementById('idle-warning-modal');
+  if(m) m.classList.remove('open');
+}
+function checkIdle(){
+  if(!currentUser) return;
+  const last = Number(localStorage.getItem('rr_last_activity') || 0);
+  const elapsed = Date.now() - last;
+  if(elapsed >= IDLE_TIMEOUT_MS){
+    idleLogout();
+  } else if(elapsed >= IDLE_TIMEOUT_MS - IDLE_WARNING_MS && !idleWarningShown){
+    showIdleWarning();
+  }
+}
+function showIdleWarning(){
+  idleWarningShown = true;
+  document.getElementById('idle-warning-modal').classList.add('open');
+  let secondsLeft = Math.round(IDLE_WARNING_MS/1000);
+  document.getElementById('idle-countdown').textContent = secondsLeft;
+  idleCountdownInterval = setInterval(()=>{
+    secondsLeft--;
+    document.getElementById('idle-countdown').textContent = Math.max(secondsLeft,0);
+    if(secondsLeft<=0){
+      clearInterval(idleCountdownInterval);
+      idleLogout();
+    }
+  }, 1000);
+}
+function dismissIdleWarning(){
+  idleWarningShown = false;
+  if(idleCountdownInterval) clearInterval(idleCountdownInterval);
+  document.getElementById('idle-warning-modal').classList.remove('open');
+  localStorage.setItem('rr_last_activity', String(Date.now()));
+}
+function staySignedIn(){
+  dismissIdleWarning();
+}
+function idleLogout(){
+  stopIdleMonitor();
+  doLogout();
+  document.getElementById('login-error-msg').textContent = 'You were signed out due to inactivity. Please log in again.';
+  document.getElementById('login-error').classList.add('show');
+}
 
 function showLoading(msg='Loading...'){document.getElementById('loading-overlay').classList.remove('hidden');document.getElementById('loading-msg').textContent=msg;}
 function hideLoading(){document.getElementById('loading-overlay').classList.add('hidden');}
@@ -1075,6 +1161,7 @@ async function doLogin(){
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
+    startIdleMonitor();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     // Poll for new viewer comments every 30 seconds
@@ -1092,7 +1179,9 @@ async function doLogin(){
 
 function doLogout(){
   currentUser=null;
+  stopIdleMonitor();
   localStorage.removeItem('rr_session');
+  localStorage.removeItem('rr_last_activity');
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('app-page').classList.remove('visible');
   document.getElementById('login-username').value='';
@@ -1114,11 +1203,18 @@ async function restoreSession(){
   try{
     const saved=localStorage.getItem('rr_session');
     if(!saved)return false;
+    const lastActivity=Number(localStorage.getItem('rr_last_activity')||0);
+    if(lastActivity && (Date.now()-lastActivity)>=IDLE_TIMEOUT_MS){
+      localStorage.removeItem('rr_session');
+      localStorage.removeItem('rr_last_activity');
+      return false;
+    }
     const {id}=JSON.parse(saved);
     const {data:rows,error}=await db.rpc('rr_get_user_by_id',{p_id:id});
     const data=rows&&rows[0];
     if(error||!data||!data.active)return false;
     currentUser=data;
+    startIdleMonitor();
     document.getElementById('tbu').textContent=data.name;
     document.getElementById('tbr').textContent=data.role;
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();

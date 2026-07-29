@@ -562,6 +562,59 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .dis-rinse-row.header-row { background:var(--gray-50); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--gray-400); padding:10px 24px; border-bottom:2px solid var(--gray-200); }
 .dis-save-bar { padding:14px 24px; border-top:1px solid var(--gray-100); display:flex; align-items:center; gap:10px; }
 
+/* ---- Weekly Clinical Report ---- */
+.rep-page{display:flex;flex-direction:column;gap:20px;padding-bottom:24px}
+.rep-card{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow);padding:22px 24px}
+.rep-card h2{font-family:'Lora',Georgia,serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.rep-hint{font-size:12px;color:var(--gray-400);margin-bottom:14px}
+.rep-toggle{display:inline-flex;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius);padding:4px;gap:4px}
+.rep-toggle button{border:none;background:transparent;padding:8px 20px;border-radius:7px;font-weight:700;font-size:13px;color:var(--gray-600);cursor:pointer;transition:0.15s;font-family:'Inter',sans-serif}
+.rep-toggle button.active{background:var(--navy);color:var(--white)}
+.rep-row{display:flex;gap:14px;flex-wrap:wrap}
+.rep-row>.rep-field{flex:1;min-width:170px}
+.rep-field{margin-bottom:14px}
+.rep-field label{display:block;font-size:11px;font-weight:700;color:var(--gray-600);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:5px}
+.rep-field label.rep-label-light{font-weight:500;text-transform:none;letter-spacing:0;color:var(--gray-400)}
+.rep-field input,.rep-field select,.rep-field textarea{width:100%;padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius);background:var(--white);color:var(--gray-800);font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+.rep-field input:focus,.rep-field select:focus,.rep-field textarea:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(46,45,159,0.1)}
+.rep-field textarea{min-height:70px;resize:vertical}
+.rep-yn{display:flex;gap:8px;margin-bottom:12px}
+.rep-yn button{flex:1;padding:9px;border-radius:var(--radius);border:1.5px solid var(--gray-200);background:var(--white);font-weight:700;font-size:12.5px;color:var(--gray-600);cursor:pointer;font-family:'Inter',sans-serif;transition:0.15s}
+.rep-yn button.active-yes{background:var(--green-pale);border-color:var(--green);color:var(--green-dark)}
+.rep-yn button.active-no{background:var(--gray-100);border-color:var(--gray-200);color:var(--gray-800)}
+.rep-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+.rep-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gray-400);padding:7px 8px;border-bottom:1px solid var(--gray-200)}
+.rep-table td{padding:5px 6px;border-bottom:1px solid var(--gray-100);vertical-align:top}
+.rep-table td input,.rep-table td textarea{border:1px solid transparent;background:transparent;padding:6px 7px;font-family:'Inter',sans-serif;font-size:13px;width:100%;border-radius:6px}
+.rep-table td input:hover,.rep-table td textarea:hover,.rep-table td input:focus,.rep-table td textarea:focus{border-color:var(--gray-200)}
+.rep-day-label{font-weight:700;font-size:12.5px;color:var(--gray-800);white-space:nowrap}
+.rep-add-row{margin-top:8px;background:none;border:1px dashed var(--gray-200);border-radius:var(--radius);padding:7px 12px;font-size:12.5px;color:var(--gray-600);cursor:pointer;font-family:'Inter',sans-serif;font-weight:600}
+.rep-add-row:hover{border-color:var(--navy);color:var(--navy)}
+.rep-remove-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;padding:2px 6px}
+.rep-page.facility-truck .rep-kigumo-only{display:none}
+.rep-page.facility-kigumo .rep-truck-only{display:none}
+.rep-page.facility-truck .rep-kigumo-only-cell{display:none}
+.rep-page.facility-kigumo .rep-truck-only-cell{display:none}
+.rep-footer-bar{position:sticky;bottom:0;background:var(--gray-50);padding:14px 0 4px;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.rep-status-msg{font-size:12.5px;color:var(--gray-400);margin-right:auto}
+#rep-printArea{display:none}
+@media print{
+  body *{visibility:hidden}
+  #rep-printArea, #rep-printArea *{visibility:visible}
+  #rep-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;color:#000;background:#fff;padding:20px}
+  .rep-print-title{text-align:center;font-size:16pt;font-weight:bold;margin-bottom:2px}
+  .rep-print-subtitle{text-align:center;font-size:11pt;margin-bottom:14px}
+  .rep-print-meta{width:100%;margin-bottom:14px;font-size:10.5pt}
+  .rep-print-meta td{padding:2px 6px}
+  .rep-print-section-title{font-size:12pt;font-weight:bold;margin:16px 0 4px;border-bottom:1px solid #000;padding-bottom:2px}
+  .rep-print-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10pt}
+  .rep-print-table th,.rep-print-table td{border:1px solid #000;padding:4px 6px;text-align:left;vertical-align:top}
+  .rep-print-table th{background:#eee}
+  .rep-print-text-block{border:1px solid #000;padding:6px;min-height:24px;font-size:10pt;margin-bottom:8px;white-space:pre-wrap}
+  .rep-print-footer{margin-top:24px;font-size:9.5pt;color:#333}
+  @page{margin:16mm}
+}
+
 </style>
 </head>
 <body>
@@ -658,6 +711,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
+    <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
   </div>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -667,6 +721,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
+      <option value="report" id="opt-report">📋 Weekly Report</option>
     </select>
   </div>
   <div class="content" id="main-content"></div>
@@ -1085,6 +1140,9 @@ function applyRoleTabVisibility(role){
   // Viewer: hide patients tab (sensitive data) - only Home & Supplies
   document.getElementById('tab-patients').style.display=role==='viewer'?'none':'';
   document.getElementById('opt-patients').hidden=role==='viewer';
+  // Viewer: hide weekly clinical report (staff/admin only)
+  document.getElementById('tab-report').style.display=role==='viewer'?'none':'';
+  document.getElementById('opt-report').hidden=role==='viewer';
 }
 
 function switchTab(t){
@@ -1237,6 +1295,7 @@ async function render(){
   else if(currentTab==='requests') await renderRequests();
   else if(currentTab==='users') await renderUsers();
   else if(currentTab==='disinfection') await renderDisinfection();
+  else if(currentTab==='report') await renderReport();
 }
 
 async function updateBadge(){
@@ -1539,6 +1598,599 @@ function updateDisinfectionAlertDot() {
     if (alerts > 0) { dot.style.display = 'inline'; dot.textContent = alerts; }
     else dot.style.display = 'none';
   }
+}
+
+
+// =====================================================================
+// WEEKLY CLINICAL REPORT
+// Reads/writes a single table: facility_reports
+//   id uuid pk default gen_random_uuid(), facility_type text,
+//   period_start date, period_end date, content jsonb, status text
+//   ('draft' | 'submitted'), created_by text, created_by_role text,
+//   created_at timestamptz default now(), updated_at timestamptz default now()
+// If this table doesn't exist yet in Supabase, create it (see project notes).
+// =====================================================================
+const REP_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let repFacility = 'truck';
+let repDraftId = null;
+
+function repIsoDate(d){ return d.toISOString().slice(0,10); }
+function repCurrentWeekRange(){
+  const today = new Date();
+  const dow = today.getDay();
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(today); monday.setDate(today.getDate() + diffToMonday);
+  const saturday = new Date(monday); saturday.setDate(monday.getDate() + 5);
+  return { start: repIsoDate(monday), end: repIsoDate(saturday) };
+}
+function repEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function renderReport(){
+  const { start, end } = repCurrentWeekRange();
+  const h = `
+  <div class="rep-page facility-${repFacility}">
+
+    <div class="rep-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <h2 style="margin-bottom:2px">Weekly Clinical Report</h2>
+        <div class="rep-hint" style="margin-bottom:0">Mobile Truck &amp; Kigumo Dialysis Hub — weekly operational summary</div>
+      </div>
+      <div class="rep-toggle" id="rep-facility-toggle">
+        <button type="button" class="${repFacility==='truck'?'active':''}" onclick="repSetFacility('truck')">Truck</button>
+        <button type="button" class="${repFacility==='kigumo'?'active':''}" onclick="repSetFacility('kigumo')">Kigumo</button>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Reporting period</h2>
+      <div class="rep-hint" id="rep-draftStatusHint">This week's period is set automatically. Change the dates to open a different week's draft.</div>
+      <div class="rep-row">
+        <div class="rep-field"><label>From</label><input type="date" id="rep-periodStart" value="${start}" onchange="repLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>To</label><input type="date" id="rep-periodEnd" value="${end}" onchange="repLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>Prepared by</label><input type="text" id="rep-preparedBy" placeholder="Full name" value="${currentUser?repEsc(currentUser.name):''}"></div>
+      </div>
+      <div class="rep-row" style="align-items:flex-end">
+        <div class="rep-field" style="flex:2">
+          <label>View a past submitted report</label>
+          <select id="rep-pastReportSelect" onchange="repOnPastReportChange(this.value)">
+            <option value="">Current week (editable)</option>
+          </select>
+        </div>
+        <div class="rep-field" style="flex:0 0 auto">
+          <button type="button" class="btn" id="rep-backToCurrentBtn" style="display:none" onclick="repBackToCurrent()">Back to current week</button>
+        </div>
+      </div>
+      <div id="rep-viewingPastBanner" class="alert alert-info" style="display:none">
+        <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current week" to resume editing.</div>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Outpatients</h2>
+      <div class="rep-hint">Filled in daily — total sums automatically</div>
+      <div class="table-wrapper"><table class="rep-table">
+        <thead><tr><th style="width:110px"></th><th style="width:120px">Attended</th><th>Remarks</th></tr></thead>
+        <tbody id="rep-outpatientRows"></tbody>
+        <tfoot><tr><td class="rep-day-label">Total</td><td><strong id="rep-outpatientTotalDisplay">0</strong></td><td></td></tr></tfoot>
+      </table></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Inpatients</h2>
+      <div class="rep-yn" id="rep-inpatientYN">
+        <button type="button" data-val="true" onclick="repSetYN('inpatientYN',true,this)">Yes</button>
+        <button type="button" data-val="false" class="active-no" onclick="repSetYN('inpatientYN',false,this)">No</button>
+      </div>
+      <div id="rep-inpatientDetails" style="display:none">
+        <div class="table-wrapper"><table class="rep-table">
+          <thead><tr><th>Name</th><th>Station</th><th>Remarks</th><th></th></tr></thead>
+          <tbody id="rep-inpatientRows"></tbody>
+        </table></div>
+        <button type="button" class="rep-add-row" onclick="repAddDynamicRow('rep-inpatientRows',['name','station','remarks'])"><i class="ti ti-plus"></i> Add patient</button>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Staff register</h2>
+      <div class="rep-hint">Monday – Saturday</div>
+      <div class="table-wrapper"><table class="rep-table" id="rep-staffTable">
+        <thead>
+          <tr class="rep-truck-only-cell"><th></th><th>Staff</th><th>Remarks</th></tr>
+          <tr class="rep-kigumo-only-cell" style="display:none"><th></th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>
+        </thead>
+        <tbody id="rep-staffRows"></tbody>
+      </table></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Dialysis machines &amp; RO plant activity</h2>
+      <div class="rep-field" style="max-width:220px">
+        <label class="rep-label-light">Reverse rinse — last performed on (due every 2 weeks)</label>
+        <input type="date" id="rep-rinseLastDate" onchange="repUpdateRinseDueHint()">
+      </div>
+      <div class="rep-hint" id="rep-rinseDueHint"></div>
+      <div class="rep-yn" id="rep-rinseYN">
+        <button type="button" data-val="true" onclick="repSetYN('rinseYN',true,this)">Done this week</button>
+        <button type="button" data-val="false" class="active-no" onclick="repSetYN('rinseYN',false,this)">Not done this week</button>
+      </div>
+      <div class="rep-field"><label>Remarks</label><textarea id="rep-rinseRemarks"></textarea></div>
+
+      <div class="rep-field" style="margin-top:4px"><label>Machines operational?</label></div>
+      <div class="rep-yn" id="rep-machinesYN">
+        <button type="button" data-val="true" onclick="repSetYN('machinesYN',true,this)">Yes</button>
+        <button type="button" data-val="false" class="active-no" onclick="repSetYN('machinesYN',false,this)">No</button>
+      </div>
+      <div class="rep-field"><label>Remarks</label><textarea id="rep-machinesRemarks"></textarea></div>
+
+      <div class="rep-kigumo-only">
+        <div class="rep-row">
+          <div class="rep-field"><label>Machines available (count)</label><input type="number" id="rep-machinesAvailable" min="0"></div>
+          <div class="rep-field">
+            <label>Water / power interruptions?</label>
+            <div class="rep-yn" id="rep-interruptYN">
+              <button type="button" data-val="true" onclick="repSetYN('interruptYN',true,this)">Yes</button>
+              <button type="button" data-val="false" class="active-no" onclick="repSetYN('interruptYN',false,this)">No</button>
+            </div>
+          </div>
+        </div>
+        <div class="rep-field"><label>Details</label><textarea id="rep-interruptDetails"></textarea></div>
+      </div>
+    </div>
+
+    <div class="rep-card rep-truck-only">
+      <h2>Truck mechanical activity report</h2>
+      <div class="rep-field"><textarea id="rep-mechanicalRemarks" placeholder="Remarks..."></textarea></div>
+    </div>
+
+    <div class="rep-card rep-truck-only">
+      <h2>Stations activity report</h2>
+      <div class="rep-field"><label>Gatura</label><textarea id="rep-stationGatura"></textarea></div>
+      <div class="rep-field"><label>Kirwara</label><textarea id="rep-stationKirwara"></textarea></div>
+      <div class="rep-field"><label>Maragwa</label><textarea id="rep-stationMaragwa"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Action points</h2>
+      <div class="table-wrapper"><table class="rep-table">
+        <thead><tr><th>Issue</th><th>Responsible person</th><th style="width:150px">Deadline</th><th></th></tr></thead>
+        <tbody id="rep-actionRows"></tbody>
+      </table></div>
+      <button type="button" class="rep-add-row" onclick="repAddDynamicRow('rep-actionRows',['issue','responsible_person','deadline'])"><i class="ti ti-plus"></i> Add action point</button>
+    </div>
+
+    <div class="rep-footer-bar">
+      <span class="rep-status-msg" id="rep-statusMsg"></span>
+      <button type="button" class="btn" id="rep-exportBtn" onclick="repExportPrint()"><i class="ti ti-printer"></i> Export / Print</button>
+      <button type="button" class="btn" id="rep-saveDraftBtn" onclick="repSaveReport('draft')"><i class="ti ti-device-floppy"></i> Save draft</button>
+      <button type="button" class="btn btn-primary" id="rep-submitBtn" onclick="repSaveReport('submitted')"><i class="ti ti-send"></i> Submit report</button>
+    </div>
+
+    <div id="rep-printArea"></div>
+  </div>`;
+  document.getElementById('main-content').innerHTML = h;
+
+  repRenderOutpatientTable();
+  repRenderStaffTable();
+  repUpdateRinseDueHint();
+  await repLoadDraftForCurrentSelection();
+  await repPopulatePastReportsDropdown();
+}
+
+function repSetFacility(facility){
+  repFacility = facility;
+  const page = document.querySelector('.rep-page');
+  if(page) page.className = 'rep-page facility-' + facility;
+  document.querySelectorAll('#rep-facility-toggle button').forEach(b=>b.classList.remove('active'));
+  const activeBtn = document.querySelector(`#rep-facility-toggle button[onclick="repSetFacility('${facility}')"]`);
+  if(activeBtn) activeBtn.classList.add('active');
+  repRenderStaffTable();
+  document.getElementById('rep-pastReportSelect').value='';
+  document.getElementById('rep-viewingPastBanner').style.display='none';
+  document.getElementById('rep-backToCurrentBtn').style.display='none';
+  repSetFormEditable(true);
+  repLoadDraftForCurrentSelection();
+  repPopulatePastReportsDropdown();
+}
+
+// ---------- Yes/No toggles ----------
+function repSetYN(containerId, isYes, btn){
+  const el = document.getElementById('rep-'+containerId);
+  [...el.children].forEach(b=>b.classList.remove('active-yes','active-no'));
+  btn.classList.add(isYes?'active-yes':'active-no');
+  if(containerId==='inpatientYN'){
+    document.getElementById('rep-inpatientDetails').style.display = isYes?'block':'none';
+  }
+}
+function repYnValue(containerId){
+  const active = document.querySelector('#rep-'+containerId+' .active-yes, #rep-'+containerId+' .active-no');
+  return active ? active.dataset.val === 'true' : null;
+}
+function repClickYN(containerId, isYes){
+  const btn = document.querySelector(`#rep-${containerId} button[data-val="${isYes}"]`);
+  if(btn) btn.click();
+}
+
+// ---------- Reverse rinse due hint ----------
+function repUpdateRinseDueHint(){
+  const lastDateVal = document.getElementById('rep-rinseLastDate').value;
+  const hint = document.getElementById('rep-rinseDueHint');
+  if(!lastDateVal){
+    hint.textContent = 'Enter the last performed date to see when the next one is due.';
+    hint.style.color = 'var(--gray-400)';
+    return;
+  }
+  const last = new Date(lastDateVal+'T00:00:00');
+  const next = new Date(last); next.setDate(next.getDate()+14);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const nextStr = next.toISOString().slice(0,10);
+  if(next < today){ hint.textContent = 'Overdue — was due '+nextStr; hint.style.color = 'var(--amber)'; }
+  else { hint.textContent = 'Next due '+nextStr; hint.style.color = 'var(--gray-400)'; }
+}
+
+// ---------- Outpatients (daily rows, auto-summed) ----------
+function repRenderOutpatientTable(){
+  const tbody = document.getElementById('rep-outpatientRows');
+  tbody.innerHTML = REP_DAYS.map(day=>`
+    <tr>
+      <td class="rep-day-label">${day}</td>
+      <td><input type="number" min="0" data-day="${day}" data-field="count" class="rep-outpatient-count" oninput="repUpdateOutpatientTotal()"></td>
+      <td><input type="text" data-day="${day}" data-field="remarks"></td>
+    </tr>`).join('');
+}
+function repUpdateOutpatientTotal(){
+  let total = 0;
+  document.querySelectorAll('.rep-outpatient-count').forEach(inp=>total += Number(inp.value)||0);
+  document.getElementById('rep-outpatientTotalDisplay').textContent = total;
+}
+function repCollectOutpatients(){
+  const days = {};
+  document.querySelectorAll('#rep-outpatientRows tr').forEach(tr=>{
+    const countInp = tr.querySelector('[data-field="count"]');
+    const remarksInp = tr.querySelector('[data-field="remarks"]');
+    days[countInp.dataset.day] = { count: Number(countInp.value)||0, remarks: remarksInp.value };
+  });
+  return days;
+}
+function repOutpatientTotal(){
+  return Object.values(repCollectOutpatients()).reduce((sum,d)=>sum+d.count,0);
+}
+
+// ---------- Staff register table ----------
+function repRenderStaffTable(){
+  const tbody = document.getElementById('rep-staffRows');
+  document.querySelector('#rep-staffTable thead .rep-truck-only-cell').style.display = repFacility==='truck'?'':'none';
+  document.querySelector('#rep-staffTable thead .rep-kigumo-only-cell').style.display = repFacility==='kigumo'?'':'none';
+  tbody.innerHTML = REP_DAYS.map(day=>{
+    if(repFacility==='truck'){
+      return `<tr>
+        <td class="rep-day-label">${day}</td>
+        <td><input type="text" data-day="${day}" data-field="staff"></td>
+        <td><input type="text" data-day="${day}" data-field="remarks"></td>
+      </tr>`;
+    }
+    return `<tr>
+      <td class="rep-day-label">${day}</td>
+      <td><input type="text" data-day="${day}" data-field="nurses_present"></td>
+      <td><input type="text" data-day="${day}" data-field="locum_nurses"></td>
+      <td><input type="text" data-day="${day}" data-field="reviewing_doctor"></td>
+    </tr>`;
+  }).join('');
+}
+function repCollectStaffRegister(){
+  const rows = {};
+  document.querySelectorAll('#rep-staffRows tr').forEach(tr=>{
+    const inputs = tr.querySelectorAll('input[data-day]');
+    const day = inputs[0].dataset.day;
+    const rowData = {};
+    inputs.forEach(inp=>rowData[inp.dataset.field]=inp.value);
+    rows[day] = rowData;
+  });
+  return rows;
+}
+
+// ---------- Dynamic row tables (inpatients / action points) ----------
+function repAddDynamicRow(tbodyId, columns, values){
+  const tbody = document.getElementById(tbodyId);
+  const tr = document.createElement('tr');
+  tr.innerHTML = columns.map(c=>{
+    const type = c==='deadline' ? 'date' : 'text';
+    return `<td><input type="${type}" data-field="${c}"></td>`;
+  }).join('') + `<td><button type="button" class="rep-remove-btn" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>`;
+  tbody.appendChild(tr);
+  if(values){ tr.querySelectorAll('input[data-field]').forEach(i=>i.value = values[i.dataset.field]||''); }
+}
+function repCollectDynamicRows(tbodyId){
+  const out = [];
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr=>{
+    const rowData = {};
+    tr.querySelectorAll('input[data-field]').forEach(inp=>rowData[inp.dataset.field]=inp.value);
+    out.push(rowData);
+  });
+  return out;
+}
+
+// ---------- Build content JSON ----------
+function repBuildContent(){
+  const content = {
+    facility_type: repFacility,
+    prepared_by: document.getElementById('rep-preparedBy').value,
+    outpatients: { daily: repCollectOutpatients(), total_attended: repOutpatientTotal() },
+    inpatients: { has_inpatients: repYnValue('inpatientYN'), details: repCollectDynamicRows('rep-inpatientRows') },
+    staff_register: repCollectStaffRegister(),
+    dialysis_machines_ro: {
+      weekly_reverse_rinse_done: repYnValue('rinseYN'),
+      reverse_rinse_last_date: document.getElementById('rep-rinseLastDate').value,
+      reverse_rinse_remarks: document.getElementById('rep-rinseRemarks').value,
+      machines_operational: repYnValue('machinesYN'),
+      machines_operational_remarks: document.getElementById('rep-machinesRemarks').value
+    },
+    action_points: repCollectDynamicRows('rep-actionRows')
+  };
+  if(repFacility==='kigumo'){
+    content.dialysis_machines_ro.machines_available_count = Number(document.getElementById('rep-machinesAvailable').value)||0;
+    content.dialysis_machines_ro.water_power_interruptions = repYnValue('interruptYN');
+    content.dialysis_machines_ro.interruption_details = document.getElementById('rep-interruptDetails').value;
+  }
+  if(repFacility==='truck'){
+    content.truck_mechanical_activity = { remarks: document.getElementById('rep-mechanicalRemarks').value };
+    content.stations_activity = {
+      Gatura: document.getElementById('rep-stationGatura').value,
+      Kirwara: document.getElementById('rep-stationKirwara').value,
+      Maragwa: document.getElementById('rep-stationMaragwa').value
+    };
+  }
+  return content;
+}
+
+function repPopulateForm(content){
+  document.getElementById('rep-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
+  const daily = (content.outpatients && content.outpatients.daily) || {};
+  document.querySelectorAll('#rep-outpatientRows tr').forEach(tr=>{
+    const countInp = tr.querySelector('[data-field="count"]');
+    const remarksInp = tr.querySelector('[data-field="remarks"]');
+    const d = daily[countInp.dataset.day];
+    if(d){ countInp.value = d.count||''; remarksInp.value = d.remarks||''; }
+  });
+  repUpdateOutpatientTotal();
+
+  const inp = content.inpatients || {};
+  repClickYN('inpatientYN', !!inp.has_inpatients);
+  document.getElementById('rep-inpatientRows').innerHTML='';
+  (inp.details||[]).forEach(row=>repAddDynamicRow('rep-inpatientRows',['name','station','remarks'],row));
+
+  const staff = content.staff_register || {};
+  document.querySelectorAll('#rep-staffRows tr').forEach(tr=>{
+    const inputs = tr.querySelectorAll('input[data-day]');
+    const day = inputs[0].dataset.day;
+    const rowData = staff[day] || {};
+    inputs.forEach(i=>i.value = rowData[i.dataset.field]||'');
+  });
+
+  const dro = content.dialysis_machines_ro || {};
+  repClickYN('rinseYN', !!dro.weekly_reverse_rinse_done);
+  document.getElementById('rep-rinseLastDate').value = dro.reverse_rinse_last_date || '';
+  repUpdateRinseDueHint();
+  document.getElementById('rep-rinseRemarks').value = dro.reverse_rinse_remarks || '';
+  repClickYN('machinesYN', !!dro.machines_operational);
+  document.getElementById('rep-machinesRemarks').value = dro.machines_operational_remarks || '';
+  if(repFacility==='kigumo'){
+    document.getElementById('rep-machinesAvailable').value = dro.machines_available_count || '';
+    repClickYN('interruptYN', !!dro.water_power_interruptions);
+    document.getElementById('rep-interruptDetails').value = dro.interruption_details || '';
+  }
+  if(repFacility==='truck'){
+    document.getElementById('rep-mechanicalRemarks').value = (content.truck_mechanical_activity && content.truck_mechanical_activity.remarks)||'';
+    const stations = content.stations_activity || {};
+    document.getElementById('rep-stationGatura').value = stations.Gatura||'';
+    document.getElementById('rep-stationKirwara').value = stations.Kirwara||'';
+    document.getElementById('rep-stationMaragwa').value = stations.Maragwa||'';
+  }
+  document.getElementById('rep-actionRows').innerHTML='';
+  (content.action_points||[]).forEach(row=>repAddDynamicRow('rep-actionRows',['issue','responsible_person','deadline'],row));
+}
+
+function repResetFormBlank(){
+  repDraftId = null;
+  document.getElementById('rep-preparedBy').value = currentUser?currentUser.name:'';
+  repRenderOutpatientTable();
+  repRenderStaffTable();
+  document.getElementById('rep-inpatientRows').innerHTML='';
+  document.getElementById('rep-actionRows').innerHTML='';
+  ['rep-rinseRemarks','rep-machinesRemarks','rep-mechanicalRemarks','rep-stationGatura','rep-stationKirwara','rep-stationMaragwa','rep-interruptDetails','rep-rinseLastDate']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const avail = document.getElementById('rep-machinesAvailable'); if(avail) avail.value='';
+  repUpdateRinseDueHint();
+}
+
+// ---------- Load / continue this week's draft ----------
+async function repLoadDraftForCurrentSelection(){
+  const statusMsg = document.getElementById('rep-statusMsg');
+  const periodStart = document.getElementById('rep-periodStart').value;
+  const periodEnd = document.getElementById('rep-periodEnd').value;
+  repResetFormBlank();
+  document.getElementById('rep-periodStart').value = periodStart;
+  document.getElementById('rep-periodEnd').value = periodEnd;
+
+  statusMsg.textContent = 'Checking for an existing draft this week...';
+  const { data, error } = await db.from('facility_reports').select('*')
+    .eq('facility_type', repFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
+    .eq('status','draft').order('created_at',{ascending:false}).limit(1);
+
+  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; return; }
+  if(data && data.length){
+    repDraftId = data[0].id;
+    repPopulateForm(data[0].content || {});
+    statusMsg.textContent = "Continuing this week's existing draft.";
+  } else {
+    statusMsg.textContent = 'No draft yet for this week — starting fresh.';
+  }
+}
+
+// ---------- Save / submit ----------
+async function repSaveReport(status){
+  const statusMsg = document.getElementById('rep-statusMsg');
+  const periodStart = document.getElementById('rep-periodStart').value;
+  const periodEnd = document.getElementById('rep-periodEnd').value;
+  if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
+
+  showLoading(status==='draft'?'Saving draft...':'Submitting report...');
+  const payload = {
+    facility_type: repFacility,
+    period_start: periodStart,
+    period_end: periodEnd,
+    content: repBuildContent(),
+    status: status,
+    created_by: currentUser?currentUser.name:null,
+    created_by_role: currentUser?currentUser.role:null,
+    updated_at: new Date().toISOString()
+  };
+  let result;
+  if(repDraftId){
+    result = await db.from('facility_reports').update(payload).eq('id', repDraftId).select();
+  } else {
+    result = await db.from('facility_reports').insert(payload).select();
+  }
+  hideLoading();
+  if(result.error){ statusMsg.textContent = 'Error: '+result.error.message; return; }
+  if(result.data && result.data.length) repDraftId = result.data[0].id;
+  statusMsg.textContent = status==='draft' ? "Draft saved — today's entry added." : 'Report submitted for the week.';
+  if(status==='submitted') await repPopulatePastReportsDropdown();
+}
+
+// ---------- Past submitted reports ----------
+function repSetFormEditable(editable){
+  document.querySelectorAll('.rep-card input, .rep-card textarea, .rep-card select, .rep-card button').forEach(el=>{
+    if(el.id==='rep-pastReportSelect' || el.id==='rep-backToCurrentBtn') return;
+    el.disabled = !editable;
+  });
+  document.getElementById('rep-saveDraftBtn').disabled = !editable;
+  document.getElementById('rep-submitBtn').disabled = !editable;
+}
+async function repPopulatePastReportsDropdown(){
+  const select = document.getElementById('rep-pastReportSelect');
+  select.innerHTML = '<option value="">Current week (editable)</option>';
+  const { data, error } = await db.from('facility_reports').select('id, period_start, period_end')
+    .eq('facility_type', repFacility).eq('status','submitted')
+    .order('period_start',{ascending:false}).limit(52);
+  if(error || !data) return;
+  data.forEach(r=>{
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = `${r.period_start} to ${r.period_end}`;
+    select.appendChild(opt);
+  });
+}
+async function repOnPastReportChange(id){
+  const banner = document.getElementById('rep-viewingPastBanner');
+  const backBtn = document.getElementById('rep-backToCurrentBtn');
+  if(!id){
+    banner.style.display='none'; backBtn.style.display='none';
+    repSetFormEditable(true);
+    await repLoadDraftForCurrentSelection();
+    return;
+  }
+  document.getElementById('rep-statusMsg').textContent = 'Loading past report...';
+  const { data, error } = await db.from('facility_reports').select('*').eq('id', id).single();
+  if(error || !data){ document.getElementById('rep-statusMsg').textContent = 'Could not load that report.'; return; }
+  repDraftId = null;
+  document.getElementById('rep-periodStart').value = data.period_start;
+  document.getElementById('rep-periodEnd').value = data.period_end;
+  repPopulateForm(data.content || {});
+  repSetFormEditable(false);
+  banner.style.display='block';
+  backBtn.style.display='inline-block';
+  document.getElementById('rep-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
+}
+function repBackToCurrent(){
+  document.getElementById('rep-pastReportSelect').value='';
+  repOnPastReportChange('');
+}
+
+// ---------- Export / Print ----------
+function repBuildPrintHTML(){
+  const content = repBuildContent();
+  const facilityLabel = repFacility==='truck' ? 'Truck' : 'Kigumo Hub';
+  const periodStart = document.getElementById('rep-periodStart').value;
+  const periodEnd = document.getElementById('rep-periodEnd').value;
+  let html = `
+    <div class="rep-print-title">Weekly Clinical Report</div>
+    <div class="rep-print-subtitle">${facilityLabel}</div>
+    <table class="rep-print-meta"><tr>
+      <td><strong>Period:</strong> ${repEsc(periodStart)} &nbsp;to&nbsp; ${repEsc(periodEnd)}</td>
+      <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)}</td>
+    </tr></table>
+
+    <div class="rep-print-section-title">Outpatients</div>
+    <table class="rep-print-table">
+      <thead><tr><th>Day</th><th>Attended</th><th>Remarks</th></tr></thead>
+      <tbody>
+        ${REP_DAYS.map(day=>{ const d=content.outpatients.daily[day]||{}; return `<tr><td>${day}</td><td>${d.count||0}</td><td>${repEsc(d.remarks)}</td></tr>`; }).join('')}
+        <tr><td><strong>Total</strong></td><td><strong>${content.outpatients.total_attended}</strong></td><td></td></tr>
+      </tbody>
+    </table>
+
+    <div class="rep-print-section-title">Inpatients</div>
+    <div>Inpatients this week: <strong>${content.inpatients.has_inpatients?'Yes':'No'}</strong></div>
+    ${content.inpatients.has_inpatients && content.inpatients.details.length ? `
+    <table class="rep-print-table">
+      <thead><tr><th>Name</th><th>Station</th><th>Remarks</th></tr></thead>
+      <tbody>${content.inpatients.details.map(r=>`<tr><td>${repEsc(r.name)}</td><td>${repEsc(r.station)}</td><td>${repEsc(r.remarks)}</td></tr>`).join('')}</tbody>
+    </table>` : ''}
+
+    <div class="rep-print-section-title">Staff Register</div>
+    <table class="rep-print-table">
+      <thead>${repFacility==='truck' ? '<tr><th>Day</th><th>Staff</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
+      <tbody>
+        ${REP_DAYS.map(day=>{
+          const row = content.staff_register[day]||{};
+          return repFacility==='truck'
+            ? `<tr><td>${day}</td><td>${repEsc(row.staff)}</td><td>${repEsc(row.remarks)}</td></tr>`
+            : `<tr><td>${day}</td><td>${repEsc(row.nurses_present)}</td><td>${repEsc(row.locum_nurses)}</td><td>${repEsc(row.reviewing_doctor)}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <div class="rep-print-section-title">Dialysis Machines &amp; RO Plant Activity</div>
+    <table class="rep-print-table"><tbody>
+      <tr><td><strong>Reverse rinse (every 2 weeks) — done this week</strong></td><td>${content.dialysis_machines_ro.weekly_reverse_rinse_done?'Yes':'No'}</td></tr>
+      <tr><td><strong>Reverse rinse last performed</strong></td><td>${repEsc(content.dialysis_machines_ro.reverse_rinse_last_date)||'—'}</td></tr>
+      <tr><td><strong>Remarks</strong></td><td>${repEsc(content.dialysis_machines_ro.reverse_rinse_remarks)}</td></tr>
+      <tr><td><strong>Machines operational</strong></td><td>${content.dialysis_machines_ro.machines_operational?'Yes':'No'}</td></tr>
+      <tr><td><strong>Remarks</strong></td><td>${repEsc(content.dialysis_machines_ro.machines_operational_remarks)}</td></tr>
+      ${repFacility==='kigumo' ? `
+      <tr><td><strong>Machines available</strong></td><td>${content.dialysis_machines_ro.machines_available_count||0}</td></tr>
+      <tr><td><strong>Water / power interruptions</strong></td><td>${content.dialysis_machines_ro.water_power_interruptions?'Yes':'No'}</td></tr>
+      <tr><td><strong>Details</strong></td><td>${repEsc(content.dialysis_machines_ro.interruption_details)}</td></tr>` : ''}
+    </tbody></table>`;
+
+  if(repFacility==='truck'){
+    html += `
+    <div class="rep-print-section-title">Truck Mechanical Activity Report</div>
+    <div class="rep-print-text-block">${repEsc(content.truck_mechanical_activity.remarks)||'&nbsp;'}</div>
+    <div class="rep-print-section-title">Stations Activity Report</div>
+    <table class="rep-print-table">
+      <thead><tr><th>Station</th><th>Activity notes</th></tr></thead>
+      <tbody>
+        <tr><td>Gatura</td><td>${repEsc(content.stations_activity.Gatura)}</td></tr>
+        <tr><td>Kirwara</td><td>${repEsc(content.stations_activity.Kirwara)}</td></tr>
+        <tr><td>Maragwa</td><td>${repEsc(content.stations_activity.Maragwa)}</td></tr>
+      </tbody>
+    </table>`;
+  }
+
+  html += `
+    <div class="rep-print-section-title">Action Points</div>
+    ${content.action_points.length ? `
+    <table class="rep-print-table">
+      <thead><tr><th>Issue</th><th>Responsible person</th><th>Deadline</th></tr></thead>
+      <tbody>${content.action_points.map(r=>`<tr><td>${repEsc(r.issue)}</td><td>${repEsc(r.responsible_person)}</td><td>${repEsc(r.deadline)}</td></tr>`).join('')}</tbody>
+    </table>` : '<div class="rep-print-text-block">&nbsp;</div>'}
+    <div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`;
+  return html;
+}
+function repExportPrint(){
+  document.getElementById('rep-printArea').innerHTML = repBuildPrintHTML();
+  window.print();
 }
 
 

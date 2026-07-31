@@ -608,7 +608,10 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-page.facility-truck .rep-kigumo-only-cell{display:none}
 .rep-page.facility-kigumo .rep-truck-only-cell{display:none}
 .rep-footer-bar{position:sticky;bottom:0;background:var(--gray-50);padding:14px 0 4px;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
-.rep-status-msg{font-size:12.5px;color:var(--gray-400);margin-right:auto}
+.rep-status-msg{font-size:12.5px;color:var(--gray-400);margin-right:auto;transition:color 0.2s ease}
+.rep-status-msg.dirty{color:var(--amber);font-weight:600}
+.rep-status-msg.dirty::before{content:"\25CF";margin-right:5px;font-size:9px;position:relative;top:-1px;animation:pulse 1.4s ease-in-out infinite}
+.rep-status-msg.saved{color:var(--green-dark);font-weight:600}
 #rep-printArea{display:none}
 @media print{
   body *{visibility:hidden}
@@ -1233,6 +1236,14 @@ function applyRoleTabVisibility(role){
 }
 
 function switchTab(t){
+  if(currentTab==='report' && t!=='report' && repDirty){
+    if(!confirm('You have unsaved changes in this report. Leave without saving?\n\n(Tip: changes are also autosaved as a draft periodically.)')){
+      const sel=document.getElementById('tab-select');
+      if(sel) sel.value='report';
+      return;
+    }
+    repDirty = false;
+  }
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
   const sel=document.getElementById('tab-select');
@@ -1319,6 +1330,9 @@ async function doLogin(){
 
 function doLogout(){
   currentUser=null;
+  repStopAutoSave();
+  repStopRealtime();
+  repDirty=false;
   stopIdleMonitor();
   stopRequestNotifyMonitor();
   localStorage.removeItem('rr_session');
@@ -1379,6 +1393,7 @@ async function restoreSession(){
 
 async function render(){
   await updateBadge();
+  if(currentTab!=='report'){ repStopAutoSave(); repStopRealtime(); }
   if(currentTab==='home') await renderHome();
   else if(currentTab==='patients') await renderPatients();
   else if(currentTab==='supplies') await renderSupplies();
@@ -1699,11 +1714,130 @@ function updateDisinfectionAlertDot() {
 //   ('draft' | 'submitted'), created_by text, created_by_role text,
 //   created_at timestamptz default now(), updated_at timestamptz default now()
 // If this table doesn't exist yet in Supabase, create it (see project notes).
+// For live cross-device sync while filling a report, this table also needs
+// Realtime enabled in Supabase: Database > Replication > toggle
+// facility_reports on (or run: alter publication supabase_realtime add table facility_reports;)
 // =====================================================================
 const REP_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 let repFacility = 'truck';
 let repDraftId = null;
 let repKind = 'clinical'; // 'clinical' | 'operational' — which weekly report form is showing
+
+// ---------- Unsaved-changes tracking + autosave ----------
+// While filling a report, any edit sets repDirty=true. A background timer
+// autosaves the draft periodically, a status pill shows "Unsaved changes"
+// vs "Autosaved", and the person is warned before navigating away (tab
+// switch, kind/facility switch, or closing/refreshing the browser tab)
+// with unsaved edits still pending.
+let repDirty = false;
+let repPopulating = false; // true while a draft is being loaded/populated programmatically — suppresses dirty-marking
+let repAutoSaveTimer = null;
+const REP_AUTOSAVE_MS = 45000;
+
+function repMarkDirty(){
+  if(repPopulating) return;
+  repDirty = true;
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : 'rep-statusMsg');
+  if(el){
+    el.textContent = 'Unsaved changes — autosaving shortly...';
+    el.classList.add('dirty'); el.classList.remove('saved');
+  }
+}
+function repShowSavedIndicator(msg){
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : 'rep-statusMsg');
+  if(el){ el.textContent = msg; el.classList.remove('dirty'); el.classList.add('saved'); }
+}
+function repStopAutoSave(){ if(repAutoSaveTimer){ clearInterval(repAutoSaveTimer); repAutoSaveTimer=null; } }
+function repStartAutoSave(){
+  repStopAutoSave();
+  repAutoSaveTimer = setInterval(repAutoSaveTick, REP_AUTOSAVE_MS);
+}
+async function repAutoSaveTick(){
+  if(!repDirty || !currentUser || currentTab!=='report') return;
+  const backBtnId = repKind==='operational' ? 'op-backToCurrentBtn' : 'rep-backToCurrentBtn';
+  const backBtn = document.getElementById(backBtnId);
+  if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — nothing to autosave
+  if(repKind==='operational') await opSaveReport('draft', true);
+  else await repSaveReport('draft', true);
+}
+// Delegated listeners: catch typing/edits anywhere inside the report forms,
+// even though the form markup is fully rebuilt on every render.
+const REP_DIRTY_EXCLUDE_IDS = ['rep-periodStart','rep-periodEnd','op-periodStart','op-periodEnd','rep-pastReportSelect','op-pastReportSelect'];
+function repDelegatedDirtyCheck(e){
+  const t = e.target;
+  if(!t || !t.closest || !t.closest('#rep-kind-body')) return;
+  if(REP_DIRTY_EXCLUDE_IDS.includes(t.id)) return;
+  repMarkDirty();
+}
+document.addEventListener('input', repDelegatedDirtyCheck);
+document.addEventListener('change', repDelegatedDirtyCheck);
+// Warn on browser close/refresh/navigation with unsaved report edits
+window.addEventListener('beforeunload', function(e){
+  if(currentTab==='report' && repDirty){ e.preventDefault(); e.returnValue=''; return ''; }
+});
+
+// ---------- Live sync across devices/users (Supabase Realtime) ----------
+// Different nurses fill the same weekly draft on different days (and
+// sometimes at the same time). While the Report tab is open, subscribe to
+// changes on facility_reports for the active facility so everyone sees
+// each other's saves without needing to reload the page.
+let repRealtimeChannel = null;
+let repLastLocalSaveIso = null; // updated_at we just wrote ourselves — used to ignore our own echo
+let repPendingRemoteRow = null; // a remote update that arrived while we had unsaved local edits
+
+function repStopRealtime(){ if(repRealtimeChannel){ db.removeChannel(repRealtimeChannel); repRealtimeChannel=null; } }
+function repStartRealtime(facility){
+  repStopRealtime();
+  repRealtimeChannel = db.channel('facility_reports_'+facility+'_'+Date.now())
+    .on('postgres_changes', { event:'*', schema:'public', table:'facility_reports', filter:`facility_type=eq.${facility}` }, repHandleRealtimeChange)
+    .subscribe();
+}
+function repRealtimeRelevant(row){
+  if(!row || row.status!=='draft') return false; // submitted reports are handled via the past-reports dropdown, not live sync
+  const isOperational = !!(row.content && row.content.report_type === 'operational');
+  if(repKind==='operational' && !isOperational) return false;
+  if(repKind==='clinical' && isOperational) return false;
+  const psEl = document.getElementById(repKind==='operational' ? 'op-periodStart' : 'rep-periodStart');
+  const peEl = document.getElementById(repKind==='operational' ? 'op-periodEnd' : 'rep-periodEnd');
+  if(!psEl || !peEl) return false;
+  return row.period_start===psEl.value && row.period_end===peEl.value;
+}
+function repHandleRealtimeChange(payload){
+  if(payload.eventType==='DELETE') return;
+  const row = payload.new;
+  if(!row || row.updated_at===repLastLocalSaveIso) return; // our own save echoing back
+  if(currentTab!=='report' || !repRealtimeRelevant(row)) return;
+  const backBtn = document.getElementById(repKind==='operational' ? 'op-backToCurrentBtn' : 'rep-backToCurrentBtn');
+  if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — not the live draft
+  if(repDirty) repShowLiveUpdateBanner(row);
+  else repApplyRemoteRow(row);
+}
+function repApplyRemoteRow(row){
+  repPopulating = true;
+  if(repKind==='operational'){ opDraftId = row.id; opPopulateForm(row.content||{}); }
+  else { repDraftId = row.id; repPopulateForm(row.content||{}); }
+  repPopulating = false;
+  repDirty = false;
+  repHideLiveUpdateBanner();
+  repShowSavedIndicator(row.created_by ? `Updated by ${row.created_by} just now` : 'Updated just now');
+}
+function repShowLiveUpdateBanner(row){
+  repPendingRemoteRow = row;
+  const el = document.getElementById(repKind==='operational' ? 'op-liveUpdateBanner' : 'rep-liveUpdateBanner');
+  if(!el) return;
+  const who = row.created_by || 'Someone';
+  el.querySelector('.rep-live-update-text').textContent = `${who} just saved changes to this report. You still have unsaved edits here — reloading will discard yours in favor of theirs.`;
+  el.style.display='flex';
+}
+function repHideLiveUpdateBanner(){
+  repPendingRemoteRow = null;
+  ['rep-liveUpdateBanner','op-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+}
+function repApplyPendingRemoteRow(){
+  if(!repPendingRemoteRow) return;
+  if(!confirm('Reload the latest saved version? This discards your unsaved changes here.')) return;
+  repApplyRemoteRow(repPendingRemoteRow);
+}
 
 function repIsoDate(d){ return d.toISOString().slice(0,10); }
 function repCurrentWeekRange(){
@@ -1734,8 +1868,11 @@ async function renderReport(){
   document.getElementById('main-content').innerHTML = h;
   if(repKind==='operational') await renderOperationalReport();
   else await renderClinicalReport();
+  repStartAutoSave();
 }
 function repSetKind(kind){
+  if(repDirty && !confirm('You have unsaved changes in this report. Switch report type and discard them?')) return;
+  repDirty = false;
   repKind = kind;
   renderReport();
 }
@@ -1777,6 +1914,9 @@ async function renderClinicalReport(){
       </div>
       <div id="rep-viewingPastBanner" class="alert alert-info" style="display:none">
         <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current week" to resume editing.</div>
+      </div>
+      <div id="rep-liveUpdateBanner" class="alert alert-warn" style="display:none">
+        <i class="ti ti-refresh"></i><div style="flex:1"><span class="rep-live-update-text"></span> <button type="button" class="btn" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="repApplyPendingRemoteRow()">Reload latest</button></div>
       </div>
     </div>
 
@@ -1892,6 +2032,8 @@ async function renderClinicalReport(){
 }
 
 function repSetFacility(facility){
+  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+  repDirty = false;
   repFacility = facility;
   const page = document.querySelector('.rep-page');
   if(page) page.className = 'rep-page facility-' + facility;
@@ -1915,6 +2057,7 @@ function repSetYN(containerId, isYes, btn){
   if(containerId==='inpatientYN'){
     document.getElementById('rep-inpatientDetails').style.display = isYes?'block':'none';
   }
+  repMarkDirty();
 }
 function repYnValue(containerId){
   const active = document.querySelector('#rep-'+containerId+' .active-yes, #rep-'+containerId+' .active-no');
@@ -2015,9 +2158,10 @@ function repAddDynamicRow(tbodyId, columns, values){
   tr.innerHTML = columns.map(c=>{
     const type = c==='deadline' ? 'date' : 'text';
     return `<td><input type="${type}" data-field="${c}"></td>`;
-  }).join('') + `<td><button type="button" class="rep-remove-btn" onclick="this.closest('tr').remove()"><i class="ti ti-x"></i></button></td>`;
+  }).join('') + `<td><button type="button" class="rep-remove-btn" onclick="this.closest('tr').remove();repMarkDirty()"><i class="ti ti-x"></i></button></td>`;
   tbody.appendChild(tr);
   if(values){ tr.querySelectorAll('input[data-field]').forEach(i=>i.value = values[i.dataset.field]||''); }
+  repMarkDirty();
 }
 function repCollectDynamicRows(tbodyId){
   const out = [];
@@ -2125,6 +2269,7 @@ function repResetFormBlank(){
 
 // ---------- Load / continue this week's draft ----------
 async function repLoadDraftForCurrentSelection(){
+  repPopulating = true;
   const statusMsg = document.getElementById('rep-statusMsg');
   const periodStart = document.getElementById('rep-periodStart').value;
   const periodEnd = document.getElementById('rep-periodEnd').value;
@@ -2133,11 +2278,12 @@ async function repLoadDraftForCurrentSelection(){
   document.getElementById('rep-periodEnd').value = periodEnd;
 
   statusMsg.textContent = 'Checking for an existing draft this week...';
+  statusMsg.classList.remove('dirty','saved');
   const { data, error } = await db.from('facility_reports').select('*')
     .eq('facility_type', repFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
     .eq('status','draft').order('created_at',{ascending:false}).limit(1);
 
-  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; return; }
+  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
   if(data && data.length){
     repDraftId = data[0].id;
     repPopulateForm(data[0].content || {});
@@ -2145,16 +2291,19 @@ async function repLoadDraftForCurrentSelection(){
   } else {
     statusMsg.textContent = 'No draft yet for this week — starting fresh.';
   }
+  repDirty = false;
+  repPopulating = false;
+  repStartRealtime(repFacility);
 }
 
 // ---------- Save / submit ----------
-async function repSaveReport(status){
+async function repSaveReport(status, silent){
   const statusMsg = document.getElementById('rep-statusMsg');
   const periodStart = document.getElementById('rep-periodStart').value;
   const periodEnd = document.getElementById('rep-periodEnd').value;
   if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
 
-  showLoading(status==='draft'?'Saving draft...':'Submitting report...');
+  if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
   const payload = {
     facility_type: repFacility,
     period_start: periodStart,
@@ -2171,10 +2320,18 @@ async function repSaveReport(status){
   } else {
     result = await db.from('facility_reports').insert(payload).select();
   }
-  hideLoading();
-  if(result.error){ statusMsg.textContent = 'Error: '+result.error.message; return; }
-  if(result.data && result.data.length) repDraftId = result.data[0].id;
-  statusMsg.textContent = status==='draft' ? "Draft saved — today's entry added." : 'Report submitted for the week.';
+  if(!silent) hideLoading();
+  if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
+  if(result.data && result.data.length){ repDraftId = result.data[0].id; repLastLocalSaveIso = result.data[0].updated_at; }
+  repDirty = false;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(status==='draft'){
+    repShowSavedIndicator(silent ? `Autosaved at ${timeStr}` : `Draft saved at ${timeStr}`);
+  } else {
+    statusMsg.textContent = 'Report submitted for the week.';
+    statusMsg.classList.remove('dirty','saved');
+  }
   if(status==='submitted') await repPopulatePastReportsDropdown();
 }
 
@@ -2210,9 +2367,14 @@ async function repOnPastReportChange(id){
     await repLoadDraftForCurrentSelection();
     return;
   }
+  if(repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+    document.getElementById('rep-pastReportSelect').value='';
+    return;
+  }
+  repPopulating = true;
   document.getElementById('rep-statusMsg').textContent = 'Loading past report...';
   const { data, error } = await db.from('facility_reports').select('*').eq('id', id).single();
-  if(error || !data){ document.getElementById('rep-statusMsg').textContent = 'Could not load that report.'; return; }
+  if(error || !data){ document.getElementById('rep-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   repDraftId = null;
   document.getElementById('rep-periodStart').value = data.period_start;
   document.getElementById('rep-periodEnd').value = data.period_end;
@@ -2221,6 +2383,9 @@ async function repOnPastReportChange(id){
   banner.style.display='block';
   backBtn.style.display='inline-block';
   document.getElementById('rep-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
+  document.getElementById('rep-statusMsg').classList.remove('dirty','saved');
+  repDirty = false;
+  repPopulating = false;
 }
 function repBackToCurrent(){
   document.getElementById('rep-pastReportSelect').value='';
@@ -2364,6 +2529,9 @@ async function renderOperationalReport(){
       <div id="op-viewingPastBanner" class="alert alert-info" style="display:none">
         <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current week" to resume editing.</div>
       </div>
+      <div id="op-liveUpdateBanner" class="alert alert-warn" style="display:none">
+        <i class="ti ti-refresh"></i><div style="flex:1"><span class="rep-live-update-text"></span> <button type="button" class="btn" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="repApplyPendingRemoteRow()">Reload latest</button></div>
+      </div>
     </div>
 
     <div class="rep-card">
@@ -2438,6 +2606,8 @@ async function renderOperationalReport(){
 }
 
 function opSetFacility(facility){
+  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+  repDirty = false;
   opFacility = facility;
   document.querySelectorAll('#op-facility-toggle button').forEach(b=>b.classList.remove('active'));
   const activeBtn = document.querySelector(`#op-facility-toggle button[onclick="opSetFacility('${facility}')"]`);
@@ -2458,6 +2628,7 @@ function opSetYN(containerId, isYes, btn){
   const wrapMap = { staffingYN:'op-staffingRemarksWrap', suppliesYN:'op-suppliesRemarksWrap', infraYN:'op-infraRemarksWrap' };
   const wrapId = wrapMap[containerId];
   if(wrapId) document.getElementById(wrapId).style.display = isYes ? 'block' : 'none';
+  repMarkDirty();
 }
 function opYnValue(containerId){
   const active = document.querySelector('#op-'+containerId+' .active-yes, #op-'+containerId+' .active-no');
@@ -2477,6 +2648,7 @@ function opToggleEquipment(key){
     opEquipmentState.functional = !(opEquipmentState.maintenance || opEquipmentState.out_of_service);
   }
   opRenderEquipmentButtons();
+  repMarkDirty();
 }
 function opSetEquipmentState(state){
   opEquipmentState = Object.assign({functional:true,maintenance:false,out_of_service:false}, state||{});
@@ -2556,6 +2728,7 @@ function opResetFormBlank(){
 
 // ---------- Load / continue this week's draft ----------
 async function opLoadDraftForCurrentSelection(){
+  repPopulating = true;
   const statusMsg = document.getElementById('op-statusMsg');
   const periodStart = document.getElementById('op-periodStart').value;
   const periodEnd = document.getElementById('op-periodEnd').value;
@@ -2564,11 +2737,12 @@ async function opLoadDraftForCurrentSelection(){
   document.getElementById('op-periodEnd').value = periodEnd;
 
   statusMsg.textContent = 'Checking for an existing draft this week...';
+  statusMsg.classList.remove('dirty','saved');
   const { data, error } = await db.from('facility_reports').select('*')
     .eq('facility_type', opFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
     .eq('status','draft').order('created_at',{ascending:false}).limit(20);
 
-  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; return; }
+  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
   const match = (data||[]).find(r => r.content && r.content.report_type === 'operational');
   if(match){
     opDraftId = match.id;
@@ -2577,16 +2751,19 @@ async function opLoadDraftForCurrentSelection(){
   } else {
     statusMsg.textContent = 'No draft yet for this week — starting fresh.';
   }
+  repDirty = false;
+  repPopulating = false;
+  repStartRealtime(opFacility);
 }
 
 // ---------- Save / submit ----------
-async function opSaveReport(status){
+async function opSaveReport(status, silent){
   const statusMsg = document.getElementById('op-statusMsg');
   const periodStart = document.getElementById('op-periodStart').value;
   const periodEnd = document.getElementById('op-periodEnd').value;
   if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
 
-  showLoading(status==='draft'?'Saving draft...':'Submitting report...');
+  if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
   const payload = {
     facility_type: opFacility,
     period_start: periodStart,
@@ -2603,10 +2780,18 @@ async function opSaveReport(status){
   } else {
     result = await db.from('facility_reports').insert(payload).select();
   }
-  hideLoading();
-  if(result.error){ statusMsg.textContent = 'Error: '+result.error.message; return; }
-  if(result.data && result.data.length) opDraftId = result.data[0].id;
-  statusMsg.textContent = status==='draft' ? "Draft saved — today's entry added." : 'Report submitted for the week.';
+  if(!silent) hideLoading();
+  if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
+  if(result.data && result.data.length){ opDraftId = result.data[0].id; repLastLocalSaveIso = result.data[0].updated_at; }
+  repDirty = false;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(status==='draft'){
+    repShowSavedIndicator(silent ? `Autosaved at ${timeStr}` : `Draft saved at ${timeStr}`);
+  } else {
+    statusMsg.textContent = 'Report submitted for the week.';
+    statusMsg.classList.remove('dirty','saved');
+  }
   if(status==='submitted') await opPopulatePastReportsDropdown();
 }
 
@@ -2642,9 +2827,14 @@ async function opOnPastReportChange(id){
     await opLoadDraftForCurrentSelection();
     return;
   }
+  if(repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+    document.getElementById('op-pastReportSelect').value='';
+    return;
+  }
+  repPopulating = true;
   document.getElementById('op-statusMsg').textContent = 'Loading past report...';
   const { data, error } = await db.from('facility_reports').select('*').eq('id', id).single();
-  if(error || !data){ document.getElementById('op-statusMsg').textContent = 'Could not load that report.'; return; }
+  if(error || !data){ document.getElementById('op-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   opDraftId = null;
   document.getElementById('op-periodStart').value = data.period_start;
   document.getElementById('op-periodEnd').value = data.period_end;
@@ -2653,6 +2843,9 @@ async function opOnPastReportChange(id){
   banner.style.display='block';
   backBtn.style.display='inline-block';
   document.getElementById('op-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
+  document.getElementById('op-statusMsg').classList.remove('dirty','saved');
+  repDirty = false;
+  repPopulating = false;
 }
 function opBackToCurrent(){
   document.getElementById('op-pastReportSelect').value='';

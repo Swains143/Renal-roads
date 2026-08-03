@@ -2267,6 +2267,7 @@ function repCollectDynamicRows(tbodyId){
 // ---------- Build content JSON ----------
 function repBuildContent(){
   const content = {
+    report_type: 'clinical',
     facility_type: repFacility,
     prepared_by: document.getElementById('rep-preparedBy').value,
     outpatients: { daily: repCollectOutpatients(), total_attended: repOutpatientTotal() },
@@ -2372,12 +2373,15 @@ async function repLoadDraftForCurrentSelection(){
   statusMsg.classList.remove('dirty','saved');
   const { data, error } = await db.from('facility_reports').select('*')
     .eq('facility_type', repFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
-    .eq('status','draft').order('created_at',{ascending:false}).limit(1);
+    .eq('status','draft').order('created_at',{ascending:false}).limit(20);
 
   if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
-  if(data && data.length){
-    repDraftId = data[0].id;
-    repPopulateForm(data[0].content || {});
+  // Older clinical drafts were saved without a report_type tag, so treat
+  // "untagged" as clinical too — only exclude rows explicitly tagged operational.
+  const match = (data||[]).find(r => !r.content || r.content.report_type !== 'operational');
+  if(match){
+    repDraftId = match.id;
+    repPopulateForm(match.content || {});
     statusMsg.textContent = "Continuing this week's existing draft.";
   } else {
     statusMsg.textContent = 'No draft yet for this week — starting fresh.';
@@ -2438,11 +2442,11 @@ function repSetFormEditable(editable){
 async function repPopulatePastReportsDropdown(){
   const select = document.getElementById('rep-pastReportSelect');
   select.innerHTML = '<option value="">Current week (editable)</option>';
-  const { data, error } = await db.from('facility_reports').select('id, period_start, period_end')
+  const { data, error } = await db.from('facility_reports').select('id, period_start, period_end, content')
     .eq('facility_type', repFacility).eq('status','submitted')
-    .order('period_start',{ascending:false}).limit(52);
+    .order('period_start',{ascending:false}).limit(300);
   if(error || !data) return;
-  data.forEach(r=>{
+  data.filter(r => !r.content || r.content.report_type !== 'operational').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
     opt.value = r.id;
     opt.textContent = `${r.period_start} to ${r.period_end}`;

@@ -959,6 +959,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const db = supabase.createClient(SB_URL, SB_KEY);
 
 let currentUser = null;
+let sessionToken = null;
 let currentTab = 'home';
 let patients = [];
 let supplies = [];
@@ -1007,13 +1008,9 @@ async function checkRequestNotifications(){
   if(!currentUser) return;
   const myName = (currentUser.name||'').trim().toLowerCase();
   if(!myName) return;
-  const { data, error } = await db.from('requests')
-    .select('id, status, qty, requested_by, supplies(name,unit)')
-    .neq('status', 'pending')
-    .order('created_at', {ascending:false})
-    .limit(300);
+  const { data, error } = await db.rpc('rr_requests_my_resolved', {p_session:sessionToken});
   if(error || !data) return;
-  const mine = data.filter(r => (r.requested_by||'').trim().toLowerCase() === myName);
+  const mine = data.map(r => ({...r, supplies: r.supply_name?{name:r.supply_name, unit:r.supply_unit}:null}));
   let seen = getSeenRequestIds();
   if(seen === null){
     // First run on this device for this user: establish a baseline silently
@@ -1303,9 +1300,14 @@ async function doLogin(){
   try{
     const {data:rows,error}=await db.rpc('rr_login',{p_username:un,p_password:pw});
     const data=rows&&rows[0];
-    if(error||!data)throw new Error('wrong_password');
+    if(error){
+      if((error.message||'').includes('too_many_attempts'))throw new Error('too_many_attempts');
+      throw new Error('wrong_password');
+    }
+    if(!data)throw new Error('wrong_password');
     if(!data.active)throw new Error('inactive');
     currentUser=data;
+    sessionToken=data.session_token;
     // Celebrate: confident thumbs-up from the greeter, button glow + checkmark, mascot jump/clap/spin.
     label.innerHTML='<i class="ti ti-check"></i> Welcome!';
     btn.classList.add('glow');
@@ -1323,7 +1325,7 @@ async function doLogin(){
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
-    localStorage.setItem('rr_session', JSON.stringify({id:data.id}));
+    localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
     startRequestNotifyMonitor();
     await loadDisData(); updateDisinfectionAlertDot();
@@ -1332,7 +1334,7 @@ async function doLogin(){
     if(data.role==='admin'||data.role==='viewer') setInterval(updateCommentDot, 30000);
     setInterval(async()=>{await loadDisData();updateDisinfectionAlertDot();}, 60000);
   }catch(e){
-    const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':'Invalid username or password.';
+    const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':(e.message==='too_many_attempts'?'Too many failed attempts. Please wait a few minutes and try again.':'Invalid username or password.');
     document.getElementById('login-error-msg').textContent=msg;
     errEl.classList.add('show');
     // React: mascot looks surprised/frowns then recovers, character stays supportive.
@@ -1342,7 +1344,9 @@ async function doLogin(){
 }
 
 function doLogout(){
+  if(sessionToken){const t=sessionToken;db.rpc('rr_logout',{p_session:t}).catch(()=>{});}
   currentUser=null;
+  sessionToken=null;
   repStopAutoSave();
   repStopRealtime();
   repDirty=false;
@@ -1377,11 +1381,17 @@ async function restoreSession(){
       localStorage.removeItem('rr_last_activity');
       return false;
     }
-    const {id}=JSON.parse(saved);
-    const {data:rows,error}=await db.rpc('rr_get_user_by_id',{p_id:id});
+    const {token}=JSON.parse(saved);
+    if(!token)return false;
+    const {data:rows,error}=await db.rpc('rr_resume_session',{p_session:token});
     const data=rows&&rows[0];
-    if(error||!data||!data.active)return false;
+    if(error||!data||!data.active){
+      localStorage.removeItem('rr_session');
+      localStorage.removeItem('rr_last_activity');
+      return false;
+    }
     currentUser=data;
+    sessionToken=token;
     startIdleMonitor();
     startRequestNotifyMonitor();
     document.getElementById('tbu').textContent=data.name;
@@ -1418,7 +1428,7 @@ async function render(){
 
 async function updateBadge(){
   if(currentUser&&currentUser.role==='admin'){
-    const {count}=await db.from('requests').select('*',{count:'exact',head:true}).eq('status','pending');
+    const {data:count}=await db.rpc('rr_requests_pending_count',{p_session:sessionToken});
     const badge=document.getElementById('req-badge');
     if(count>0){badge.style.display='inline';badge.textContent=count;}
     else badge.style.display='none';
@@ -1470,18 +1480,13 @@ function disStatusBadge(nextDate) {
 let disData = {}; // { 'kigumo::Machine 1': {last_date, notes, id}, ... }
 
 async function loadDisData() {
-  const { data, error } = await db.from('machine_disinfection').select('*');
+  const { data, error } = await db.rpc('rr_disinfection_list', {p_session:sessionToken});
   disData = {};
   if (data) data.forEach(r => { disData[r.hub + '::' + r.machine_key] = r; });
 }
 
 async function saveDisRecord(hub, machineKey, lastDate, notes) {
-  const existing = disData[hub + '::' + machineKey];
-  if (existing) {
-    await db.from('machine_disinfection').update({ last_date: lastDate || null, notes: notes || null }).eq('id', existing.id);
-  } else {
-    await db.from('machine_disinfection').insert({ hub, machine_key: machineKey, last_date: lastDate || null, notes: notes || null });
-  }
+  await db.rpc('rr_disinfection_save', {p_session:sessionToken, p_hub:hub, p_machine_key:machineKey, p_last_date: lastDate || null, p_notes: notes || null});
   await loadDisData();
 }
 
@@ -2371,9 +2376,7 @@ async function repLoadDraftForCurrentSelection(){
 
   statusMsg.textContent = 'Checking for an existing draft this week...';
   statusMsg.classList.remove('dirty','saved');
-  const { data, error } = await db.from('facility_reports').select('*')
-    .eq('facility_type', repFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
-    .eq('status','draft').order('created_at',{ascending:false}).limit(20);
+  const { data, error } = await db.rpc('rr_report_drafts', {p_session:sessionToken, p_facility_type:repFacility, p_period_start:periodStart, p_period_end:periodEnd});
 
   if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
   // Older clinical drafts were saved without a report_type tag, so treat
@@ -2399,25 +2402,14 @@ async function repSaveReport(status, silent){
   if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
 
   if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
-  const payload = {
-    facility_type: repFacility,
-    period_start: periodStart,
-    period_end: periodEnd,
-    content: repBuildContent(),
-    status: status,
-    created_by: currentUser?currentUser.name:null,
-    created_by_role: currentUser?currentUser.role:null,
-    updated_at: new Date().toISOString()
-  };
-  let result;
-  if(repDraftId){
-    result = await db.from('facility_reports').update(payload).eq('id', repDraftId).select();
-  } else {
-    result = await db.from('facility_reports').insert(payload).select();
-  }
+  const result = await db.rpc('rr_report_save', {
+    p_session:sessionToken, p_id: repDraftId||null, p_facility_type: repFacility,
+    p_period_start: periodStart, p_period_end: periodEnd,
+    p_content: repBuildContent(), p_status: status
+  });
   if(!silent) hideLoading();
   if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
-  if(result.data && result.data.length){ repDraftId = result.data[0].id; repLastLocalSaveIso = result.data[0].updated_at; }
+  if(result.data){ repDraftId = result.data.id; repLastLocalSaveIso = result.data.updated_at; }
   repDirty = false;
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
@@ -2442,9 +2434,7 @@ function repSetFormEditable(editable){
 async function repPopulatePastReportsDropdown(){
   const select = document.getElementById('rep-pastReportSelect');
   select.innerHTML = '<option value="">Current week (editable)</option>';
-  const { data, error } = await db.from('facility_reports').select('id, period_start, period_end, content')
-    .eq('facility_type', repFacility).eq('status','submitted')
-    .order('period_start',{ascending:false}).limit(300);
+  const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:repFacility});
   if(error || !data) return;
   data.filter(r => !r.content || r.content.report_type !== 'operational').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
@@ -2468,7 +2458,7 @@ async function repOnPastReportChange(id){
   }
   repPopulating = true;
   document.getElementById('rep-statusMsg').textContent = 'Loading past report...';
-  const { data, error } = await db.from('facility_reports').select('*').eq('id', id).single();
+  const { data, error } = await db.rpc('rr_report_get', {p_session:sessionToken, p_id:id});
   if(error || !data){ document.getElementById('rep-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   repDraftId = null;
   document.getElementById('rep-periodStart').value = data.period_start;
@@ -2843,9 +2833,7 @@ async function opLoadDraftForCurrentSelection(){
 
   statusMsg.textContent = 'Checking for an existing draft this week...';
   statusMsg.classList.remove('dirty','saved');
-  const { data, error } = await db.from('facility_reports').select('*')
-    .eq('facility_type', opFacility).eq('period_start', periodStart).eq('period_end', periodEnd)
-    .eq('status','draft').order('created_at',{ascending:false}).limit(20);
+  const { data, error } = await db.rpc('rr_report_drafts', {p_session:sessionToken, p_facility_type:opFacility, p_period_start:periodStart, p_period_end:periodEnd});
 
   if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
   const match = (data||[]).find(r => r.content && r.content.report_type === 'operational');
@@ -2869,25 +2857,14 @@ async function opSaveReport(status, silent){
   if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
 
   if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
-  const payload = {
-    facility_type: opFacility,
-    period_start: periodStart,
-    period_end: periodEnd,
-    content: opBuildContent(),
-    status: status,
-    created_by: currentUser?currentUser.name:null,
-    created_by_role: currentUser?currentUser.role:null,
-    updated_at: new Date().toISOString()
-  };
-  let result;
-  if(opDraftId){
-    result = await db.from('facility_reports').update(payload).eq('id', opDraftId).select();
-  } else {
-    result = await db.from('facility_reports').insert(payload).select();
-  }
+  const result = await db.rpc('rr_report_save', {
+    p_session:sessionToken, p_id: opDraftId||null, p_facility_type: opFacility,
+    p_period_start: periodStart, p_period_end: periodEnd,
+    p_content: opBuildContent(), p_status: status
+  });
   if(!silent) hideLoading();
   if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
-  if(result.data && result.data.length){ opDraftId = result.data[0].id; repLastLocalSaveIso = result.data[0].updated_at; }
+  if(result.data){ opDraftId = result.data.id; repLastLocalSaveIso = result.data.updated_at; }
   repDirty = false;
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
@@ -2912,9 +2889,7 @@ function opSetFormEditable(editable){
 async function opPopulatePastReportsDropdown(){
   const select = document.getElementById('op-pastReportSelect');
   select.innerHTML = '<option value="">Current week (editable)</option>';
-  const { data, error } = await db.from('facility_reports').select('id, period_start, period_end, content')
-    .eq('facility_type', opFacility).eq('status','submitted')
-    .order('period_start',{ascending:false}).limit(300);
+  const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:opFacility});
   if(error || !data) return;
   data.filter(r => r.content && r.content.report_type === 'operational').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
@@ -2938,7 +2913,7 @@ async function opOnPastReportChange(id){
   }
   repPopulating = true;
   document.getElementById('op-statusMsg').textContent = 'Loading past report...';
-  const { data, error } = await db.from('facility_reports').select('*').eq('id', id).single();
+  const { data, error } = await db.rpc('rr_report_get', {p_session:sessionToken, p_id:id});
   if(error || !data){ document.getElementById('op-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   opDraftId = null;
   document.getElementById('op-periodStart').value = data.period_start;
@@ -3129,7 +3104,7 @@ document.addEventListener('click',()=>{
 async function renderPatients(){
   const isViewer=currentUser&&currentUser.role==='viewer';
   showLoading('Loading patients...');
-  const {data}=await db.from('patients').select('*');
+  const {data}=await db.rpc('rr_patients_list',{p_session:sessionToken});
   patients=(data||[]).sort((a,b)=>{
     const av=ipSortValue(a.ip),bv=ipSortValue(b.ip);
     if(av!==bv)return av-bv;
@@ -3220,20 +3195,22 @@ async function savePatient(){
   const existing=patients.find(p=>p.ip===ip&&p.id!==editingPatientId);
   if(existing)return showErr('IP "'+ip+'" is already assigned to '+existing.name+'.');
   showLoading('Saving patient...');
-  const payload={ip,name,id_no:document.getElementById('f-id').value.trim(),phone:document.getElementById('f-phone').value.trim(),yob,gender:document.getElementById('f-gender').value,station,status};
+  let deathYear=null,dischargeDate=null,dischargeNotes=null;
   if(status==='Deceased'){
     const prev=patients.find(p=>p.id===editingPatientId);
-    if(!editingPatientId||(prev&&prev.status!=='Deceased'))payload.death_year=YEAR;
-  } else { payload.death_year=null; }
-  if(status==='Discharged'||status==='Transferred'){
-    payload.discharge_date=document.getElementById('f-discharge-date').value||null;
-    payload.discharge_notes=document.getElementById('f-discharge-notes').value.trim()||null;
-  } else {
-    payload.discharge_date=null;payload.discharge_notes=null;
+    if(!editingPatientId||(prev&&prev.status!=='Deceased'))deathYear=YEAR;
+    else if(prev)deathYear=prev.death_year;
   }
-  let error;
-  if(editingPatientId)({error}=await db.from('patients').update(payload).eq('id',editingPatientId));
-  else({error}=await db.from('patients').insert(payload));
+  if(status==='Discharged'||status==='Transferred'){
+    dischargeDate=document.getElementById('f-discharge-date').value||null;
+    dischargeNotes=document.getElementById('f-discharge-notes').value.trim()||null;
+  }
+  const {error}=await db.rpc('rr_patient_save',{
+    p_session:sessionToken, p_id:editingPatientId||null, p_ip:ip, p_name:name,
+    p_id_no:document.getElementById('f-id').value.trim(), p_phone:document.getElementById('f-phone').value.trim(),
+    p_yob:yob, p_gender:document.getElementById('f-gender').value, p_station:station, p_status:status,
+    p_discharge_date:dischargeDate, p_discharge_notes:dischargeNotes, p_death_year:deathYear
+  });
   hideLoading();
   if(error){showErr('Save failed: '+error.message);return;}
   closeModal('patient-modal');await renderPatients();
@@ -3241,7 +3218,7 @@ async function savePatient(){
 async function deletePatient(id){
   if(!confirm('Permanently delete this patient record?'))return;
   showLoading('Deleting...');
-  await db.from('patients').delete().eq('id',id);
+  await db.rpc('rr_patient_delete',{p_session:sessionToken,p_id:id});
   hideLoading();await renderPatients();
 }
 
@@ -3544,15 +3521,14 @@ function downloadDischargeSummary(){
 // SUPPLIES
 async function renderSupplies(){
   showLoading('Loading supplies...');
-  const {data}=await db.from('supplies').select('*, movements(*)').order('name');
-  supplies=data||[];
+  const {data}=await db.rpc('rr_supplies_list',{p_session:sessionToken});
+  supplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   const isAdmin=currentUser&&currentUser.role==='admin';
   const isViewer = currentUser && currentUser.role === 'viewer';
   let unreadBySupply={};
   if(isAdmin || isViewer){
-    const unreadField = isAdmin ? 'read_by_admin' : 'read_by_viewer';
-    const {data:unread}=await db.from('supply_comments').select('supply_id').eq(unreadField,false);
-    (unread||[]).forEach(c=>{unreadBySupply[c.supply_id]=(unreadBySupply[c.supply_id]||0)+1;});
+    const {data:unread}=await db.rpc('rr_comments_unread_by_supply',{p_session:sessionToken});
+    (unread||[]).forEach(c=>{unreadBySupply[c.supply_id]=Number(c.unread_count);});
   }
   hideLoading();
   const f=supplyFilter;
@@ -3624,10 +3600,12 @@ async function saveSupply(){
   const name=document.getElementById('s-name').value.trim();
   if(!name){document.getElementById('supply-error-msg').textContent='Item name required.';document.getElementById('supply-error').classList.add('show');return;}
   showLoading('Saving...');
-  const payload={name,unit:document.getElementById('s-unit').value.trim()||'units',threshold:parseInt(document.getElementById('s-thresh').value)||10,category:currentSupplyCategory};
-  let error;
-  if(editingSupplyId)({error}=await db.from('supplies').update(payload).eq('id',editingSupplyId));
-  else({error}=await db.from('supplies').insert(payload));
+  const {error}=await db.rpc('rr_supply_save',{
+    p_session:sessionToken, p_id:editingSupplyId||null, p_name:name,
+    p_unit:document.getElementById('s-unit').value.trim()||'units',
+    p_threshold:parseInt(document.getElementById('s-thresh').value)||10,
+    p_category:currentSupplyCategory
+  });
   hideLoading();
   if(error){document.getElementById('supply-error-msg').textContent=error.message;document.getElementById('supply-error').classList.add('show');return;}
   closeModal('supply-modal');await renderSupplies();
@@ -3635,7 +3613,7 @@ async function saveSupply(){
 async function deleteSupply(id){
   if(!confirm('Delete this supply item?'))return;
   showLoading('Deleting...');
-  await db.from('supplies').delete().eq('id',id);
+  await db.rpc('rr_supply_delete',{p_session:sessionToken,p_id:id});
   hideLoading();await renderSupplies();
 }
 function openMovement(supplyId,type){
@@ -3652,13 +3630,13 @@ async function confirmMovement(){
   const s=supplies.find(x=>x.id===pendingMovement.supplyId);if(!s)return;
   if(pendingMovement.type==='OUT'&&qty>getStock(s)){alert('Insufficient stock. Available: '+getStock(s)+' '+s.unit);return;}
   showLoading('Saving...');
-  await db.from('movements').insert({supply_id:pendingMovement.supplyId,type:pendingMovement.type,qty,note:document.getElementById('m-notes').value.trim(),by_user:document.getElementById('m-by').value.trim()||'Staff'});
+  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:document.getElementById('m-notes').value.trim(),p_by_user:document.getElementById('m-by').value.trim()||'Staff'});
   hideLoading();closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
   showLoading('Loading log...');
-  const {data}=await db.from('movements').select('*').eq('supply_id',supplyId).order('created_at');
+  const {data}=await db.rpc('rr_movements_list',{p_session:sessionToken,p_supply_id:supplyId});
   hideLoading();
   document.getElementById('mv-title').textContent='Movement log — '+s.name;
   document.getElementById('mv-sub').textContent='Current stock: '+getStock(s)+' '+s.unit+' · Movements: '+(data||[]).length;
@@ -3681,13 +3659,13 @@ async function submitRequest(){
   const qty=parseInt(document.getElementById('r-qty').value);
   if(!supplyId||!qty||qty<1){alert('Select an item and a valid quantity.');return;}
   showLoading('Submitting...');
-  await db.from('requests').insert({supply_id:supplyId,qty,requested_by:document.getElementById('r-by').value.trim(),notes:document.getElementById('r-notes').value.trim(),status:'pending'});
+  await db.rpc('rr_request_submit',{p_session:sessionToken,p_supply_id:supplyId,p_qty:qty,p_requested_by:document.getElementById('r-by').value.trim(),p_notes:document.getElementById('r-notes').value.trim()});
   hideLoading();closeModal('request-modal');await updateBadge();alert('Request submitted successfully.');
 }
 async function renderRequests(){
   showLoading('Loading requests...');
-  const {data}=await db.from('requests').select('*, supplies(name,unit)').order('created_at',{ascending:false});
-  hideLoading();requests=data||[];
+  const {data}=await db.rpc('rr_requests_list',{p_session:sessionToken});
+  hideLoading();requests=(data||[]).map(r=>({...r, supplies: r.supply_name?{name:r.supply_name, unit:r.supply_unit}:null}));
   const pending=requests.filter(r=>r.status==='pending');
   const done=requests.filter(r=>r.status!=='pending');
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><strong style="font-size:15px">Supply requests</strong>${requests.length?'<button class="btn" onclick="exportRequests()"><i class="ti ti-download"></i> Export</button>':''}</div>`;
@@ -3744,14 +3722,7 @@ async function confirmApprove() {
     : 'Approved request from ' + (pendingApproval.by || 'staff') +
       (dispenseQty !== pendingApproval.qty ? ' (requested ' + pendingApproval.qty + ', dispensed ' + dispenseQty + ')' : '');
 
-  await db.from('movements').insert({
-    supply_id: pendingApproval.supplyId,
-    type: 'OUT',
-    qty: dispenseQty,
-    note: noteText,
-    by_user: 'Admin'
-  });
-  await db.from('requests').update({ status: 'approved' }).eq('id', pendingApproval.id);
+  await db.rpc('rr_request_approve', {p_session:sessionToken, p_id:pendingApproval.id, p_dispense_qty:dispenseQty, p_note:noteText});
   hideLoading();
   closeModal('approve-modal');
   pendingApproval = null;
@@ -3760,7 +3731,7 @@ async function confirmApprove() {
 }
 async function rejectRequest(id){
   showLoading('Rejecting...');
-  await db.from('requests').update({status:'rejected'}).eq('id',id);
+  await db.rpc('rr_request_reject',{p_session:sessionToken,p_id:id});
   hideLoading();await renderRequests();await updateBadge();
 }
 
@@ -3790,20 +3761,14 @@ async function openCommentModal(supplyId, supplyName) {
   document.getElementById('comment-modal').classList.add('open');
 
   // Mark as read for whichever side just opened the thread
-  if (isAdmin) {
-    await db.from('supply_comments').update({ read_by_admin: true }).eq('supply_id', supplyId).eq('read_by_admin', false);
-    await updateCommentDot();
-  } else if (isViewer) {
-    await db.from('supply_comments').update({ read_by_viewer: true }).eq('supply_id', supplyId).eq('read_by_viewer', false);
+  if (isAdmin || isViewer) {
+    await db.rpc('rr_comments_mark_read', {p_session:sessionToken, p_supply_id:supplyId});
     await updateCommentDot();
   }
 }
 
 async function loadComments(supplyId) {
-  const { data, error } = await db.from('supply_comments')
-    .select('*')
-    .eq('supply_id', supplyId)
-    .order('created_at', { ascending: false });
+  const { data, error } = await db.rpc('rr_comments_list', {p_session:sessionToken, p_supply_id:supplyId});
 
   if (error) console.error('Failed to load comments:', error);
 
@@ -3834,17 +3799,7 @@ async function submitComment() {
     return;
   }
   showLoading('Sending comment...');
-  const isAdminSender = currentUser.role === 'admin';
-  const { data, error } = await db.from('supply_comments').insert({
-    supply_id: commentSupplyId,
-    by_user: currentUser.name,
-    by_role: currentUser.role,
-    comment: text,
-    // A message is "read" by its own sender immediately, and unread for the other side —
-    // this is what makes the admin's reply show up as new for the viewer, and vice versa.
-    read_by_admin: isAdminSender,
-    read_by_viewer: !isAdminSender
-  }).select();
+  const { data, error } = await db.rpc('rr_comment_add', {p_session:sessionToken, p_supply_id:commentSupplyId, p_comment:text});
   hideLoading();
   if (error) {
     console.error('Comment insert failed:', error);
@@ -3860,10 +3815,7 @@ async function submitComment() {
 
 async function updateCommentDot() {
   if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'viewer')) return;
-  const unreadField = currentUser.role === 'admin' ? 'read_by_admin' : 'read_by_viewer';
-  const { count, error } = await db.from('supply_comments')
-    .select('id', { count: 'exact', head: true })
-    .eq(unreadField, false);
+  const { data: count, error } = await db.rpc('rr_comments_unread_count', {p_session:sessionToken});
   if (error) { console.error('Failed to fetch comment count:', error); return; }
   const dot = document.getElementById('supply-comment-dot');
   if (dot) {
@@ -3879,7 +3831,7 @@ async function updateCommentDot() {
 
 async function renderUsers(){
   showLoading('Loading users...');
-  const {data}=await db.rpc('rr_list_users');
+  const {data}=await db.rpc('rr_list_users',{p_session:sessionToken});
   hideLoading();const users=(data||[]).filter(u=>!u.hidden);
   const isHiddenAdmin = !!(currentUser && currentUser.hidden);
   const au=users.filter(u=>u.active).length;
@@ -3913,15 +3865,15 @@ async function saveUser(){
   if(!name||!username||!password)return showErr('All fields are required.');
   if(password.length<4)return showErr('Password must be at least 4 characters.');
   showLoading('Registering...');
-  const {error}=await db.rpc('rr_create_user',{p_name:name,p_username:username,p_password:password,p_role:role});
+  const {error}=await db.rpc('rr_create_user',{p_session:sessionToken,p_name:name,p_username:username,p_password:password,p_role:role});
   hideLoading();
   if(error){showErr(error.code==='23505'?'Username already taken.':error.message);return;}
   closeModal('user-modal');await renderUsers();
 }
-async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.rpc('rr_set_active',{p_id:id,p_active:active});hideLoading();await renderUsers();}
+async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.rpc('rr_set_active',{p_session:sessionToken,p_id:id,p_active:active});hideLoading();await renderUsers();}
 async function deleteUser(id){
   if(!currentUser||!currentUser.hidden)return;
-  if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.rpc('rr_delete_user',{p_id:id});hideLoading();await renderUsers();
+  if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.rpc('rr_delete_user',{p_session:sessionToken,p_id:id});hideLoading();await renderUsers();
 }
 let resetPasswordUserId=null;
 function openResetPassword(id,name){
@@ -3940,7 +3892,7 @@ async function saveResetPassword(){
   if(pw.length<4)return showErr('Password must be at least 4 characters.');
   if(pw!==pwConfirm)return showErr('Passwords do not match.');
   showLoading('Resetting password...');
-  const {error}=await db.rpc('rr_set_password',{p_id:resetPasswordUserId,p_password:pw});
+  const {error}=await db.rpc('rr_set_password',{p_session:sessionToken,p_id:resetPasswordUserId,p_password:pw});
   hideLoading();
   if(error)return showErr(error.message);
   closeModal('reset-password-modal');

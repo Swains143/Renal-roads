@@ -1344,7 +1344,7 @@ async function doLogin(){
 }
 
 function doLogout(){
-  if(sessionToken){const t=sessionToken;db.rpc('rr_logout',{p_session:t}).catch(()=>{});}
+  if(sessionToken){const t=sessionToken;db.rpc('rr_logout',{p_session:t});}
   currentUser=null;
   sessionToken=null;
   repStopAutoSave();

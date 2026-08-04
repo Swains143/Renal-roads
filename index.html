@@ -802,6 +802,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="modal-sub" id="ds-patient-name"></div>
   <div class="form-grid">
     <div class="form-group"><label>Patient name</label><input id="ds-name" readonly style="background:var(--gray-50)"></div>
+    <div class="form-group"><label>IP No.</label><input id="ds-ip" readonly style="background:var(--gray-50)"></div>
     <div class="form-group"><label>Patient ID</label><input id="ds-id" readonly style="background:var(--gray-50)"></div>
     <div class="form-group"><label>Age</label><input id="ds-age" readonly style="background:var(--gray-50)"></div>
     <div class="form-group"><label>Sex</label><input id="ds-sex" readonly style="background:var(--gray-50)"></div>
@@ -3229,6 +3230,7 @@ function openDischargeSummary(id){
   dischargeSummaryPatientId=id;
   document.getElementById('ds-patient-name').textContent=`${p.name} — IP ${p.ip}`;
   document.getElementById('ds-name').value=p.name;
+  document.getElementById('ds-ip').value=p.ip||'';
   document.getElementById('ds-id').value=p.id_no||p.ip;
   document.getElementById('ds-age').value=calcAge(p);
   document.getElementById('ds-sex').value=p.gender||'';
@@ -3312,13 +3314,14 @@ function downloadDischargeSummary(){
 
   // Patient info box — 3 rows: (Name|ID), (Age/Sex|Date), (Physician / Reg No, full width)
   const rowH = 25;
-  const boxTop = y, boxH = rowH*3;
+  const boxTop = y, boxH = rowH*4;
   const midX = margin + contentW*0.5;
   doc.setDrawColor(...line); doc.setLineWidth(0.7);
   doc.rect(margin, boxTop, contentW, boxH);
   doc.line(margin, boxTop+rowH, margin+contentW, boxTop+rowH);       // row1/row2 divider
   doc.line(margin, boxTop+rowH*2, margin+contentW, boxTop+rowH*2);   // row2/row3 divider
-  doc.line(midX, boxTop, midX, boxTop+rowH*2);                       // vertical divider (rows 1-2 only)
+  doc.line(margin, boxTop+rowH*3, margin+contentW, boxTop+rowH*3);   // row3/row4 divider
+  doc.line(midX, boxTop, midX, boxTop+rowH*3);                       // vertical divider (rows 1-3 only)
 
   const cell=(label,val,x,rowY,w)=>{
     doc.setFont(FONT,'bold'); doc.setFontSize(6.5); doc.setTextColor(...gray);
@@ -3327,19 +3330,17 @@ function downloadDischargeSummary(){
     doc.text(String(val||'—'), x+8, rowY+20, {maxWidth:w-16});
   };
   cell('Patient Name', document.getElementById('ds-name').value, margin, boxTop, contentW*0.5);
-  cell('Patient ID', document.getElementById('ds-id').value, midX, boxTop, contentW*0.5);
-  cell('Age / Sex', `${document.getElementById('ds-age').value} / ${document.getElementById('ds-sex').value||'—'}`, margin, boxTop+rowH, contentW*0.5);
-  cell('Date', document.getElementById('ds-date').value, midX, boxTop+rowH, contentW*0.5);
-  // Row 3: Physician + Reg No, side by side, no divider (matches template)
+  cell('IP No.', document.getElementById('ds-ip').value, midX, boxTop, contentW*0.5);
+  cell('Patient ID', document.getElementById('ds-id').value, margin, boxTop+rowH, contentW*0.5);
+  cell('Age / Sex', `${document.getElementById('ds-age').value} / ${document.getElementById('ds-sex').value||'—'}`, midX, boxTop+rowH, contentW*0.5);
+  cell('Date', document.getElementById('ds-date').value, margin, boxTop+rowH*2, contentW*0.5);
+  cell('Reg. No.', document.getElementById('ds-regno').value, midX, boxTop+rowH*2, contentW*0.5);
+  // Row 4: Physician, full width, no divider (matches template)
   doc.setFont(FONT,'bold'); doc.setFontSize(6.5); doc.setTextColor(...gray);
-  doc.text('PHYSICIAN', margin+8, boxTop+rowH*2+10);
-  doc.text('REG. NO.', margin+contentW*0.62, boxTop+rowH*2+10);
+  doc.text('PHYSICIAN', margin+8, boxTop+rowH*3+10);
   const physicianVal = document.getElementById('ds-physician').value;
-  const regnoVal = document.getElementById('ds-regno').value;
   doc.setFont(FONT, isFilled(physicianVal)?'bold':'normal'); doc.setFontSize(9.5); doc.setTextColor(...ink);
-  doc.text(physicianVal||'—', margin+8, boxTop+rowH*2+20, {maxWidth:contentW*0.6});
-  doc.setFont(FONT, isFilled(regnoVal)?'bold':'normal');
-  doc.text(regnoVal||'—', margin+contentW*0.62+8, boxTop+rowH*2+20, {maxWidth:contentW*0.36});
+  doc.text(physicianVal||'—', margin+8, boxTop+rowH*3+20, {maxWidth:contentW-16});
 
   y = boxTop+boxH+18;
 

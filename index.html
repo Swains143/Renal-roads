@@ -4017,12 +4017,49 @@ function exportPatients(){
     rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.yob,calcAge(p),p.gender,p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
     'patients_'+new Date().toISOString().slice(0,10)+'.xlsx','Patients');
 }
+function dlXLSXMulti(sheets,fn){
+  const wb=XLSX.utils.book_new();
+  sheets.forEach(sh=>{
+    const ws=XLSX.utils.aoa_to_sheet([sh.headers,...sh.rows]);
+    XLSX.utils.book_append_sheet(wb,ws,sh.name);
+  });
+  XLSX.writeFile(wb,fn);
+}
+// Groups each item's movement history by calendar month and returns
+// [Item, Unit, Month, Stock In, Stock Out, Remaining] rows, where
+// Remaining is the running balance at the end of that month.
+function buildMonthlySupplyRows(items){
+  const rows=[];
+  items.forEach(s=>{
+    const movs=(s.movements||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    if(!movs.length)return;
+    const byMonth={};
+    movs.forEach(m=>{
+      const d=new Date(m.created_at);
+      const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      if(!byMonth[key])byMonth[key]={in:0,out:0,label:d.toLocaleString('default',{month:'short',year:'numeric'})};
+      if(m.type==='IN')byMonth[key].in+=m.qty; else byMonth[key].out+=m.qty;
+    });
+    let running=0;
+    Object.keys(byMonth).sort().forEach(key=>{
+      const b=byMonth[key];
+      running+=b.in-b.out;
+      rows.push([s.name,s.unit,b.label,b.in,b.out,running]);
+    });
+  });
+  return rows;
+}
 function exportSupplies(){
   const rows=getFilteredSupplies();
   const isMed=currentSupplyCategory==='medication';
-  dlXLSX(['Item','Unit','Stock','Threshold','Low Stock'],
-    rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO']),
-    (isMed?'medications_':'supplies_')+new Date().toISOString().slice(0,10)+'.xlsx',isMed?'Medications':'Supplies');
+  dlXLSXMulti([
+    {name:isMed?'Medications':'Supplies',
+     headers:['Item','Unit','Stock','Threshold','Low Stock'],
+     rows:rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])},
+    {name:'Monthly Breakdown',
+     headers:['Item','Unit','Month','Stock In','Stock Out','Remaining'],
+     rows:buildMonthlySupplyRows(rows)}
+  ],(isMed?'medications_':'supplies_')+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportRequests(){
   dlXLSX(['Item','Qty','By','Notes','Status','Date'],

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -4020,34 +4020,95 @@ function exportPatients(){
 function dlXLSXMulti(sheets,fn){
   const wb=XLSX.utils.book_new();
   sheets.forEach(sh=>{
-    const ws=XLSX.utils.aoa_to_sheet([sh.headers,...sh.rows]);
+    const aoa=sh.aoa||[sh.headers,...sh.rows];
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    if(sh.merges)ws['!merges']=sh.merges;
+    if(sh.boldCols&&sh.boldCols.length){
+      for(let r=0;r<aoa.length;r++){
+        sh.boldCols.forEach(startCol=>{
+          for(let c=startCol;c<startCol+3;c++){
+            const addr=XLSX.utils.encode_cell({r,c});
+            if(ws[addr])ws[addr].s={font:{bold:true}};
+          }
+        });
+      }
+    }
     XLSX.utils.book_append_sheet(wb,ws,sh.name);
   });
   XLSX.writeFile(wb,fn);
 }
-// Groups each item's movement history by calendar month and returns
-// [Item, Unit, Month, Stock In, Stock Out, Remaining] rows, where
-// Remaining is the running balance at the end of that month.
-function buildMonthlySupplyRows(items){
-  const rows=[];
-  items.forEach(s=>{
-    const movs=(s.movements||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-    if(!movs.length)return;
+// Builds a pivot-style "Monthly Breakdown" sheet: one row per item,
+// with each month laid out across the top as a 3-column group
+// (Stock In / Stock Out / Remaining) instead of repeating the item
+// name down the rows for every month. Every month in the full date
+// range is included, even ones with no activity for a given item.
+function buildMonthlyPivotSupplies(items){
+  const monthKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const monthLabel=d=>d.toLocaleString('default',{month:'short',year:'numeric'});
+  let minDate=null;
+  items.forEach(s=>(s.movements||[]).forEach(m=>{
+    const d=new Date(m.created_at);
+    if(!minDate||d<minDate)minDate=d;
+  }));
+  const now=new Date();
+  if(!minDate)minDate=now;
+  const months=[];
+  let cursor=new Date(minDate.getFullYear(),minDate.getMonth(),1);
+  const end=new Date(now.getFullYear(),now.getMonth(),1);
+  while(cursor<=end){
+    months.push({key:monthKey(cursor),label:monthLabel(cursor),year:cursor.getFullYear()});
+    cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+  }
+  // Group months by year (in order) so a subtotal block can follow each year's months
+  const years=[];
+  months.forEach(mo=>{
+    let y=years.find(y=>y.year===mo.year);
+    if(!y){y={year:mo.year,months:[]};years.push(y);}
+    y.months.push(mo);
+  });
+
+  const headerRow1=['Item','Unit'];
+  const headerRow2=['',''];
+  const merges=[{s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:1},e:{r:1,c:1}}];
+  const totalCols=[];
+  let col=2;
+  years.forEach(y=>{
+    y.months.forEach(mo=>{
+      headerRow1.push(mo.label,'','');
+      headerRow2.push('In','Out','Remaining');
+      merges.push({s:{r:0,c:col},e:{r:0,c:col+2}});
+      col+=3;
+    });
+    totalCols.push(col);
+    headerRow1.push(y.year+' Total','','');
+    headerRow2.push('Received','Used','Remaining');
+    merges.push({s:{r:0,c:col},e:{r:0,c:col+2}});
+    col+=3;
+  });
+
+  const dataRows=items.map(s=>{
     const byMonth={};
-    movs.forEach(m=>{
-      const d=new Date(m.created_at);
-      const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      if(!byMonth[key])byMonth[key]={in:0,out:0,label:d.toLocaleString('default',{month:'short',year:'numeric'})};
+    (s.movements||[]).forEach(m=>{
+      const key=monthKey(new Date(m.created_at));
+      if(!byMonth[key])byMonth[key]={in:0,out:0};
       if(m.type==='IN')byMonth[key].in+=m.qty; else byMonth[key].out+=m.qty;
     });
     let running=0;
-    Object.keys(byMonth).sort().forEach(key=>{
-      const b=byMonth[key];
-      running+=b.in-b.out;
-      rows.push([s.name,s.unit,b.label,b.in,b.out,running]);
+    const row=[s.name,s.unit];
+    years.forEach(y=>{
+      let yearIn=0,yearOut=0;
+      y.months.forEach(mo=>{
+        const b=byMonth[mo.key]||{in:0,out:0};
+        running+=b.in-b.out;
+        yearIn+=b.in; yearOut+=b.out;
+        row.push(b.in,b.out,running);
+      });
+      row.push(yearIn,yearOut,running); // year subtotal: total received, total used, closing balance
     });
+    return row;
   });
-  return rows;
+
+  return {name:'Monthly Breakdown', aoa:[headerRow1,headerRow2,...dataRows], merges, boldCols:totalCols};
 }
 function exportSupplies(){
   const rows=getFilteredSupplies();
@@ -4056,9 +4117,7 @@ function exportSupplies(){
     {name:isMed?'Medications':'Supplies',
      headers:['Item','Unit','Stock','Threshold','Low Stock'],
      rows:rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])},
-    {name:'Monthly Breakdown',
-     headers:['Item','Unit','Month','Stock In','Stock Out','Remaining'],
-     rows:buildMonthlySupplyRows(rows)}
+    buildMonthlyPivotSupplies(rows)
   ],(isMed?'medications_':'supplies_')+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportRequests(){

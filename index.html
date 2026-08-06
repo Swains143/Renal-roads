@@ -904,7 +904,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Pre-Dialysis Weight (kg)</label><input id="ds-preweight" placeholder="e.g. 68.5"></div>
 
     <div class="form-group"><label>Access</label><input id="ds-access" placeholder="e.g. AV Fistula"></div>
-    <div class="form-group"><label>Total Ultrafiltration (L)</label><input id="ds-uf" placeholder="e.g. 2.5"></div>
+    <div class="form-group"><label>Total Ultrafiltration (mL)</label><input id="ds-uf" placeholder="e.g. 2500"></div>
 
     <div class="form-group full"><label>Procedure tolerance</label>
       <select id="ds-tolerance" onchange="toggleDsComplication()">
@@ -3400,7 +3400,7 @@ function downloadDischargeSummary(){
   doc.line(margin, y, pageW-margin, y);
   y += 15;
 
-  // Patient info box — 3 rows: (Name|ID), (Age/Sex|Date), (Physician / Reg No, full width)
+  // Patient info box — 4 rows: (Name|IP), (ID|Age/Sex), (Date, full width), (Physician|Reg No, same box)
   const rowH = 25;
   const boxTop = y, boxH = rowH*4;
   const midX = margin + contentW*0.5;
@@ -3409,7 +3409,7 @@ function downloadDischargeSummary(){
   doc.line(margin, boxTop+rowH, margin+contentW, boxTop+rowH);       // row1/row2 divider
   doc.line(margin, boxTop+rowH*2, margin+contentW, boxTop+rowH*2);   // row2/row3 divider
   doc.line(margin, boxTop+rowH*3, margin+contentW, boxTop+rowH*3);   // row3/row4 divider
-  doc.line(midX, boxTop, midX, boxTop+rowH*3);                       // vertical divider (rows 1-3 only)
+  doc.line(midX, boxTop, midX, boxTop+rowH*2);                       // vertical divider (rows 1-2 only)
 
   const cell=(label,val,x,rowY,w)=>{
     doc.setFont(FONT,'bold'); doc.setFontSize(6.5); doc.setTextColor(...gray);
@@ -3421,14 +3421,17 @@ function downloadDischargeSummary(){
   cell('IP No.', document.getElementById('ds-ip').value, midX, boxTop, contentW*0.5);
   cell('Patient ID', document.getElementById('ds-id').value, margin, boxTop+rowH, contentW*0.5);
   cell('Age / Sex', `${document.getElementById('ds-age').value} / ${document.getElementById('ds-sex').value||'—'}`, midX, boxTop+rowH, contentW*0.5);
-  cell('Date', document.getElementById('ds-date').value, margin, boxTop+rowH*2, contentW*0.5);
-  cell('Reg. No.', document.getElementById('ds-regno').value, midX, boxTop+rowH*2, contentW*0.5);
-  // Row 4: Physician, full width, no divider (matches template)
+  cell('Date', document.getElementById('ds-date').value, margin, boxTop+rowH*2, contentW);
+  // Row 4: Physician + Reg No, same box, side by side (no divider, matches template)
   doc.setFont(FONT,'bold'); doc.setFontSize(6.5); doc.setTextColor(...gray);
   doc.text('PHYSICIAN', margin+8, boxTop+rowH*3+10);
+  doc.text('REG. NO.', margin+contentW*0.62, boxTop+rowH*3+10);
   const physicianVal = document.getElementById('ds-physician').value;
+  const regnoVal = document.getElementById('ds-regno').value;
   doc.setFont(FONT, isFilled(physicianVal)?'bold':'normal'); doc.setFontSize(9.5); doc.setTextColor(...ink);
-  doc.text(physicianVal||'—', margin+8, boxTop+rowH*3+20, {maxWidth:contentW-16});
+  doc.text(physicianVal||'—', margin+8, boxTop+rowH*3+20, {maxWidth:contentW*0.6});
+  doc.setFont(FONT, isFilled(regnoVal)?'bold':'normal');
+  doc.text(regnoVal||'—', margin+contentW*0.62+8, boxTop+rowH*3+20, {maxWidth:contentW*0.36});
 
   y = boxTop+boxH+18;
 
@@ -3529,7 +3532,7 @@ function downloadDischargeSummary(){
       {text:blankVal(accessVal), bold:isFilled(accessVal)},
       {text:' access. A total ultrafiltration (UF) of ', bold:false},
       {text:blankVal(ufVal), bold:isFilled(ufVal)},
-      {text:' L was achieved. The procedure was complicated by ', bold:false},
+      {text:' mL was achieved. The procedure was complicated by ', bold:false},
       {text:blankVal(complicationVal), bold:isFilled(complicationVal)},
       {text:'.', bold:false}
     ], 30);
@@ -3539,7 +3542,7 @@ function downloadDischargeSummary(){
       {text:blankVal(accessVal), bold:isFilled(accessVal)},
       {text:' access. A total ultrafiltration (UF) of ', bold:false},
       {text:blankVal(ufVal), bold:isFilled(ufVal)},
-      {text:' L was achieved. The procedure was well tolerated.', bold:false}
+      {text:' mL was achieved. The procedure was well tolerated.', bold:false}
     ], 30);
   }
 

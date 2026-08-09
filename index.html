@@ -942,6 +942,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group full"><label>Item name *</label><input id="s-name" placeholder="e.g. Paracetamol 500mg"></div>
     <div class="form-group"><label>Unit</label><input id="s-unit" placeholder="tablets, bags..."></div>
     <div class="form-group"><label>Low stock threshold</label><input id="s-thresh" type="number" value="10" min="0"></div>
+    <div class="form-group"><label>Expected daily usage</label><input id="s-daily-limit" type="number" min="0" placeholder="Optional — flags overuse"></div>
   </div>
   <div class="modal-err" id="supply-error"><i class="ti ti-alert-circle"></i><span id="supply-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('supply-modal')">Cancel</button><button class="btn btn-primary" onclick="saveSupply()"><i class="ti ti-check"></i> Save</button></div>
@@ -3674,7 +3675,7 @@ function openAddSupply(){
   const isMed=currentSupplyCategory==='medication';
   document.getElementById('supply-modal-title').textContent=isMed?'Add medication':'Add supply item';
   document.getElementById('supply-modal-sub').textContent=isMed?'Register a new medication':'Register a new supply item';
-  document.getElementById('s-name').value='';document.getElementById('s-unit').value='';document.getElementById('s-thresh').value='10';document.getElementById('supply-error').classList.remove('show');document.getElementById('supply-modal').classList.add('open');
+  document.getElementById('s-name').value='';document.getElementById('s-unit').value='';document.getElementById('s-thresh').value='10';document.getElementById('s-daily-limit').value='';document.getElementById('supply-error').classList.remove('show');document.getElementById('supply-modal').classList.add('open');
 }
 function openEditSupply(id){
   const s=supplies.find(x=>x.id===id);if(!s)return;
@@ -3685,6 +3686,7 @@ function openEditSupply(id){
   document.getElementById('s-name').value=s.name;
   document.getElementById('s-unit').value=s.unit;
   document.getElementById('s-thresh').value=s.threshold;
+  document.getElementById('s-daily-limit').value=s.daily_limit||'';
   document.getElementById('supply-error').classList.remove('show');
   document.getElementById('supply-modal').classList.add('open');
 }
@@ -3696,7 +3698,8 @@ async function saveSupply(){
     p_session:sessionToken, p_id:editingSupplyId||null, p_name:name,
     p_unit:document.getElementById('s-unit').value.trim()||'units',
     p_threshold:parseInt(document.getElementById('s-thresh').value)||10,
-    p_category:currentSupplyCategory
+    p_category:currentSupplyCategory,
+    p_daily_limit:parseInt(document.getElementById('s-daily-limit').value)||null
   });
   hideLoading();
   if(error){document.getElementById('supply-error-msg').textContent=error.message;document.getElementById('supply-error').classList.add('show');return;}
@@ -3721,8 +3724,18 @@ async function confirmMovement(){
   if(!qty||qty<=0){alert('Enter a valid quantity.');return;}
   const s=supplies.find(x=>x.id===pendingMovement.supplyId);if(!s)return;
   if(pendingMovement.type==='OUT'&&qty>getStock(s)){alert('Insufficient stock. Available: '+getStock(s)+' '+s.unit);return;}
+  const notesVal=document.getElementById('m-notes').value.trim();
+  if(pendingMovement.type==='OUT'&&s.daily_limit){
+    const todayKey=new Date().toISOString().slice(0,10);
+    const todayTotal=(s.movements||[]).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===todayKey).reduce((t,m)=>t+m.qty,0)+qty;
+    if(todayTotal>s.daily_limit){
+      const overBy=todayTotal-s.daily_limit;
+      if(!notesVal){alert(`This pushes today's ${s.name} usage to ${todayTotal} ${s.unit} — ${overBy} over the expected daily limit of ${s.daily_limit}. Please enter a reason in Notes before saving.`);return;}
+      if(!confirm(`Today's ${s.name} usage will total ${todayTotal} ${s.unit}, ${overBy} over the expected daily limit of ${s.daily_limit}.\n\nReason: "${notesVal}"\n\nSave this movement?`))return;
+    }
+  }
   showLoading('Saving...');
-  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:document.getElementById('m-notes').value.trim(),p_by_user:document.getElementById('m-by').value.trim()||'Staff'});
+  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:document.getElementById('m-by').value.trim()||'Staff'});
   hideLoading();closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){
@@ -4113,14 +4126,39 @@ function buildMonthlyPivotSupplies(items){
 
   return {name:'Monthly Breakdown', aoa:[headerRow1,headerRow2,...dataRows], merges, boldCols:totalCols};
 }
+// For items with a daily_limit set, finds every calendar day where
+// total Stock OUT exceeded that limit, and returns rows of
+// [Item, Date, Expected/Day, Total Used, Over By, Reason(s)].
+function buildDailyUsageAlerts(items){
+  const rows=[];
+  items.filter(s=>s.daily_limit).forEach(s=>{
+    const byDay={};
+    (s.movements||[]).filter(m=>m.type==='OUT').forEach(m=>{
+      const key=new Date(m.created_at).toISOString().slice(0,10);
+      if(!byDay[key])byDay[key]={total:0,notes:[]};
+      byDay[key].total+=m.qty;
+      if(m.note)byDay[key].notes.push(m.note);
+    });
+    Object.keys(byDay).sort().forEach(key=>{
+      const d=byDay[key];
+      const over=d.total-s.daily_limit;
+      if(over>0)rows.push([s.name,key,s.daily_limit,d.total,over,d.notes.join('; ')||'(no reason recorded)']);
+    });
+  });
+  return rows;
+}
 function exportSupplies(){
   const rows=getFilteredSupplies();
   const isMed=currentSupplyCategory==='medication';
+  const alertRows=buildDailyUsageAlerts(rows);
   dlXLSXMulti([
     {name:isMed?'Medications':'Supplies',
      headers:['Item','Unit','Stock','Threshold','Low Stock'],
      rows:rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])},
-    buildMonthlyPivotSupplies(rows)
+    buildMonthlyPivotSupplies(rows),
+    {name:'Usage Alerts',
+     headers:['Item','Date','Expected/Day','Total Used','Over By','Reason(s)'],
+     rows:alertRows.length?alertRows:[['—','—','—','—','—','No overuse days — all items within expected daily limits']]}
   ],(isMed?'medications_':'supplies_')+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function exportRequests(){

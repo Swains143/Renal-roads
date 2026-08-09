@@ -2178,6 +2178,16 @@ async function renderClinicalReport(){
       </div>
     </div>
 
+    <div class="rep-card">
+      <h2>Heparin &amp; Medication Usage Alerts</h2>
+      <div class="rep-hint">Auto-filled from stock records when usage exceeds an item's expected daily amount (set per item under Medications) — edit, add, or remove rows as needed</div>
+      <div class="table-wrapper"><table class="rep-table">
+        <thead><tr><th>Item</th><th>Date</th><th>Expected/Day</th><th>Total Used</th><th>Over By</th><th>Reason</th><th></th></tr></thead>
+        <tbody id="rep-heparinRows"></tbody>
+      </table></div>
+      <button type="button" class="rep-add-row" onclick="repAddDynamicRow('rep-heparinRows',['item','date','expected','used','over_by','reason'])"><i class="ti ti-plus"></i> Add usage record</button>
+    </div>
+
     <div class="rep-card rep-truck-only">
       <h2>Truck mechanical activity report</h2>
       <div class="rep-field"><textarea id="rep-mechanicalRemarks" placeholder="Remarks..."></textarea></div>
@@ -2215,6 +2225,21 @@ async function renderClinicalReport(){
   repUpdateRinseDueHint();
   await repLoadDraftForCurrentSelection();
   await repPopulatePastReportsDropdown();
+}
+// Auto-fills the heparin/medication usage table with any days in the
+// current reporting period where a tracked item (daily_limit set)
+// exceeded its expected usage — a starting point staff can then edit,
+// add to, or remove rows from before saving.
+async function repRenderHeparinUsage(){
+  const tbody = document.getElementById('rep-heparinRows');
+  if(!tbody) return;
+  const {data} = await db.rpc('rr_supplies_list',{p_session:sessionToken});
+  const start = document.getElementById('rep-periodStart').value;
+  const end = document.getElementById('rep-periodEnd').value;
+  const alerts = buildDailyUsageAlerts(data||[]).filter(r=>r[1]>=start && r[1]<=end);
+  tbody.innerHTML = '';
+  alerts.forEach(r=>repAddDynamicRow('rep-heparinRows',['item','date','expected','used','over_by','reason'],
+    {item:r[0], date:r[1], expected:r[2], used:r[3], over_by:r[4], reason:r[5]}));
 }
 
 function repSetFacility(facility){
@@ -2342,7 +2367,7 @@ function repAddDynamicRow(tbodyId, columns, values){
   const tbody = document.getElementById(tbodyId);
   const tr = document.createElement('tr');
   tr.innerHTML = columns.map(c=>{
-    const type = c==='deadline' ? 'date' : 'text';
+    const type = (c==='deadline'||c==='date') ? 'date' : 'text';
     return `<td><input type="${type}" data-field="${c}"></td>`;
   }).join('') + `<td><button type="button" class="rep-remove-btn" onclick="this.closest('tr').remove();repMarkDirty()"><i class="ti ti-x"></i></button></td>`;
   tbody.appendChild(tr);
@@ -2375,7 +2400,8 @@ function repBuildContent(){
       machines_operational: repYnValue('machinesYN'),
       machines_operational_remarks: document.getElementById('rep-machinesRemarks').value
     },
-    action_points: repCollectDynamicRows('rep-actionRows')
+    action_points: repCollectDynamicRows('rep-actionRows'),
+    heparin_usage: repCollectDynamicRows('rep-heparinRows')
   };
   if(repFacility==='kigumo'){
     content.dialysis_machines_ro.machines_available_count = Number(document.getElementById('rep-machinesAvailable').value)||0;
@@ -2439,6 +2465,8 @@ function repPopulateForm(content){
   }
   document.getElementById('rep-actionRows').innerHTML='';
   (content.action_points||[]).forEach(row=>repAddDynamicRow('rep-actionRows',['issue','responsible_person','deadline'],row));
+  document.getElementById('rep-heparinRows').innerHTML='';
+  (content.heparin_usage||[]).forEach(row=>repAddDynamicRow('rep-heparinRows',['item','date','expected','used','over_by','reason'],row));
 }
 
 function repResetFormBlank(){
@@ -2448,6 +2476,7 @@ function repResetFormBlank(){
   repRenderStaffTable();
   document.getElementById('rep-inpatientRows').innerHTML='';
   document.getElementById('rep-actionRows').innerHTML='';
+  document.getElementById('rep-heparinRows').innerHTML='';
   ['rep-rinseRemarks','rep-machinesRemarks','rep-mechanicalRemarks','rep-stationGatura','rep-stationKirwara','rep-stationMaragwa','rep-interruptDetails','rep-rinseLastDate']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const avail = document.getElementById('rep-machinesAvailable'); if(avail) avail.value='';
@@ -2478,6 +2507,7 @@ async function repLoadDraftForCurrentSelection(){
     statusMsg.textContent = "Continuing this week's existing draft.";
   } else {
     statusMsg.textContent = 'No draft yet for this week — starting fresh.';
+    await repRenderHeparinUsage();
   }
   repDirty = false;
   repPopulating = false;
@@ -2629,6 +2659,14 @@ function repBuildPrintBlocks(){
       <tr><td><strong>Water / power interruptions</strong></td><td>${content.dialysis_machines_ro.water_power_interruptions?'Yes':'No'}</td></tr>
       <tr><td><strong>Details</strong></td><td>${repEsc(content.dialysis_machines_ro.interruption_details)}</td></tr>` : ''}
     </tbody></table>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">Heparin &amp; Medication Usage Alerts</div>
+    ${content.heparin_usage.length ? `
+    <table class="rep-print-table">
+      <thead><tr><th>Item</th><th>Date</th><th>Expected/Day</th><th>Total Used</th><th>Over By</th><th>Reason</th></tr></thead>
+      <tbody>${content.heparin_usage.map(r=>`<tr><td>${repEsc(r.item)}</td><td>${repEsc(r.date)}</td><td>${repEsc(r.expected)}</td><td>${repEsc(r.used)}</td><td>${repEsc(r.over_by)}</td><td>${repEsc(r.reason)}</td></tr>`).join('')}</tbody>
+    </table>` : '<div class="rep-print-text-block">No usage alerts recorded this period.</div>'}`);
 
   if(repFacility==='truck'){
     blocks.push(`
@@ -3735,7 +3773,7 @@ async function confirmMovement(){
     }
   }
   showLoading('Saving...');
-  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:document.getElementById('m-by').value.trim()||'Staff'});
+  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:document.getElementById('m-by').value.trim()||'Nurse'});
   hideLoading();closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){
@@ -3805,7 +3843,7 @@ function approveRequest(id, supplyId, qty, by) {
     (currentStock < qty ? ' — ⚠ Insufficient stock for full request' : '');
   document.getElementById('ap-error').classList.remove('show');
   document.getElementById('approve-modal-sub').textContent =
-    'Requested by: ' + (by || 'Staff') + ' · Adjust quantity if needed before dispensing';
+    'Requested by: ' + (by || 'Nurse') + ' · Adjust quantity if needed before dispensing';
   document.getElementById('approve-modal').classList.add('open');
 }
 

@@ -1330,9 +1330,8 @@ function applyRoleTabVisibility(role){
   // Viewer: hide patients tab (sensitive data) - only Home & Supplies
   document.getElementById('tab-patients').style.display=role==='viewer'?'none':'';
   document.getElementById('opt-patients').hidden=role==='viewer';
-  // Viewer: hide weekly clinical report (staff/admin only)
-  document.getElementById('tab-report').style.display=role==='viewer'?'none':'';
-  document.getElementById('opt-report').hidden=role==='viewer';
+  // Viewer: weekly clinical report tab is visible, but restricted to
+  // browsing/downloading submitted reports only (see repOnPastReportChange)
 }
 
 function switchTab(t){
@@ -2136,7 +2135,7 @@ async function renderClinicalReport(){
       <div class="rep-hint">Monday – Saturday</div>
       <div class="table-wrapper"><table class="rep-table" id="rep-staffTable">
         <thead>
-          <tr class="rep-truck-only-cell"><th></th><th>Staff</th><th>Remarks</th></tr>
+          <tr class="rep-truck-only-cell"><th></th><th>Staff</th><th>Locum</th><th>Remarks</th></tr>
           <tr class="rep-kigumo-only-cell" style="display:none"><th></th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>
         </thead>
         <tbody id="rep-staffRows"></tbody>
@@ -2223,7 +2222,14 @@ async function renderClinicalReport(){
   repRenderOutpatientTable();
   repRenderStaffTable();
   repUpdateRinseDueHint();
-  await repLoadDraftForCurrentSelection();
+  if(currentUser && currentUser.role==='viewer'){
+    repSetFormEditable(false);
+    document.getElementById('rep-saveDraftBtn').style.display='none';
+    document.getElementById('rep-submitBtn').style.display='none';
+    document.getElementById('rep-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    await repLoadDraftForCurrentSelection();
+  }
   await repPopulatePastReportsDropdown();
 }
 // Auto-fills the heparin/medication usage table with any days in the
@@ -2256,7 +2262,12 @@ function repSetFacility(facility){
   document.getElementById('rep-viewingPastBanner').style.display='none';
   document.getElementById('rep-backToCurrentBtn').style.display='none';
   repSetFormEditable(true);
-  repLoadDraftForCurrentSelection();
+  if(currentUser && currentUser.role==='viewer'){
+    repSetFormEditable(false);
+    document.getElementById('rep-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    repLoadDraftForCurrentSelection();
+  }
   repPopulatePastReportsDropdown();
 }
 
@@ -2339,6 +2350,7 @@ function repRenderStaffTable(){
       return `<tr>
         <td class="rep-day-label">${day}</td>
         <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="staff" oninput="repAutoGrow(this)"></textarea></td>
+        <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="locum" oninput="repAutoGrow(this)"></textarea></td>
         <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="remarks" oninput="repAutoGrow(this)"></textarea></td>
       </tr>`;
     }
@@ -2553,8 +2565,9 @@ function repSetFormEditable(editable){
 }
 async function repPopulatePastReportsDropdown(){
   const select = document.getElementById('rep-pastReportSelect');
-  select.innerHTML = '<option value="">Current week (editable)</option>';
-  const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:repFacility});
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
+  const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:repFacility});
   if(error || !data) return;
   data.filter(r => !r.content || r.content.report_type !== 'operational').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
@@ -2564,29 +2577,39 @@ async function repPopulatePastReportsDropdown(){
   });
 }
 async function repOnPastReportChange(id){
+  const isViewer = currentUser && currentUser.role === 'viewer';
   const banner = document.getElementById('rep-viewingPastBanner');
   const backBtn = document.getElementById('rep-backToCurrentBtn');
   if(!id){
+    if(isViewer){
+      banner.style.display='none'; backBtn.style.display='none';
+      document.getElementById('rep-statusMsg').textContent = 'Select a submitted report above to view and export.';
+      return;
+    }
     banner.style.display='none'; backBtn.style.display='none';
     repSetFormEditable(true);
     await repLoadDraftForCurrentSelection();
     return;
   }
-  if(repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
     document.getElementById('rep-pastReportSelect').value='';
     return;
   }
   repPopulating = true;
   document.getElementById('rep-statusMsg').textContent = 'Loading past report...';
-  const { data, error } = await db.rpc('rr_report_get', {p_session:sessionToken, p_id:id});
+  const { data, error } = await db.rpc(isViewer?'rr_report_get_viewer':'rr_report_get', {p_session:sessionToken, p_id:id});
   if(error || !data){ document.getElementById('rep-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   repDraftId = null;
   document.getElementById('rep-periodStart').value = data.period_start;
   document.getElementById('rep-periodEnd').value = data.period_end;
   repPopulateForm(data.content || {});
   repSetFormEditable(false);
-  banner.style.display='block';
-  backBtn.style.display='inline-block';
+  if(isViewer){
+    document.getElementById('rep-saveDraftBtn').style.display='none';
+    document.getElementById('rep-submitBtn').style.display='none';
+  }
+  banner.style.display= isViewer ? 'none' : 'block';
+  backBtn.style.display= isViewer ? 'none' : 'inline-block';
   document.getElementById('rep-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
   document.getElementById('rep-statusMsg').classList.remove('dirty','saved');
   repDirty = false;
@@ -2635,12 +2658,12 @@ function repBuildPrintBlocks(){
   blocks.push(`
     <div class="rep-print-section-title">Staff Register</div>
     <table class="rep-print-table">
-      <thead>${repFacility==='truck' ? '<tr><th>Day</th><th>Staff</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
+      <thead>${repFacility==='truck' ? '<tr><th>Day</th><th>Staff</th><th>Locum</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
       <tbody>
         ${REP_DAYS.map(day=>{
           const row = content.staff_register[day]||{};
           return repFacility==='truck'
-            ? `<tr><td>${day}</td><td>${repEsc(row.staff)}</td><td>${repEsc(row.remarks)}</td></tr>`
+            ? `<tr><td>${day}</td><td>${repEsc(row.staff)}</td><td>${repEsc(row.locum)}</td><td>${repEsc(row.remarks)}</td></tr>`
             : `<tr><td>${day}</td><td>${repEsc(row.nurses_present)}</td><td>${repEsc(row.locum_nurses)}</td><td>${repEsc(row.reviewing_doctor)}</td></tr>`;
         }).join('')}
       </tbody>
@@ -2824,7 +2847,14 @@ async function renderOperationalReport(){
   </div>`;
   document.getElementById('rep-kind-body').innerHTML = h;
 
-  await opLoadDraftForCurrentSelection();
+  if(currentUser && currentUser.role==='viewer'){
+    opSetFormEditable(false);
+    document.getElementById('op-saveDraftBtn').style.display='none';
+    document.getElementById('op-submitBtn').style.display='none';
+    document.getElementById('op-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    await opLoadDraftForCurrentSelection();
+  }
   await opPopulatePastReportsDropdown();
 }
 
@@ -2839,7 +2869,12 @@ function opSetFacility(facility){
   document.getElementById('op-viewingPastBanner').style.display='none';
   document.getElementById('op-backToCurrentBtn').style.display='none';
   opSetFormEditable(true);
-  opLoadDraftForCurrentSelection();
+  if(currentUser && currentUser.role==='viewer'){
+    opSetFormEditable(false);
+    document.getElementById('op-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    opLoadDraftForCurrentSelection();
+  }
   opPopulatePastReportsDropdown();
 }
 
@@ -3016,8 +3051,9 @@ function opSetFormEditable(editable){
 }
 async function opPopulatePastReportsDropdown(){
   const select = document.getElementById('op-pastReportSelect');
-  select.innerHTML = '<option value="">Current week (editable)</option>';
-  const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:opFacility});
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
+  const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:opFacility});
   if(error || !data) return;
   data.filter(r => r.content && r.content.report_type === 'operational').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
@@ -3027,29 +3063,39 @@ async function opPopulatePastReportsDropdown(){
   });
 }
 async function opOnPastReportChange(id){
+  const isViewer = currentUser && currentUser.role === 'viewer';
   const banner = document.getElementById('op-viewingPastBanner');
   const backBtn = document.getElementById('op-backToCurrentBtn');
   if(!id){
+    if(isViewer){
+      banner.style.display='none'; backBtn.style.display='none';
+      document.getElementById('op-statusMsg').textContent = 'Select a submitted report above to view and export.';
+      return;
+    }
     banner.style.display='none'; backBtn.style.display='none';
     opSetFormEditable(true);
     await opLoadDraftForCurrentSelection();
     return;
   }
-  if(repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
     document.getElementById('op-pastReportSelect').value='';
     return;
   }
   repPopulating = true;
   document.getElementById('op-statusMsg').textContent = 'Loading past report...';
-  const { data, error } = await db.rpc('rr_report_get', {p_session:sessionToken, p_id:id});
+  const { data, error } = await db.rpc(isViewer?'rr_report_get_viewer':'rr_report_get', {p_session:sessionToken, p_id:id});
   if(error || !data){ document.getElementById('op-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   opDraftId = null;
   document.getElementById('op-periodStart').value = data.period_start;
   document.getElementById('op-periodEnd').value = data.period_end;
   opPopulateForm(data.content || {});
   opSetFormEditable(false);
-  banner.style.display='block';
-  backBtn.style.display='inline-block';
+  if(isViewer){
+    document.getElementById('op-saveDraftBtn').style.display='none';
+    document.getElementById('op-submitBtn').style.display='none';
+  }
+  banner.style.display= isViewer ? 'none' : 'block';
+  backBtn.style.display= isViewer ? 'none' : 'inline-block';
   document.getElementById('op-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
   document.getElementById('op-statusMsg').classList.remove('dirty','saved');
   repDirty = false;

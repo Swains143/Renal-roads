@@ -2557,7 +2557,7 @@ async function repSaveReport(status, silent){
 // ---------- Past submitted reports ----------
 function repSetFormEditable(editable){
   document.querySelectorAll('#rep-kind-body .rep-card input, #rep-kind-body .rep-card textarea, #rep-kind-body .rep-card select, #rep-kind-body .rep-card button').forEach(el=>{
-    if(el.id==='rep-pastReportSelect' || el.id==='rep-backToCurrentBtn') return;
+    if(el.id==='rep-pastReportSelect' || el.id==='rep-backToCurrentBtn' || el.closest('#rep-facility-toggle')) return;
     el.disabled = !editable;
   });
   document.getElementById('rep-saveDraftBtn').disabled = !editable;
@@ -3043,7 +3043,7 @@ async function opSaveReport(status, silent){
 // ---------- Past submitted reports ----------
 function opSetFormEditable(editable){
   document.querySelectorAll('#rep-kind-body .rep-card input, #rep-kind-body .rep-card textarea, #rep-kind-body .rep-card select, #rep-kind-body .rep-card button').forEach(el=>{
-    if(el.id==='op-pastReportSelect' || el.id==='op-backToCurrentBtn') return;
+    if(el.id==='op-pastReportSelect' || el.id==='op-backToCurrentBtn' || el.closest('#op-facility-toggle')) return;
     el.disabled = !editable;
   });
   document.getElementById('op-saveDraftBtn').disabled = !editable;

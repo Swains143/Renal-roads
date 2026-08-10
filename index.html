@@ -315,13 +315,16 @@ tr:hover td{background:var(--navy-pale)}
 tr.row-deceased td{background:#FEF0F0;color:#6B1515}
 tr.row-discharged td{background:#F0EFFE;color:#2A2870}
 tr.row-transferred td{background:#FDF3E7;color:#7A4510}
+tr.row-transplant td{background:#EAFAF6;color:#0F6656}
 tr.row-deceased:hover td{background:#FDDDDD}
 tr.row-discharged:hover td{background:#E4E0FC}
 tr.row-transferred:hover td{background:#FBE6C7}
+tr.row-transplant:hover td{background:#D3F3EA}
 .status-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .s-active{background:var(--green-pale);color:#2E6B10}
 .s-discharged{background:#EEEDFE;color:#3C3489}
 .s-transferred{background:var(--amber-pale);color:#7A4510}
+.s-transplant{background:#EAFAF6;color:#0F6656}
 .s-deceased{background:#FCEBEB;color:#791F1F}
 .s-in{background:var(--green-pale);color:#2E6B10}
 .s-out{background:#FCEBEB;color:#791F1F}
@@ -869,6 +872,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
         <option value="Active">Active</option>
         <option value="Discharged">Discharged</option>
         <option value="Transferred">Transferred</option>
+        <option value="Transplant">Transplant</option>
         <option value="Deceased">Deceased</option>
       </select>
     </div>
@@ -1355,13 +1359,17 @@ function switchTab(t){
 
 // Status dropdown shows/hides discharge/transfer fields
 function updateStatusFieldLabels(status){
-  const show = status === 'Discharged' || status === 'Transferred';
+  const show = status === 'Discharged' || status === 'Transferred' || status === 'Transplant';
   document.getElementById('discharge-date-group').style.display = show ? '' : 'none';
   document.getElementById('discharge-notes-group').style.display = show ? '' : 'none';
   if(status==='Transferred'){
     document.getElementById('f-discharge-date-label').textContent='Transferred on';
     document.getElementById('f-discharge-notes-label').textContent='Transfer notes';
     document.getElementById('f-discharge-notes').placeholder='Destination facility, reason for transfer...';
+  } else if(status==='Transplant'){
+    document.getElementById('f-discharge-date-label').textContent='Transplant date';
+    document.getElementById('f-discharge-notes-label').textContent='Transplant notes';
+    document.getElementById('f-discharge-notes').placeholder='Transplant centre, donor type, follow-up instructions...';
   } else {
     document.getElementById('f-discharge-date-label').textContent='Discharge date';
     document.getElementById('f-discharge-notes-label').textContent='Discharge notes';
@@ -3207,13 +3215,12 @@ async function renderHome(){
       <p>Track machine heat disinfection schedules and log reverse rinse sessions for Kigumo and Truck.</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
     </div>
-    ${!isViewer?`
     <div class="dash-card" onclick="switchTab('report')">
       <div class="dash-card-icon" style="background:var(--green-pale)"><i class="ti ti-clipboard-text" style="color:var(--green-dark);font-size:26px"></i></div>
       <h3>Weekly reports</h3>
-      <p>Fill in or review the weekly clinical and operational reports for the Truck and Kigumo Hub.</p>
+      <p>${isViewer?'Browse and download submitted weekly clinical and operational reports.':'Fill in or review the weekly clinical and operational reports for the Truck and Kigumo Hub.'}</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
-    </div>`:''}
+    </div>
     ${isAdmin?`
     <div class="dash-card" onclick="switchTab('requests')">
       <div class="dash-card-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber);font-size:26px"></i></div>
@@ -3291,17 +3298,19 @@ async function renderPatients(){
   const active=patients.filter(p=>p.status==='Active').length;
   const discharged=patients.filter(p=>p.status==='Discharged').length;
   const transferred=patients.filter(p=>p.status==='Transferred').length;
+  const transplant=patients.filter(p=>p.status==='Transplant').length;
   const deceased=patients.filter(p=>p.status==='Deceased').length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${patients.length}</div><div class="lbl">Total</div></div>
     <div class="metric"><div class="num" style="color:var(--green)">${active}</div><div class="lbl">Active</div></div>
     <div class="metric"><div class="num" style="color:#534AB7">${discharged}</div><div class="lbl">Discharged</div></div>
     <div class="metric"><div class="num" style="color:var(--amber)">${transferred}</div><div class="lbl">Transferred</div></div>
+    <div class="metric"><div class="num" style="color:#0F6656">${transplant}</div><div class="lbl">Transplant</div></div>
     <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
   </div>
   <div class="toolbar">
     <input placeholder="Search name, IP, ID, phone..." value="${f.search}" oninput="patientFilter.search=this.value;renderPatients()">
-    ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Deceased']})}
+    ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Transplant','Deceased']})}
     ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
     ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
     ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatients()"><i class="ti ti-x"></i> Clear filters</button>':''}
@@ -3312,8 +3321,8 @@ async function renderPatients(){
     <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Age</th><th>Gender</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="9"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
   else filtered.forEach(p=>{
-    const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':'';
-    const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':'s-deceased';
+    const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
+    const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
     h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
@@ -3375,7 +3384,7 @@ async function savePatient(){
     if(!editingPatientId||(prev&&prev.status!=='Deceased'))deathYear=YEAR;
     else if(prev)deathYear=prev.death_year;
   }
-  if(status==='Discharged'||status==='Transferred'){
+  if(status==='Discharged'||status==='Transferred'||status==='Transplant'){
     dischargeDate=document.getElementById('f-discharge-date').value||null;
     dischargeNotes=document.getElementById('f-discharge-notes').value.trim()||null;
   }

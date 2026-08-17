@@ -2187,7 +2187,7 @@ async function renderClinicalReport(){
     </div>
 
     <div class="rep-card">
-      <h2>Heparin &amp; Medication Usage Alerts</h2>
+      <h2>Item Used More Than Expected</h2>
       <div class="rep-hint">Auto-filled from stock records when usage exceeds an item's expected daily amount (set per item under Medications) — edit, add, or remove rows as needed</div>
       <div class="table-wrapper"><table class="rep-table">
         <thead><tr><th>Item</th><th>Date</th><th>Expected/Day</th><th>Total Used</th><th>Over By</th><th>Reason</th><th></th></tr></thead>
@@ -2693,7 +2693,7 @@ function repBuildPrintBlocks(){
     </tbody></table>`);
 
   blocks.push(`
-    <div class="rep-print-section-title">Heparin &amp; Medication Usage Alerts</div>
+    <div class="rep-print-section-title">Item Used More Than Expected</div>
     ${content.heparin_usage.length ? `
     <table class="rep-print-table">
       <thead><tr><th>Item</th><th>Date</th><th>Expected/Day</th><th>Total Used</th><th>Over By</th><th>Reason</th></tr></thead>

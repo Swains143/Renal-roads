@@ -366,6 +366,7 @@ tr.row-transplant:hover td{background:#D3F3EA}
 .role-tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .role-admin{background:var(--navy-pale);color:var(--navy)}
 .role-staff{background:var(--green-pale);color:#2E6B10}
+.role-doctor{background:#EAFAF6;color:#0F6656}
 .active-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 .dot-active{background:var(--green)}
 .dot-inactive{background:var(--gray-400)}
@@ -619,11 +620,11 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-status-msg.dirty{color:var(--amber);font-weight:600}
 .rep-status-msg.dirty::before{content:"\25CF";margin-right:5px;font-size:9px;position:relative;top:-1px;animation:pulse 1.4s ease-in-out infinite}
 .rep-status-msg.saved{color:var(--green-dark);font-weight:600}
-#rep-printArea,#op-printArea{display:none}
+#rep-printArea,#op-printArea,#doc-printArea{display:none}
 @media print{
   body *{visibility:hidden}
-  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *{visibility:visible}
-  #rep-printArea, #op-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;color:#000;background:#fff}
+  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *{visibility:visible}
+  #rep-printArea, #op-printArea, #doc-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;color:#000;background:#fff}
   /* Each .rep-print-page is one physical printed page (content was pre-packed
      to fit via JS measurement in repRenderPaginated). Deliberately NOT using
      display:flex here — flex containers do not fragment reliably across
@@ -1021,7 +1022,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Full name *</label><input id="u-name" placeholder="Display name"></div>
     <div class="form-group"><label>Username *</label><input id="u-username" placeholder="Login username"></div>
     <div class="form-group"><label>Password *</label><input id="u-password" type="password" placeholder="Set password"></div>
-    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Staff</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
+    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Staff</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
   </div>
   <div class="modal-err" id="user-error"><i class="ti ti-alert-circle"></i><span id="user-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('user-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUser()"><i class="ti ti-check"></i> Register</button></div>
@@ -1915,7 +1916,7 @@ function repPrintWhenImagesReady(area){
   setTimeout(finish, 2500); // safety net so print always eventually fires
 }
 let repDraftId = null;
-let repKind = 'clinical'; // 'clinical' | 'operational' — which weekly report form is showing
+let repKind = 'clinical'; // 'clinical' | 'operational' | 'doctor' — which weekly report form is showing
 
 // ---------- Unsaved-changes tracking + autosave ----------
 // While filling a report, any edit sets repDirty=true. A background timer
@@ -1931,14 +1932,14 @@ const REP_AUTOSAVE_MS = 45000;
 function repMarkDirty(){
   if(repPopulating) return;
   repDirty = true;
-  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : 'rep-statusMsg');
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : 'rep-statusMsg');
   if(el){
     el.textContent = 'Unsaved changes — autosaving shortly...';
     el.classList.add('dirty'); el.classList.remove('saved');
   }
 }
 function repShowSavedIndicator(msg){
-  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : 'rep-statusMsg');
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : 'rep-statusMsg');
   if(el){ el.textContent = msg; el.classList.remove('dirty'); el.classList.add('saved'); }
 }
 function repStopAutoSave(){ if(repAutoSaveTimer){ clearInterval(repAutoSaveTimer); repAutoSaveTimer=null; } }
@@ -1948,15 +1949,16 @@ function repStartAutoSave(){
 }
 async function repAutoSaveTick(){
   if(!repDirty || !currentUser || currentTab!=='report') return;
-  const backBtnId = repKind==='operational' ? 'op-backToCurrentBtn' : 'rep-backToCurrentBtn';
+  const backBtnId = repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : 'rep-backToCurrentBtn';
   const backBtn = document.getElementById(backBtnId);
   if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — nothing to autosave
   if(repKind==='operational') await opSaveReport('draft', true);
+  else if(repKind==='doctor') await docSaveReport('draft', true);
   else await repSaveReport('draft', true);
 }
 // Delegated listeners: catch typing/edits anywhere inside the report forms,
 // even though the form markup is fully rebuilt on every render.
-const REP_DIRTY_EXCLUDE_IDS = ['rep-periodStart','rep-periodEnd','op-periodStart','op-periodEnd','rep-pastReportSelect','op-pastReportSelect'];
+const REP_DIRTY_EXCLUDE_IDS = ['rep-periodStart','rep-periodEnd','op-periodStart','op-periodEnd','rep-pastReportSelect','op-pastReportSelect','doc-periodStart','doc-periodEnd','doc-pastReportSelect'];
 function repDelegatedDirtyCheck(e){
   const t = e.target;
   if(!t || !t.closest || !t.closest('#rep-kind-body')) return;
@@ -2055,12 +2057,14 @@ async function renderReport(){
       <div class="rep-toggle" id="rep-kind-toggle">
         <button type="button" class="${repKind==='clinical'?'active':''}" onclick="repSetKind('clinical')">Clinical Report</button>
         <button type="button" class="${repKind==='operational'?'active':''}" onclick="repSetKind('operational')">Operational Report</button>
+        ${(currentUser && ['admin','doctor','viewer'].includes(currentUser.role)) ? `<button type="button" class="${repKind==='doctor'?'active':''}" onclick="repSetKind('doctor')">Doctor's Report</button>` : ''}
       </div>
     </div>
     <div id="rep-kind-body"></div>
   </div>`;
   document.getElementById('main-content').innerHTML = h;
   if(repKind==='operational') await renderOperationalReport();
+  else if(repKind==='doctor') await renderDoctorReport();
   else await renderClinicalReport();
   repStartAutoSave();
 }
@@ -3171,6 +3175,493 @@ function opExportPrint(){
   repPrintWhenImagesReady(area);
 }
 
+// =====================================================================
+// DOCTOR'S WEEKLY REPORT
+// Shares the same 'facility_reports' table (facility_type='doctor'),
+// same pattern as the Operational Report sharing the table via a
+// content.report_type marker — no new database table required.
+// Writing to this facility_type is restricted server-side (in
+// rr_report_drafts / rr_report_save) to admin and doctor roles.
+// =====================================================================
+let docDraftId = null;
+
+async function renderDoctorReport(){
+  const { start, end } = repCurrentWeekRange();
+  const h = `
+  <div class="rep-page">
+
+    <div class="rep-card">
+      <h2 style="margin-bottom:2px">Doctor's Weekly Report</h2>
+      <div class="rep-hint" style="margin-bottom:0">Weekly Dialysis Hub &amp; Mobile Dialysis Service Report</div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Reporting period</h2>
+      <div class="rep-hint">This week's period is set automatically. Change the dates to open a different week's draft.</div>
+      <div class="rep-row">
+        <div class="rep-field"><label>From</label><input type="date" id="doc-periodStart" value="${start}" onchange="docLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>To</label><input type="date" id="doc-periodEnd" value="${end}" onchange="docLoadDraftForCurrentSelection()"></div>
+      </div>
+      <div class="rep-row">
+        <div class="rep-field"><label>Clinician name</label><input type="text" id="doc-clinicianName" placeholder="Full name" value="${currentUser?repEsc(currentUser.name):''}"></div>
+        <div class="rep-field"><label>Designation</label><input type="text" id="doc-designation" placeholder="e.g. Nephrologist"></div>
+        <div class="rep-field"><label>Reporting units</label><input type="text" id="doc-reportingUnits" placeholder="e.g. Mobile Truck &amp; Kigumo Hub"></div>
+      </div>
+      <div class="rep-row" style="align-items:flex-end">
+        <div class="rep-field" style="flex:2">
+          <label>View a past submitted report</label>
+          <select id="doc-pastReportSelect" onchange="docOnPastReportChange(this.value)">
+            <option value="">Current week (editable)</option>
+          </select>
+        </div>
+        <div class="rep-field" style="flex:0 0 auto">
+          <button type="button" class="btn" id="doc-backToCurrentBtn" style="display:none" onclick="docBackToCurrent()">Back to current week</button>
+        </div>
+      </div>
+      <div id="doc-viewingPastBanner" class="alert alert-info" style="display:none">
+        <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current week" to resume editing.</div>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>1. Executive Summary</h2>
+      <div class="rep-field"><textarea id="doc-execSummary" placeholder="Overview of the week..."></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>2. Dialysis Hub Activities</h2>
+      <div class="rep-hint">2.1 Patient Reviews</div>
+      <div class="rep-row">
+        <div class="rep-field"><label>No. of patients reviewed</label><input type="text" id="doc-hubReviewed"></div>
+        <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-hubNewAssessed"></div>
+        <div class="rep-field"><label>Follow-up patients reviewed</label><input type="text" id="doc-hubFollowUp"></div>
+        <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-hubSpecialistReview"></div>
+      </div>
+      <div class="rep-field"><label class="rep-label-light">Notes</label><textarea id="doc-hubReviewNotes" placeholder="Any remarks on the above patient review figures..."></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.2 Hemodialysis management</label><textarea id="doc-hubHemoMgmt"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.3 Intradialysis complications managed</label><textarea id="doc-hubComplications"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.4 Procedures performed</label><textarea id="doc-hubProcedures"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>3. Mobile Dialysis Activities</h2>
+      <div class="rep-hint">3.1 Patient Reviews</div>
+      <div class="rep-row">
+        <div class="rep-field"><label>No. of patients attended to</label><input type="text" id="doc-mobileAttended"></div>
+        <div class="rep-field"><label>Locations</label><input type="text" id="doc-mobileLocations"></div>
+        <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-mobileNewAssessed"></div>
+        <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-mobileSpecialistReview"></div>
+      </div>
+      <div class="rep-field"><label class="rep-label-light">Notes</label><textarea id="doc-mobileReviewNotes" placeholder="Any remarks on the above patient review figures..."></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>4. Vascular Access Review</h2>
+      <div class="rep-row">
+        <div class="rep-field"><label>Patients on AV fistula/graft with problems</label><input type="number" min="0" id="doc-vaFistulaGraft"></div>
+        <div class="rep-field"><label>Poor blood flow (catheters)</label><input type="number" min="0" id="doc-vaPoorFlow"></div>
+        <div class="rep-field"><label>Suspected stenosis</label><input type="number" min="0" id="doc-vaStenosis"></div>
+      </div>
+      <div class="rep-row">
+        <div class="rep-field"><label>Aneurysmal changes</label><input type="number" min="0" id="doc-vaAneurysmal"></div>
+        <div class="rep-field"><label>Infection</label><input type="number" min="0" id="doc-vaInfection"></div>
+        <div class="rep-field"><label>Prolonged bleeding</label><input type="number" min="0" id="doc-vaBleeding"></div>
+        <div class="rep-field"><label>Thrombosis</label><input type="number" min="0" id="doc-vaThrombosis"></div>
+      </div>
+      <div class="rep-field"><label class="rep-label-light">Actions taken / referrals</label><textarea id="doc-vaActions"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>5. Laboratory &amp; Clinical Monitoring</h2>
+      <div class="rep-field"><textarea id="doc-labMonitoring"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>6. Medical Management</h2>
+      <div class="rep-field"><textarea id="doc-medicalMgmt"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>7. Patient Education &amp; Counselling</h2>
+      <div class="rep-field"><textarea id="doc-patientEducation"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>8. Referrals &amp; Escalations</h2>
+      <div class="rep-field"><textarea id="doc-referrals"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>9. Significant Clinical Events</h2>
+      <div class="rep-field"><textarea id="doc-significantEvents"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>10. Achievements During the Week</h2>
+      <div class="rep-field"><textarea id="doc-achievements"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>11. Challenges Encountered</h2>
+      <div class="rep-field"><textarea id="doc-challenges"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>12. Recommendations / Action Points</h2>
+      <div class="rep-field"><textarea id="doc-recommendations" placeholder="Recommendations and action points..."></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>13. Plan for the Following Week</h2>
+      <div class="rep-field"><textarea id="doc-planNextWeek"></textarea></div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Sign-off</h2>
+      <div class="rep-row">
+        <div class="rep-field"><label>Prepared by</label><input type="text" id="doc-preparedBy" value="${currentUser?repEsc(currentUser.name):''}"></div>
+        <div class="rep-field"><label>Date</label><input type="date" id="doc-preparedDate"></div>
+      </div>
+      <div class="rep-row">
+        <div class="rep-field"><label>Reviewed by</label><input type="text" id="doc-reviewedBy"></div>
+        <div class="rep-field"><label>Date</label><input type="date" id="doc-reviewedDate"></div>
+      </div>
+    </div>
+
+    <div class="rep-footer-bar">
+      <span class="rep-status-msg" id="doc-statusMsg"></span>
+      <button type="button" class="btn" id="doc-exportBtn" onclick="docExportPrint()"><i class="ti ti-printer"></i> Export / Print</button>
+      <button type="button" class="btn" id="doc-saveDraftBtn" onclick="docSaveReport('draft')"><i class="ti ti-device-floppy"></i> Save draft</button>
+      <button type="button" class="btn btn-primary" id="doc-submitBtn" onclick="docSaveReport('submitted')"><i class="ti ti-send"></i> Submit report</button>
+    </div>
+
+    <div id="doc-printArea"></div>
+  </div>`;
+  document.getElementById('rep-kind-body').innerHTML = h;
+
+  if(currentUser && currentUser.role==='viewer'){
+    docSetFormEditable(false);
+    document.getElementById('doc-saveDraftBtn').style.display='none';
+    document.getElementById('doc-submitBtn').style.display='none';
+    document.getElementById('doc-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    await docLoadDraftForCurrentSelection();
+  }
+  await docPopulatePastReportsDropdown();
+}
+
+function docBuildContent(){
+  return {
+    report_type: 'doctor_weekly',
+    clinician_name: document.getElementById('doc-clinicianName').value,
+    designation: document.getElementById('doc-designation').value,
+    reporting_units: document.getElementById('doc-reportingUnits').value,
+    exec_summary: document.getElementById('doc-execSummary').value,
+    hub: {
+      reviewed: document.getElementById('doc-hubReviewed').value,
+      new_assessed: document.getElementById('doc-hubNewAssessed').value,
+      follow_up: document.getElementById('doc-hubFollowUp').value,
+      specialist_review: document.getElementById('doc-hubSpecialistReview').value,
+      review_notes: document.getElementById('doc-hubReviewNotes').value,
+      hemo_mgmt: document.getElementById('doc-hubHemoMgmt').value,
+      complications: document.getElementById('doc-hubComplications').value,
+      procedures: document.getElementById('doc-hubProcedures').value
+    },
+    mobile: {
+      attended: document.getElementById('doc-mobileAttended').value,
+      locations: document.getElementById('doc-mobileLocations').value,
+      new_assessed: document.getElementById('doc-mobileNewAssessed').value,
+      specialist_review: document.getElementById('doc-mobileSpecialistReview').value,
+      review_notes: document.getElementById('doc-mobileReviewNotes').value,
+      complications: document.getElementById('doc-mobileComplications').value,
+      procedures: document.getElementById('doc-mobileProcedures').value,
+      hemo_mgmt: document.getElementById('doc-mobileHemoMgmt').value
+    },
+    vascular_access: {
+      fistula_graft: document.getElementById('doc-vaFistulaGraft').value,
+      poor_flow: document.getElementById('doc-vaPoorFlow').value,
+      stenosis: document.getElementById('doc-vaStenosis').value,
+      aneurysmal: document.getElementById('doc-vaAneurysmal').value,
+      infection: document.getElementById('doc-vaInfection').value,
+      bleeding: document.getElementById('doc-vaBleeding').value,
+      thrombosis: document.getElementById('doc-vaThrombosis').value,
+      actions: document.getElementById('doc-vaActions').value
+    },
+    lab_monitoring: document.getElementById('doc-labMonitoring').value,
+    medical_mgmt: document.getElementById('doc-medicalMgmt').value,
+    patient_education: document.getElementById('doc-patientEducation').value,
+    referrals: document.getElementById('doc-referrals').value,
+    significant_events: document.getElementById('doc-significantEvents').value,
+    achievements: document.getElementById('doc-achievements').value,
+    challenges: document.getElementById('doc-challenges').value,
+    recommendations: document.getElementById('doc-recommendations').value,
+    plan_next_week: document.getElementById('doc-planNextWeek').value,
+    prepared_by: document.getElementById('doc-preparedBy').value,
+    prepared_date: document.getElementById('doc-preparedDate').value,
+    reviewed_by: document.getElementById('doc-reviewedBy').value,
+    reviewed_date: document.getElementById('doc-reviewedDate').value
+  };
+}
+function docPopulateForm(content){
+  document.getElementById('doc-clinicianName').value = content.clinician_name || (currentUser?currentUser.name:'');
+  document.getElementById('doc-designation').value = content.designation || '';
+  document.getElementById('doc-reportingUnits').value = content.reporting_units || '';
+  document.getElementById('doc-execSummary').value = content.exec_summary || '';
+
+  const hub = content.hub || {};
+  document.getElementById('doc-hubReviewed').value = hub.reviewed || '';
+  document.getElementById('doc-hubNewAssessed').value = hub.new_assessed || '';
+  document.getElementById('doc-hubFollowUp').value = hub.follow_up || '';
+  document.getElementById('doc-hubSpecialistReview').value = hub.specialist_review || '';
+  document.getElementById('doc-hubReviewNotes').value = hub.review_notes || '';
+  document.getElementById('doc-hubHemoMgmt').value = hub.hemo_mgmt || '';
+  document.getElementById('doc-hubComplications').value = hub.complications || '';
+  document.getElementById('doc-hubProcedures').value = hub.procedures || '';
+
+  const mobile = content.mobile || {};
+  document.getElementById('doc-mobileAttended').value = mobile.attended || '';
+  document.getElementById('doc-mobileLocations').value = mobile.locations || '';
+  document.getElementById('doc-mobileNewAssessed').value = mobile.new_assessed || '';
+  document.getElementById('doc-mobileSpecialistReview').value = mobile.specialist_review || '';
+  document.getElementById('doc-mobileReviewNotes').value = mobile.review_notes || '';
+  document.getElementById('doc-mobileComplications').value = mobile.complications || '';
+  document.getElementById('doc-mobileProcedures').value = mobile.procedures || '';
+  document.getElementById('doc-mobileHemoMgmt').value = mobile.hemo_mgmt || '';
+
+  const va = content.vascular_access || {};
+  document.getElementById('doc-vaFistulaGraft').value = va.fistula_graft || '';
+  document.getElementById('doc-vaPoorFlow').value = va.poor_flow || '';
+  document.getElementById('doc-vaStenosis').value = va.stenosis || '';
+  document.getElementById('doc-vaAneurysmal').value = va.aneurysmal || '';
+  document.getElementById('doc-vaInfection').value = va.infection || '';
+  document.getElementById('doc-vaBleeding').value = va.bleeding || '';
+  document.getElementById('doc-vaThrombosis').value = va.thrombosis || '';
+  document.getElementById('doc-vaActions').value = va.actions || '';
+
+  document.getElementById('doc-labMonitoring').value = content.lab_monitoring || '';
+  document.getElementById('doc-medicalMgmt').value = content.medical_mgmt || '';
+  document.getElementById('doc-patientEducation').value = content.patient_education || '';
+  document.getElementById('doc-referrals').value = content.referrals || '';
+  document.getElementById('doc-significantEvents').value = content.significant_events || '';
+  document.getElementById('doc-achievements').value = content.achievements || '';
+  document.getElementById('doc-challenges').value = content.challenges || '';
+  document.getElementById('doc-recommendations').value = content.recommendations ||
+    ((content.action_points||[]).map(r=>[r.issue,r.responsible_person,r.deadline].filter(Boolean).join(' — ')).join('\n')) || '';
+  document.getElementById('doc-planNextWeek').value = content.plan_next_week || '';
+
+  document.getElementById('doc-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
+  document.getElementById('doc-preparedDate').value = content.prepared_date || '';
+  document.getElementById('doc-reviewedBy').value = content.reviewed_by || '';
+  document.getElementById('doc-reviewedDate').value = content.reviewed_date || '';
+}
+function docResetFormBlank(){
+  docDraftId = null;
+  docPopulateForm({});
+}
+
+async function docLoadDraftForCurrentSelection(){
+  repPopulating = true;
+  repStopRealtime();
+  const statusMsg = document.getElementById('doc-statusMsg');
+  const periodStart = document.getElementById('doc-periodStart').value;
+  const periodEnd = document.getElementById('doc-periodEnd').value;
+  docResetFormBlank();
+  document.getElementById('doc-periodStart').value = periodStart;
+  document.getElementById('doc-periodEnd').value = periodEnd;
+
+  statusMsg.textContent = 'Checking for an existing draft this week...';
+  statusMsg.classList.remove('dirty','saved');
+  const { data, error } = await db.rpc('rr_report_drafts', {p_session:sessionToken, p_facility_type:'doctor', p_period_start:periodStart, p_period_end:periodEnd});
+
+  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
+  const match = (data||[]).find(r => r.content && r.content.report_type === 'doctor_weekly');
+  if(match){
+    docDraftId = match.id;
+    docPopulateForm(match.content || {});
+    statusMsg.textContent = "Continuing this week's existing draft.";
+  } else {
+    statusMsg.textContent = 'No draft yet for this week — starting fresh.';
+  }
+  repDirty = false;
+  repPopulating = false;
+}
+
+async function docSaveReport(status, silent){
+  const statusMsg = document.getElementById('doc-statusMsg');
+  const periodStart = document.getElementById('doc-periodStart').value;
+  const periodEnd = document.getElementById('doc-periodEnd').value;
+  if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
+
+  if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
+  const result = await db.rpc('rr_report_save', {
+    p_session:sessionToken, p_id: docDraftId||null, p_facility_type: 'doctor',
+    p_period_start: periodStart, p_period_end: periodEnd,
+    p_content: docBuildContent(), p_status: status
+  });
+  if(!silent) hideLoading();
+  if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
+  if(result.data){ docDraftId = result.data.id; repLastLocalSaveIso = result.data.updated_at; }
+  repDirty = false;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(status==='draft'){
+    repShowSavedIndicator(silent ? `Autosaved at ${timeStr}` : `Draft saved at ${timeStr}`);
+  } else {
+    statusMsg.textContent = 'Report submitted for the week.';
+    statusMsg.classList.remove('dirty','saved');
+  }
+  if(status==='submitted') await docPopulatePastReportsDropdown();
+}
+
+function docSetFormEditable(editable){
+  document.querySelectorAll('#rep-kind-body .rep-card input, #rep-kind-body .rep-card textarea, #rep-kind-body .rep-card select, #rep-kind-body .rep-card button').forEach(el=>{
+    if(el.id==='doc-pastReportSelect' || el.id==='doc-backToCurrentBtn') return;
+    el.disabled = !editable;
+  });
+  document.getElementById('doc-saveDraftBtn').disabled = !editable;
+  document.getElementById('doc-submitBtn').disabled = !editable;
+}
+async function docPopulatePastReportsDropdown(){
+  const select = document.getElementById('doc-pastReportSelect');
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
+  const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:'doctor'});
+  if(error || !data) return;
+  data.filter(r => r.content && r.content.report_type === 'doctor_weekly').slice(0,52).forEach(r=>{
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = `${r.period_start} to ${r.period_end}`;
+    select.appendChild(opt);
+  });
+}
+async function docOnPastReportChange(id){
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  const banner = document.getElementById('doc-viewingPastBanner');
+  const backBtn = document.getElementById('doc-backToCurrentBtn');
+  if(!id){
+    if(isViewer){
+      banner.style.display='none'; backBtn.style.display='none';
+      document.getElementById('doc-statusMsg').textContent = 'Select a submitted report above to view and export.';
+      return;
+    }
+    banner.style.display='none'; backBtn.style.display='none';
+    docSetFormEditable(true);
+    await docLoadDraftForCurrentSelection();
+    return;
+  }
+  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+    document.getElementById('doc-pastReportSelect').value='';
+    return;
+  }
+  repPopulating = true;
+  document.getElementById('doc-statusMsg').textContent = 'Loading past report...';
+  const { data, error } = await db.rpc(isViewer?'rr_report_get_viewer':'rr_report_get', {p_session:sessionToken, p_id:id});
+  if(error || !data){ document.getElementById('doc-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
+  docDraftId = null;
+  document.getElementById('doc-periodStart').value = data.period_start;
+  document.getElementById('doc-periodEnd').value = data.period_end;
+  docPopulateForm(data.content || {});
+  docSetFormEditable(false);
+  if(isViewer){
+    document.getElementById('doc-saveDraftBtn').style.display='none';
+    document.getElementById('doc-submitBtn').style.display='none';
+  }
+  banner.style.display= isViewer ? 'none' : 'block';
+  backBtn.style.display= isViewer ? 'none' : 'inline-block';
+  document.getElementById('doc-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
+  document.getElementById('doc-statusMsg').classList.remove('dirty','saved');
+  repDirty = false;
+  repPopulating = false;
+}
+function docBackToCurrent(){
+  document.getElementById('doc-pastReportSelect').value='';
+  docOnPastReportChange('');
+}
+
+function docBuildPrintBlocks(){
+  const content = docBuildContent();
+  const periodStart = document.getElementById('doc-periodStart').value;
+  const periodEnd = document.getElementById('doc-periodEnd').value;
+  const blocks = [];
+
+  blocks.push(`
+    <div class="rep-print-title">Weekly Dialysis Hub &amp; Mobile Dialysis Service Report</div>
+    <table class="rep-print-meta"><tr>
+      <td><strong>Reporting period:</strong> ${repEsc(periodStart)} &nbsp;to&nbsp; ${repEsc(periodEnd)}</td>
+      <td><strong>Clinician:</strong> ${repEsc(content.clinician_name)}</td>
+    </tr><tr>
+      <td><strong>Designation:</strong> ${repEsc(content.designation)}</td>
+      <td><strong>Reporting units:</strong> ${repEsc(content.reporting_units)}</td>
+    </tr></table>`);
+
+  blocks.push(`<div class="rep-print-section-title">1. Executive Summary</div><div class="rep-print-text-block">${repEsc(content.exec_summary)||'&nbsp;'}</div>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">2. Dialysis Hub Activities</div>
+    <div><em>2.1 Patient Reviews</em></div>
+    <table class="rep-print-table">
+      <thead><tr><th>Reviewed</th><th>New assessed</th><th>Follow-up</th><th>Specialist review</th></tr></thead>
+      <tbody><tr><td>${repEsc(content.hub.reviewed)}</td><td>${repEsc(content.hub.new_assessed)}</td><td>${repEsc(content.hub.follow_up)}</td><td>${repEsc(content.hub.specialist_review)}</td></tr></tbody>
+    </table>
+    <div><em>Notes</em></div><div class="rep-print-text-block">${repEsc(content.hub.review_notes)||'&nbsp;'}</div>
+    <div><em>2.2 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.hub.hemo_mgmt)||'&nbsp;'}</div>
+    <div><em>2.3 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.hub.complications)||'&nbsp;'}</div>
+    <div><em>2.4 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.hub.procedures)||'&nbsp;'}</div>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">3. Mobile Dialysis Activities</div>
+    <div><em>3.1 Patient Reviews</em></div>
+    <table class="rep-print-table">
+      <thead><tr><th>Attended to</th><th>Locations</th><th>New assessed</th><th>Specialist review</th></tr></thead>
+      <tbody><tr><td>${repEsc(content.mobile.attended)}</td><td>${repEsc(content.mobile.locations)}</td><td>${repEsc(content.mobile.new_assessed)}</td><td>${repEsc(content.mobile.specialist_review)}</td></tr></tbody>
+    </table>
+    <div><em>Notes</em></div><div class="rep-print-text-block">${repEsc(content.mobile.review_notes)||'&nbsp;'}</div>
+    <div><em>Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.complications)||'&nbsp;'}</div>
+    <div><em>Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
+    <div><em>Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">4. Vascular Access Review</div>
+    <table class="rep-print-table">
+      <thead><tr><th>Fistula/graft problems</th><th>Poor blood flow</th><th>Suspected stenosis</th><th>Aneurysmal changes</th><th>Infection</th><th>Prolonged bleeding</th><th>Thrombosis</th></tr></thead>
+      <tbody><tr><td>${repEsc(content.vascular_access.fistula_graft)}</td><td>${repEsc(content.vascular_access.poor_flow)}</td><td>${repEsc(content.vascular_access.stenosis)}</td><td>${repEsc(content.vascular_access.aneurysmal)}</td><td>${repEsc(content.vascular_access.infection)}</td><td>${repEsc(content.vascular_access.bleeding)}</td><td>${repEsc(content.vascular_access.thrombosis)}</td></tr></tbody>
+    </table>
+    <div><em>Actions taken / referrals</em></div><div class="rep-print-text-block">${repEsc(content.vascular_access.actions)||'&nbsp;'}</div>`);
+
+  blocks.push(`<div class="rep-print-section-title">5. Laboratory &amp; Clinical Monitoring</div><div class="rep-print-text-block">${repEsc(content.lab_monitoring)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">6. Medical Management</div><div class="rep-print-text-block">${repEsc(content.medical_mgmt)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">7. Patient Education &amp; Counselling</div><div class="rep-print-text-block">${repEsc(content.patient_education)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">8. Referrals &amp; Escalations</div><div class="rep-print-text-block">${repEsc(content.referrals)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">9. Significant Clinical Events</div><div class="rep-print-text-block">${repEsc(content.significant_events)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">10. Achievements During the Week</div><div class="rep-print-text-block">${repEsc(content.achievements)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">11. Challenges Encountered</div><div class="rep-print-text-block">${repEsc(content.challenges)||'&nbsp;'}</div>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">12. Recommendations / Action Points</div>
+    <div class="rep-print-text-block">${repEsc(content.recommendations) || (content.action_points||[]).map(r=>repEsc([r.issue,r.responsible_person,r.deadline].filter(Boolean).join(' — '))).join('<br>') || '&nbsp;'}</div>`);
+
+  blocks.push(`<div class="rep-print-section-title">13. Plan for the Following Week</div><div class="rep-print-text-block">${repEsc(content.plan_next_week)||'&nbsp;'}</div>`);
+
+  blocks.push(`
+    <div class="rep-print-section-title">Sign-off</div>
+    <table class="rep-print-meta"><tr>
+      <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)} &nbsp; <strong>Date:</strong> ${repEsc(content.prepared_date)}</td>
+      <td><strong>Reviewed by:</strong> ${repEsc(content.reviewed_by)} &nbsp; <strong>Date:</strong> ${repEsc(content.reviewed_date)}</td>
+    </tr></table>`);
+
+  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`);
+
+  return blocks;
+}
+function docExportPrint(){
+  const area = document.getElementById('doc-printArea');
+  repRenderPaginated(docBuildPrintBlocks(), area);
+  repPrintWhenImagesReady(area);
+}
+
 
 async function renderHome(){
   const isAdmin = currentUser&&currentUser.role==='admin';
@@ -4049,7 +4540,7 @@ async function renderUsers(){
     const isSelf=u.id===currentUser.id;
     h+=`<tr><td>${u.name}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}</td>
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${u.username}</code></td>
-      <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':'role-staff'}">${u.role}</span></td>
+      <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':u.role==='doctor'?'role-doctor':'role-staff'}">${u.role}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
       <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm" onclick="openResetPassword('${u.id}','${u.name.replace(/'/g,"\\'")}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });

@@ -1928,7 +1928,12 @@ let repDirty = false;
 let repPopulating = false; // true while a draft is being loaded/populated programmatically — suppresses dirty-marking
 let repAutoSaveTimer = null;
 const REP_AUTOSAVE_MS = 45000;
+let repQuickSaveTimer = null; // one-off short timer for a brand-new draft's very first save
+const REP_QUICKSAVE_MS = 8000; // a fresh draft (no id yet) is pushed to the DB this fast, so it shows up for others quickly, instead of waiting the full autosave interval
 
+function repCurrentDraftId(){
+  return repKind==='operational' ? opDraftId : repKind==='doctor' ? docDraftId : repDraftId;
+}
 function repMarkDirty(){
   if(repPopulating) return;
   repDirty = true;
@@ -1937,12 +1942,18 @@ function repMarkDirty(){
     el.textContent = 'Unsaved changes — autosaving shortly...';
     el.classList.add('dirty'); el.classList.remove('saved');
   }
+  // A draft with no id yet has never reached the database — get it there
+  // fast (instead of waiting up to REP_AUTOSAVE_MS) so colleagues looking
+  // at the same facility/week stop seeing "No draft yet".
+  if(repCurrentDraftId()==null && !repQuickSaveTimer){
+    repQuickSaveTimer = setTimeout(()=>{ repQuickSaveTimer=null; repAutoSaveTick(); }, REP_QUICKSAVE_MS);
+  }
 }
 function repShowSavedIndicator(msg){
   const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : 'rep-statusMsg');
   if(el){ el.textContent = msg; el.classList.remove('dirty'); el.classList.add('saved'); }
 }
-function repStopAutoSave(){ if(repAutoSaveTimer){ clearInterval(repAutoSaveTimer); repAutoSaveTimer=null; } }
+function repStopAutoSave(){ if(repAutoSaveTimer){ clearInterval(repAutoSaveTimer); repAutoSaveTimer=null; } if(repQuickSaveTimer){ clearTimeout(repQuickSaveTimer); repQuickSaveTimer=null; } }
 function repStartAutoSave(){
   repStopAutoSave();
   repAutoSaveTimer = setInterval(repAutoSaveTick, REP_AUTOSAVE_MS);
@@ -2237,7 +2248,7 @@ async function renderClinicalReport(){
   repRenderOutpatientTable();
   repRenderStaffTable();
   repUpdateRinseDueHint();
-  if(currentUser && currentUser.role==='viewer'){
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
     repSetFormEditable(false);
     document.getElementById('rep-saveDraftBtn').style.display='none';
     document.getElementById('rep-submitBtn').style.display='none';
@@ -2277,7 +2288,7 @@ function repSetFacility(facility){
   document.getElementById('rep-viewingPastBanner').style.display='none';
   document.getElementById('rep-backToCurrentBtn').style.display='none';
   repSetFormEditable(true);
-  if(currentUser && currentUser.role==='viewer'){
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
     repSetFormEditable(false);
     document.getElementById('rep-statusMsg').textContent = 'Select a submitted report below to view and export.';
   } else {
@@ -2580,7 +2591,7 @@ function repSetFormEditable(editable){
 }
 async function repPopulatePastReportsDropdown(){
   const select = document.getElementById('rep-pastReportSelect');
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
   const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:repFacility});
   if(error || !data) return;
@@ -2592,7 +2603,7 @@ async function repPopulatePastReportsDropdown(){
   });
 }
 async function repOnPastReportChange(id){
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   const banner = document.getElementById('rep-viewingPastBanner');
   const backBtn = document.getElementById('rep-backToCurrentBtn');
   if(!id){
@@ -2862,7 +2873,7 @@ async function renderOperationalReport(){
   </div>`;
   document.getElementById('rep-kind-body').innerHTML = h;
 
-  if(currentUser && currentUser.role==='viewer'){
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
     opSetFormEditable(false);
     document.getElementById('op-saveDraftBtn').style.display='none';
     document.getElementById('op-submitBtn').style.display='none';
@@ -2884,7 +2895,7 @@ function opSetFacility(facility){
   document.getElementById('op-viewingPastBanner').style.display='none';
   document.getElementById('op-backToCurrentBtn').style.display='none';
   opSetFormEditable(true);
-  if(currentUser && currentUser.role==='viewer'){
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
     opSetFormEditable(false);
     document.getElementById('op-statusMsg').textContent = 'Select a submitted report below to view and export.';
   } else {
@@ -3066,7 +3077,7 @@ function opSetFormEditable(editable){
 }
 async function opPopulatePastReportsDropdown(){
   const select = document.getElementById('op-pastReportSelect');
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
   const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:opFacility});
   if(error || !data) return;
@@ -3078,7 +3089,7 @@ async function opPopulatePastReportsDropdown(){
   });
 }
 async function opOnPastReportChange(id){
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   const banner = document.getElementById('op-viewingPastBanner');
   const backBtn = document.getElementById('op-backToCurrentBtn');
   if(!id){
@@ -3345,7 +3356,7 @@ async function renderDoctorReport(){
   </div>`;
   document.getElementById('rep-kind-body').innerHTML = h;
 
-  if(currentUser && currentUser.role==='viewer'){
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
     docSetFormEditable(false);
     document.getElementById('doc-saveDraftBtn').style.display='none';
     document.getElementById('doc-submitBtn').style.display='none';
@@ -3526,7 +3537,7 @@ function docSetFormEditable(editable){
 }
 async function docPopulatePastReportsDropdown(){
   const select = document.getElementById('doc-pastReportSelect');
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current week (editable)</option>';
   const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:'doctor'});
   if(error || !data) return;
@@ -3538,7 +3549,7 @@ async function docPopulatePastReportsDropdown(){
   });
 }
 async function docOnPastReportChange(id){
-  const isViewer = currentUser && currentUser.role === 'viewer';
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
   const banner = document.getElementById('doc-viewingPastBanner');
   const backBtn = document.getElementById('doc-backToCurrentBtn');
   if(!id){

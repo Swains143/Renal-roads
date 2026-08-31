@@ -1990,11 +1990,12 @@ function repStartRealtime(facility){
 }
 function repRealtimeRelevant(row){
   if(!row || row.status!=='draft') return false; // submitted reports are handled via the past-reports dropdown, not live sync
-  const isOperational = !!(row.content && row.content.report_type === 'operational');
-  if(repKind==='operational' && !isOperational) return false;
-  if(repKind==='clinical' && isOperational) return false;
-  const psEl = document.getElementById(repKind==='operational' ? 'op-periodStart' : 'rep-periodStart');
-  const peEl = document.getElementById(repKind==='operational' ? 'op-periodEnd' : 'rep-periodEnd');
+  const rowReportType = row.content && row.content.report_type;
+  if(repKind==='operational' && rowReportType!=='operational') return false;
+  if(repKind==='doctor' && rowReportType!=='doctor_weekly') return false;
+  if(repKind==='clinical' && (rowReportType==='operational' || rowReportType==='doctor_weekly')) return false;
+  const psEl = document.getElementById(repKind==='operational' ? 'op-periodStart' : repKind==='doctor' ? 'doc-periodStart' : 'rep-periodStart');
+  const peEl = document.getElementById(repKind==='operational' ? 'op-periodEnd' : repKind==='doctor' ? 'doc-periodEnd' : 'rep-periodEnd');
   if(!psEl || !peEl) return false;
   return row.period_start===psEl.value && row.period_end===peEl.value;
 }
@@ -2003,7 +2004,7 @@ function repHandleRealtimeChange(payload){
   const row = payload.new;
   if(!row || row.updated_at===repLastLocalSaveIso) return; // our own save echoing back
   if(currentTab!=='report' || !repRealtimeRelevant(row)) return;
-  const backBtn = document.getElementById(repKind==='operational' ? 'op-backToCurrentBtn' : 'rep-backToCurrentBtn');
+  const backBtn = document.getElementById(repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : 'rep-backToCurrentBtn');
   if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — not the live draft
   if(repDirty) repShowLiveUpdateBanner(row);
   else repApplyRemoteRow(row);
@@ -2011,6 +2012,7 @@ function repHandleRealtimeChange(payload){
 function repApplyRemoteRow(row){
   repPopulating = true;
   if(repKind==='operational'){ opDraftId = row.id; opPopulateForm(row.content||{}); }
+  else if(repKind==='doctor'){ docDraftId = row.id; docPopulateForm(row.content||{}); }
   else { repDraftId = row.id; repPopulateForm(row.content||{}); }
   repPopulating = false;
   repDirty = false;
@@ -2019,7 +2021,7 @@ function repApplyRemoteRow(row){
 }
 function repShowLiveUpdateBanner(row){
   repPendingRemoteRow = row;
-  const el = document.getElementById(repKind==='operational' ? 'op-liveUpdateBanner' : 'rep-liveUpdateBanner');
+  const el = document.getElementById(repKind==='operational' ? 'op-liveUpdateBanner' : repKind==='doctor' ? 'doc-liveUpdateBanner' : 'rep-liveUpdateBanner');
   if(!el) return;
   const who = row.created_by || 'Someone';
   el.querySelector('.rep-live-update-text').textContent = `${who} just saved changes to this report. You still have unsaved edits here — reloading will discard yours in favor of theirs.`;
@@ -2027,7 +2029,7 @@ function repShowLiveUpdateBanner(row){
 }
 function repHideLiveUpdateBanner(){
   repPendingRemoteRow = null;
-  ['rep-liveUpdateBanner','op-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  ['rep-liveUpdateBanner','op-liveUpdateBanner','doc-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
 function repApplyPendingRemoteRow(){
   if(!repPendingRemoteRow) return;
@@ -3221,6 +3223,9 @@ async function renderDoctorReport(){
       <div id="doc-viewingPastBanner" class="alert alert-info" style="display:none">
         <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current week" to resume editing.</div>
       </div>
+      <div id="doc-liveUpdateBanner" class="alert alert-warn" style="display:none">
+        <i class="ti ti-refresh"></i><div style="flex:1"><span class="rep-live-update-text"></span> <button type="button" class="btn" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="repApplyPendingRemoteRow()">Reload latest</button></div>
+      </div>
     </div>
 
     <div class="rep-card">
@@ -3237,7 +3242,6 @@ async function renderDoctorReport(){
         <div class="rep-field"><label>Follow-up patients reviewed</label><input type="text" id="doc-hubFollowUp"></div>
         <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-hubSpecialistReview"></div>
       </div>
-      <div class="rep-field"><label class="rep-label-light">Notes</label><textarea id="doc-hubReviewNotes" placeholder="Any remarks on the above patient review figures..."></textarea></div>
       <div class="rep-field"><label class="rep-label-light">2.2 Hemodialysis management</label><textarea id="doc-hubHemoMgmt"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">2.3 Intradialysis complications managed</label><textarea id="doc-hubComplications"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">2.4 Procedures performed</label><textarea id="doc-hubProcedures"></textarea></div>
@@ -3252,7 +3256,6 @@ async function renderDoctorReport(){
         <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-mobileNewAssessed"></div>
         <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-mobileSpecialistReview"></div>
       </div>
-      <div class="rep-field"><label class="rep-label-light">Notes</label><textarea id="doc-mobileReviewNotes" placeholder="Any remarks on the above patient review figures..."></textarea></div>
       <div class="rep-field"><label class="rep-label-light">Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
@@ -3365,7 +3368,6 @@ function docBuildContent(){
       new_assessed: document.getElementById('doc-hubNewAssessed').value,
       follow_up: document.getElementById('doc-hubFollowUp').value,
       specialist_review: document.getElementById('doc-hubSpecialistReview').value,
-      review_notes: document.getElementById('doc-hubReviewNotes').value,
       hemo_mgmt: document.getElementById('doc-hubHemoMgmt').value,
       complications: document.getElementById('doc-hubComplications').value,
       procedures: document.getElementById('doc-hubProcedures').value
@@ -3375,7 +3377,6 @@ function docBuildContent(){
       locations: document.getElementById('doc-mobileLocations').value,
       new_assessed: document.getElementById('doc-mobileNewAssessed').value,
       specialist_review: document.getElementById('doc-mobileSpecialistReview').value,
-      review_notes: document.getElementById('doc-mobileReviewNotes').value,
       complications: document.getElementById('doc-mobileComplications').value,
       procedures: document.getElementById('doc-mobileProcedures').value,
       hemo_mgmt: document.getElementById('doc-mobileHemoMgmt').value
@@ -3416,7 +3417,6 @@ function docPopulateForm(content){
   document.getElementById('doc-hubNewAssessed').value = hub.new_assessed || '';
   document.getElementById('doc-hubFollowUp').value = hub.follow_up || '';
   document.getElementById('doc-hubSpecialistReview').value = hub.specialist_review || '';
-  document.getElementById('doc-hubReviewNotes').value = hub.review_notes || '';
   document.getElementById('doc-hubHemoMgmt').value = hub.hemo_mgmt || '';
   document.getElementById('doc-hubComplications').value = hub.complications || '';
   document.getElementById('doc-hubProcedures').value = hub.procedures || '';
@@ -3426,7 +3426,6 @@ function docPopulateForm(content){
   document.getElementById('doc-mobileLocations').value = mobile.locations || '';
   document.getElementById('doc-mobileNewAssessed').value = mobile.new_assessed || '';
   document.getElementById('doc-mobileSpecialistReview').value = mobile.specialist_review || '';
-  document.getElementById('doc-mobileReviewNotes').value = mobile.review_notes || '';
   document.getElementById('doc-mobileComplications').value = mobile.complications || '';
   document.getElementById('doc-mobileProcedures').value = mobile.procedures || '';
   document.getElementById('doc-mobileHemoMgmt').value = mobile.hemo_mgmt || '';
@@ -3487,6 +3486,7 @@ async function docLoadDraftForCurrentSelection(){
   }
   repDirty = false;
   repPopulating = false;
+  repStartRealtime('doctor');
 }
 
 async function docSaveReport(status, silent){
@@ -3606,7 +3606,6 @@ function docBuildPrintBlocks(){
       <thead><tr><th>Reviewed</th><th>New assessed</th><th>Follow-up</th><th>Specialist review</th></tr></thead>
       <tbody><tr><td>${repEsc(content.hub.reviewed)}</td><td>${repEsc(content.hub.new_assessed)}</td><td>${repEsc(content.hub.follow_up)}</td><td>${repEsc(content.hub.specialist_review)}</td></tr></tbody>
     </table>
-    <div><em>Notes</em></div><div class="rep-print-text-block">${repEsc(content.hub.review_notes)||'&nbsp;'}</div>
     <div><em>2.2 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.hub.hemo_mgmt)||'&nbsp;'}</div>
     <div><em>2.3 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.hub.complications)||'&nbsp;'}</div>
     <div><em>2.4 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.hub.procedures)||'&nbsp;'}</div>`);
@@ -3618,7 +3617,6 @@ function docBuildPrintBlocks(){
       <thead><tr><th>Attended to</th><th>Locations</th><th>New assessed</th><th>Specialist review</th></tr></thead>
       <tbody><tr><td>${repEsc(content.mobile.attended)}</td><td>${repEsc(content.mobile.locations)}</td><td>${repEsc(content.mobile.new_assessed)}</td><td>${repEsc(content.mobile.specialist_review)}</td></tr></tbody>
     </table>
-    <div><em>Notes</em></div><div class="rep-print-text-block">${repEsc(content.mobile.review_notes)||'&nbsp;'}</div>
     <div><em>Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.complications)||'&nbsp;'}</div>
     <div><em>Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
     <div><em>Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);

@@ -1059,6 +1059,26 @@ let sessionToken = null;
 let currentTab = 'home';
 let patients = [];
 let supplies = [];
+let suppliesUnread = {}; // cached comment-unread counts per supply id, refreshed on full reloads only
+
+// Re-renders #main-content while preserving whichever input was focused
+// (and its cursor position) — used for live search/filter re-renders that
+// don't refetch data, so typing in a search box doesn't lose focus after
+// every keystroke.
+function renderMainPreserveFocus(html){
+  const active = document.activeElement;
+  const activeId = active && active.id;
+  const selStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+  const selEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
+  document.getElementById('main-content').innerHTML = html;
+  if(activeId){
+    const el = document.getElementById(activeId);
+    if(el && typeof el.focus === 'function'){
+      el.focus();
+      if(selStart !== null && el.setSelectionRange){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} }
+    }
+  }
+}
 let requests = [];
 let pendingMovement = null;
 let editingPatientId = null;
@@ -3765,26 +3785,25 @@ function filterDropdownHTML(field,{label,options}){
 function toggleFilterDropdown(field,ev){
   if(ev)ev.stopPropagation();
   patientFilterOpenDropdown = patientFilterOpenDropdown===field ? null : field;
-  renderPatients();
+  renderPatientsView();
 }
 function toggleFilterValue(field,value){
   const arr=patientFilter[field];
   const idx=arr.indexOf(value);
   if(idx>-1)arr.splice(idx,1);else arr.push(value);
-  renderPatients();
+  renderPatientsView();
 }
 function clearFilterField(field){
   patientFilter[field]=[];
-  renderPatients();
+  renderPatientsView();
 }
 document.addEventListener('click',()=>{
   if(patientFilterOpenDropdown){
     patientFilterOpenDropdown=null;
-    if(typeof currentTab!=='undefined'&&currentTab==='patients')renderPatients();
+    if(typeof currentTab!=='undefined'&&currentTab==='patients')renderPatientsView();
   }
 });
 async function renderPatients(){
-  const isViewer=currentUser&&currentUser.role==='viewer';
   showLoading('Loading patients...');
   const {data}=await db.rpc('rr_patients_list',{p_session:sessionToken});
   patients=(data||[]).sort((a,b)=>{
@@ -3793,6 +3812,13 @@ async function renderPatients(){
     return String(a.ip||'').localeCompare(String(b.ip||''));
   });
   hideLoading();
+  renderPatientsView();
+}
+// Pure re-render from the already-loaded `patients` array — no network
+// call, so this can run on every keystroke in the search box without
+// lag or losing focus (see renderMainPreserveFocus).
+function renderPatientsView(){
+  const isViewer=currentUser&&currentUser.role==='viewer';
   const isAdmin=currentUser&&currentUser.role==='admin';
   const f=patientFilter;
   const filtered=getFilteredPatients();
@@ -3810,11 +3836,11 @@ async function renderPatients(){
     <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
   </div>
   <div class="toolbar">
-    <input placeholder="Search name, IP, ID, phone..." value="${f.search}" oninput="patientFilter.search=this.value;renderPatients()">
+    <input id="patient-search" placeholder="Search name, IP, ID, phone..." value="${f.search}" oninput="patientFilter.search=this.value;renderPatientsView()">
     ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Transplant','Deceased']})}
     ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
     ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
-    ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatients()"><i class="ti ti-x"></i> Clear filters</button>':''}
+    ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatientsView()"><i class="ti ti-x"></i> Clear filters</button>':''}
     ${!isViewer?'<button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-plus"></i> Register</button>':''}
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
@@ -3829,7 +3855,7 @@ async function renderPatients(){
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
-  document.getElementById('main-content').innerHTML=h;
+  renderMainPreserveFocus(h);
 }
 
 function openAddPatient(){
@@ -4215,12 +4241,21 @@ async function renderSupplies(){
   supplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   const isAdmin=currentUser&&currentUser.role==='admin';
   const isViewer = currentUser && currentUser.role === 'viewer';
-  let unreadBySupply={};
+  suppliesUnread={};
   if(isAdmin || isViewer){
     const {data:unread}=await db.rpc('rr_comments_unread_by_supply',{p_session:sessionToken});
-    (unread||[]).forEach(c=>{unreadBySupply[c.supply_id]=Number(c.unread_count);});
+    (unread||[]).forEach(c=>{suppliesUnread[c.supply_id]=Number(c.unread_count);});
   }
   hideLoading();
+  renderSuppliesView();
+}
+// Pure re-render from the already-loaded `supplies`/`suppliesUnread` — no
+// network call, so this can run on every keystroke in the search box
+// without lag or losing focus (see renderMainPreserveFocus).
+function renderSuppliesView(){
+  const isAdmin=currentUser&&currentUser.role==='admin';
+  const isViewer = currentUser && currentUser.role === 'viewer';
+  const unreadBySupply=suppliesUnread;
   const f=supplyFilter;
   const isMed=currentSupplyCategory==='medication';
   const cat={singular:isMed?'medication':'supply',plural:isMed?'Medications':'Supplies',icon:isMed?'ti-pill':'ti-package'};
@@ -4231,7 +4266,7 @@ async function renderSupplies(){
     <button class="cat-btn ${currentSupplyCategory==='supply'?'active':''}" onclick="switchSupplyCategory('supply')"><i class="ti ti-package"></i> Supplies</button>
     <button class="cat-btn ${currentSupplyCategory==='medication'?'active':''}" onclick="switchSupplyCategory('medication')"><i class="ti ti-pill"></i> Medications</button>
   </div>
-  <div class="toolbar"><input placeholder="Search ${cat.plural.toLowerCase()}..." value="${f.search}" oninput="supplyFilter.search=this.value;renderSupplies()">
+  <div class="toolbar"><input id="supply-search" placeholder="Search ${cat.plural.toLowerCase()}..." value="${f.search}" oninput="supplyFilter.search=this.value;renderSuppliesView()">
     ${isAdmin?`<button class="btn btn-primary" onclick="openAddSupply()"><i class="ti ti-plus"></i> Add ${cat.singular}</button>`:''}
     <button class="btn btn-green" onclick="openRequestModal()"><i class="ti ti-send"></i> Request item</button>
     ${isAdmin?'<button class="btn" onclick="exportSupplies()"><i class="ti ti-download"></i> Export</button>':''}
@@ -4260,12 +4295,12 @@ async function renderSupplies(){
       ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" style="${unreadCount?'background:#7C3AED;color:#fff;border-color:#7C3AED':''}" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${unreadCount?` ${unreadCount} New`:(isAdmin?' View/Add':' Comment')}</button></td>`:''}</tr>`;
   });
   h+=`</tbody></table></div>`;
-  document.getElementById('main-content').innerHTML=h;
+  renderMainPreserveFocus(h);
 }
 function switchSupplyCategory(cat){
   currentSupplyCategory=cat;
   supplyFilter.search='';
-  renderSupplies();
+  renderSuppliesView();
 }
 function openAddSupply(){
   editingSupplyId=null;

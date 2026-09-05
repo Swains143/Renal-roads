@@ -966,7 +966,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 </div></div>
 
 <!-- Movements View -->
-<div class="modal-bg" id="movements-view-modal"><div class="modal" style="width:580px">
+<div class="modal-bg" id="movements-view-modal"><div class="modal" style="width:680px">
   <h2 id="mv-title">Movement log</h2><div class="modal-sub" id="mv-sub"></div>
   <div id="mv-content"></div>
   <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('movements-view-modal')">Close</button></div>
@@ -4372,17 +4372,28 @@ async function confirmMovement(){
 }
 async function showMovements(supplyId){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
+  const isAdmin=currentUser&&currentUser.role==='admin';
   showLoading('Loading log...');
   const {data}=await db.rpc('rr_movements_list',{p_session:sessionToken,p_supply_id:supplyId});
   hideLoading();
   document.getElementById('mv-title').textContent='Movement log — '+s.name;
   document.getElementById('mv-sub').textContent='Current stock: '+getStock(s)+' '+s.unit+' · Movements: '+(data||[]).length;
-  let h=`<div class="table-wrapper"><table><thead><tr><th>#</th><th>Type</th><th>Qty</th><th>Notes</th><th>By</th><th>Date</th></tr></thead><tbody>`;
-  if(!(data||[]).length)h+=`<tr><td colspan="6"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
-  else(data||[]).forEach((m,i)=>{h+=`<tr><td>${i+1}</td><td><span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span></td><td><strong>${m.qty}</strong> ${s.unit}</td><td>${m.note||'—'}</td><td>${m.by_user||'—'}</td><td>${new Date(m.created_at).toLocaleDateString()}</td></tr>`;});
+  let h=`<div class="table-wrapper"><table><thead><tr><th>#</th><th>Type</th><th>Qty</th><th>Notes</th><th>By</th><th>Date</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>`;
+  if(!(data||[]).length)h+=`<tr><td colspan="${isAdmin?7:6}"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
+  else(data||[]).forEach((m,i)=>{h+=`<tr><td>${i+1}</td><td><span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span></td><td><strong>${m.qty}</strong> ${s.unit}</td><td>${m.note||'—'}</td><td>${m.by_user||'—'}</td><td>${new Date(m.created_at).toLocaleDateString()}</td>${isAdmin?`<td><button class="btn btn-sm btn-danger" onclick="cancelMovement('${supplyId}','${m.id}')"><i class="ti ti-x"></i> Cancel</button></td>`:''}</tr>`;});
   h+=`</tbody></table></div>`;
+  if(isAdmin)h+=`<div class="alert alert-info" style="margin-top:12px"><i class="ti ti-info-circle"></i><div>Cancelling a movement reverses its effect on the stock level and removes it from this log.</div></div>`;
   document.getElementById('mv-content').innerHTML=h;
   document.getElementById('movements-view-modal').classList.add('open');
+}
+async function cancelMovement(supplyId,movementId){
+  if(!currentUser||currentUser.role!=='admin'){alert('Only an admin can cancel a movement.');return;}
+  if(!confirm('Cancel this movement? This will reverse its effect on the stock level.'))return;
+  showLoading('Cancelling...');
+  await db.rpc('rr_movement_delete',{p_session:sessionToken,p_id:movementId});
+  hideLoading();
+  await renderSupplies();
+  await showMovements(supplyId);
 }
 
 // REQUESTS

@@ -964,11 +964,11 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   </div>
   <div id="m-backdate-section" style="display:none;margin-top:8px">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
-      <input type="checkbox" id="m-backdated" onchange="toggleBackdated()"> This stock was received earlier and I forgot to record it
+      <input type="checkbox" id="m-backdated" onchange="toggleBackdated()"> <span id="m-backdated-label">This stock was received earlier and I forgot to record it</span>
     </label>
     <div id="m-backdate-fields" style="display:none;margin-top:10px;padding:12px;background:#F8FAFC;border-radius:8px">
-      <div class="form-group"><label>Date actually received *</label><input id="m-received-date" type="date" onchange="onReceivedDateChange()"></div>
-      <div style="margin-top:12px">
+      <div class="form-group"><label id="m-received-date-label">Date actually received *</label><input id="m-received-date" type="date" onchange="onReceivedDateChange()"></div>
+      <div id="m-usage-breakdown-section" style="margin-top:12px">
         <label style="font-size:13px;font-weight:600">Already used since it arrived? (optional)</label>
         <div id="m-usage-rows"></div>
         <button type="button" class="rep-add-row" onclick="addUsageRow()"><i class="ti ti-plus"></i> Add usage entry</button>
@@ -3279,7 +3279,8 @@ async function renderDoctorReport(){
     </div>
 
     <div class="rep-card">
-      <h2>2. Dialysis Hub Activities</h2>
+      <h2>2. Dialysis Hub &amp; Mobile Dialysis Activities</h2>
+      <div class="rep-hint" style="font-weight:700;font-size:13px;color:#1E3A5F;margin-bottom:6px">Dialysis Hub</div>
       <div class="rep-hint">2.1 Patient Reviews</div>
       <div class="rep-row">
         <div class="rep-field"><label>No. of patients reviewed</label><input type="text" id="doc-hubReviewed"></div>
@@ -3290,80 +3291,62 @@ async function renderDoctorReport(){
       <div class="rep-field"><label class="rep-label-light">2.2 Hemodialysis management</label><textarea id="doc-hubHemoMgmt"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">2.3 Intradialysis complications managed</label><textarea id="doc-hubComplications"></textarea></div>
       <div class="rep-field"><label class="rep-label-light">2.4 Procedures performed</label><textarea id="doc-hubProcedures"></textarea></div>
-    </div>
 
-    <div class="rep-card">
-      <h2>3. Mobile Dialysis Activities</h2>
-      <div class="rep-hint">3.1 Patient Reviews</div>
+      <div class="rep-hint" style="font-weight:700;font-size:13px;color:#1E3A5F;margin-top:20px;margin-bottom:6px">Mobile Dialysis</div>
+      <div class="rep-hint">2.5 Patient Reviews</div>
       <div class="rep-row">
         <div class="rep-field"><label>No. of patients attended to</label><input type="text" id="doc-mobileAttended"></div>
         <div class="rep-field"><label>Locations</label><input type="text" id="doc-mobileLocations"></div>
         <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-mobileNewAssessed"></div>
         <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-mobileSpecialistReview"></div>
       </div>
-      <div class="rep-field"><label class="rep-label-light">Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.6 Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.7 Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">2.8 Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>4. Vascular Access Review</h2>
-      <div class="rep-row">
-        <div class="rep-field"><label>Patients on AV fistula/graft with problems</label><input type="number" min="0" id="doc-vaFistulaGraft"></div>
-        <div class="rep-field"><label>Poor blood flow (catheters)</label><input type="number" min="0" id="doc-vaPoorFlow"></div>
-        <div class="rep-field"><label>Suspected stenosis</label><input type="number" min="0" id="doc-vaStenosis"></div>
-      </div>
-      <div class="rep-row">
-        <div class="rep-field"><label>Aneurysmal changes</label><input type="number" min="0" id="doc-vaAneurysmal"></div>
-        <div class="rep-field"><label>Infection</label><input type="number" min="0" id="doc-vaInfection"></div>
-        <div class="rep-field"><label>Prolonged bleeding</label><input type="number" min="0" id="doc-vaBleeding"></div>
-        <div class="rep-field"><label>Thrombosis</label><input type="number" min="0" id="doc-vaThrombosis"></div>
-      </div>
-      <div class="rep-field"><label class="rep-label-light">Actions taken / referrals</label><textarea id="doc-vaActions"></textarea></div>
+      <h2>3. Vascular Access Review</h2>
+      <div class="rep-field"><textarea id="doc-vascularAccess" placeholder="Fistula/graft problems, poor blood flow, suspected stenosis, aneurysmal changes, infection, prolonged bleeding, thrombosis, actions taken/referrals..."></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>5. Laboratory &amp; Clinical Monitoring</h2>
+      <h2>4. Laboratory &amp; Clinical Monitoring</h2>
       <div class="rep-field"><textarea id="doc-labMonitoring"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>6. Medical Management</h2>
+      <h2>5. Medical Management</h2>
       <div class="rep-field"><textarea id="doc-medicalMgmt"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>7. Patient Education &amp; Counselling</h2>
+      <h2>6. Patient Education &amp; Counselling</h2>
       <div class="rep-field"><textarea id="doc-patientEducation"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>8. Referrals &amp; Escalations</h2>
+      <h2>7. Referrals &amp; Escalations</h2>
       <div class="rep-field"><textarea id="doc-referrals"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>9. Significant Clinical Events</h2>
+      <h2>8. Significant Clinical Events</h2>
       <div class="rep-field"><textarea id="doc-significantEvents"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>10. Achievements During the Week</h2>
+      <h2>9. Achievements During the Week</h2>
       <div class="rep-field"><textarea id="doc-achievements"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>11. Challenges Encountered</h2>
+      <h2>10. Challenges Encountered</h2>
       <div class="rep-field"><textarea id="doc-challenges"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>12. Recommendations / Action Points</h2>
-      <div class="rep-field"><textarea id="doc-recommendations" placeholder="Recommendations and action points..."></textarea></div>
-    </div>
-
-    <div class="rep-card">
-      <h2>13. Plan for the Following Week</h2>
+      <h2>11. Plan for the Following Week</h2>
       <div class="rep-field"><textarea id="doc-planNextWeek"></textarea></div>
     </div>
 
@@ -3401,6 +3384,19 @@ async function renderDoctorReport(){
   await docPopulatePastReportsDropdown();
 }
 
+function docLegacyVascularAccessText(va){
+  if(!va || typeof va !== 'object') return '';
+  const parts=[];
+  if(va.fistula_graft) parts.push('Patients on AV fistula/graft with problems: '+va.fistula_graft);
+  if(va.poor_flow) parts.push('Poor blood flow (catheters): '+va.poor_flow);
+  if(va.stenosis) parts.push('Suspected stenosis: '+va.stenosis);
+  if(va.aneurysmal) parts.push('Aneurysmal changes: '+va.aneurysmal);
+  if(va.infection) parts.push('Infection: '+va.infection);
+  if(va.bleeding) parts.push('Prolonged bleeding: '+va.bleeding);
+  if(va.thrombosis) parts.push('Thrombosis: '+va.thrombosis);
+  if(va.actions) parts.push('Actions taken / referrals: '+va.actions);
+  return parts.join('\n');
+}
 function docBuildContent(){
   return {
     report_type: 'doctor_weekly',
@@ -3426,16 +3422,7 @@ function docBuildContent(){
       procedures: document.getElementById('doc-mobileProcedures').value,
       hemo_mgmt: document.getElementById('doc-mobileHemoMgmt').value
     },
-    vascular_access: {
-      fistula_graft: document.getElementById('doc-vaFistulaGraft').value,
-      poor_flow: document.getElementById('doc-vaPoorFlow').value,
-      stenosis: document.getElementById('doc-vaStenosis').value,
-      aneurysmal: document.getElementById('doc-vaAneurysmal').value,
-      infection: document.getElementById('doc-vaInfection').value,
-      bleeding: document.getElementById('doc-vaBleeding').value,
-      thrombosis: document.getElementById('doc-vaThrombosis').value,
-      actions: document.getElementById('doc-vaActions').value
-    },
+    vascular_access: document.getElementById('doc-vascularAccess').value,
     lab_monitoring: document.getElementById('doc-labMonitoring').value,
     medical_mgmt: document.getElementById('doc-medicalMgmt').value,
     patient_education: document.getElementById('doc-patientEducation').value,
@@ -3443,7 +3430,6 @@ function docBuildContent(){
     significant_events: document.getElementById('doc-significantEvents').value,
     achievements: document.getElementById('doc-achievements').value,
     challenges: document.getElementById('doc-challenges').value,
-    recommendations: document.getElementById('doc-recommendations').value,
     plan_next_week: document.getElementById('doc-planNextWeek').value,
     prepared_by: document.getElementById('doc-preparedBy').value,
     prepared_date: document.getElementById('doc-preparedDate').value,
@@ -3475,15 +3461,9 @@ function docPopulateForm(content){
   document.getElementById('doc-mobileProcedures').value = mobile.procedures || '';
   document.getElementById('doc-mobileHemoMgmt').value = mobile.hemo_mgmt || '';
 
-  const va = content.vascular_access || {};
-  document.getElementById('doc-vaFistulaGraft').value = va.fistula_graft || '';
-  document.getElementById('doc-vaPoorFlow').value = va.poor_flow || '';
-  document.getElementById('doc-vaStenosis').value = va.stenosis || '';
-  document.getElementById('doc-vaAneurysmal').value = va.aneurysmal || '';
-  document.getElementById('doc-vaInfection').value = va.infection || '';
-  document.getElementById('doc-vaBleeding').value = va.bleeding || '';
-  document.getElementById('doc-vaThrombosis').value = va.thrombosis || '';
-  document.getElementById('doc-vaActions').value = va.actions || '';
+  document.getElementById('doc-vascularAccess').value = typeof content.vascular_access === 'string'
+    ? content.vascular_access
+    : docLegacyVascularAccessText(content.vascular_access);
 
   document.getElementById('doc-labMonitoring').value = content.lab_monitoring || '';
   document.getElementById('doc-medicalMgmt').value = content.medical_mgmt || '';
@@ -3492,8 +3472,6 @@ function docPopulateForm(content){
   document.getElementById('doc-significantEvents').value = content.significant_events || '';
   document.getElementById('doc-achievements').value = content.achievements || '';
   document.getElementById('doc-challenges').value = content.challenges || '';
-  document.getElementById('doc-recommendations').value = content.recommendations ||
-    ((content.action_points||[]).map(r=>[r.issue,r.responsible_person,r.deadline].filter(Boolean).join(' — ')).join('\n')) || '';
   document.getElementById('doc-planNextWeek').value = content.plan_next_week || '';
 
   document.getElementById('doc-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
@@ -3645,7 +3623,8 @@ function docBuildPrintBlocks(){
   blocks.push(`<div class="rep-print-section-title">1. Executive Summary</div><div class="rep-print-text-block">${repEsc(content.exec_summary)||'&nbsp;'}</div>`);
 
   blocks.push(`
-    <div class="rep-print-section-title">2. Dialysis Hub Activities</div>
+    <div class="rep-print-section-title">2. Dialysis Hub &amp; Mobile Dialysis Activities</div>
+    <div><strong>Dialysis Hub</strong></div>
     <div><em>2.1 Patient Reviews</em></div>
     <table class="rep-print-table">
       <thead><tr><th>Reviewed</th><th>New assessed</th><th>Follow-up</th><th>Specialist review</th></tr></thead>
@@ -3653,40 +3632,29 @@ function docBuildPrintBlocks(){
     </table>
     <div><em>2.2 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.hub.hemo_mgmt)||'&nbsp;'}</div>
     <div><em>2.3 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.hub.complications)||'&nbsp;'}</div>
-    <div><em>2.4 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.hub.procedures)||'&nbsp;'}</div>`);
-
-  blocks.push(`
-    <div class="rep-print-section-title">3. Mobile Dialysis Activities</div>
-    <div><em>3.1 Patient Reviews</em></div>
+    <div><em>2.4 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.hub.procedures)||'&nbsp;'}</div>
+    <div style="margin-top:14px"><strong>Mobile Dialysis</strong></div>
+    <div><em>2.5 Patient Reviews</em></div>
     <table class="rep-print-table">
       <thead><tr><th>Attended to</th><th>Locations</th><th>New assessed</th><th>Specialist review</th></tr></thead>
       <tbody><tr><td>${repEsc(content.mobile.attended)}</td><td>${repEsc(content.mobile.locations)}</td><td>${repEsc(content.mobile.new_assessed)}</td><td>${repEsc(content.mobile.specialist_review)}</td></tr></tbody>
     </table>
-    <div><em>Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.complications)||'&nbsp;'}</div>
-    <div><em>Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
-    <div><em>Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);
+    <div><em>2.6 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.complications)||'&nbsp;'}</div>
+    <div><em>2.7 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
+    <div><em>2.8 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);
 
-  blocks.push(`
-    <div class="rep-print-section-title">4. Vascular Access Review</div>
-    <table class="rep-print-table">
-      <thead><tr><th>Fistula/graft problems</th><th>Poor blood flow</th><th>Suspected stenosis</th><th>Aneurysmal changes</th><th>Infection</th><th>Prolonged bleeding</th><th>Thrombosis</th></tr></thead>
-      <tbody><tr><td>${repEsc(content.vascular_access.fistula_graft)}</td><td>${repEsc(content.vascular_access.poor_flow)}</td><td>${repEsc(content.vascular_access.stenosis)}</td><td>${repEsc(content.vascular_access.aneurysmal)}</td><td>${repEsc(content.vascular_access.infection)}</td><td>${repEsc(content.vascular_access.bleeding)}</td><td>${repEsc(content.vascular_access.thrombosis)}</td></tr></tbody>
-    </table>
-    <div><em>Actions taken / referrals</em></div><div class="rep-print-text-block">${repEsc(content.vascular_access.actions)||'&nbsp;'}</div>`);
+  const vaText = typeof content.vascular_access === 'string' ? content.vascular_access : docLegacyVascularAccessText(content.vascular_access);
+  blocks.push(`<div class="rep-print-section-title">3. Vascular Access Review</div><div class="rep-print-text-block">${repEsc(vaText)||'&nbsp;'}</div>`);
 
-  blocks.push(`<div class="rep-print-section-title">5. Laboratory &amp; Clinical Monitoring</div><div class="rep-print-text-block">${repEsc(content.lab_monitoring)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">6. Medical Management</div><div class="rep-print-text-block">${repEsc(content.medical_mgmt)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">7. Patient Education &amp; Counselling</div><div class="rep-print-text-block">${repEsc(content.patient_education)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">8. Referrals &amp; Escalations</div><div class="rep-print-text-block">${repEsc(content.referrals)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">9. Significant Clinical Events</div><div class="rep-print-text-block">${repEsc(content.significant_events)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">10. Achievements During the Week</div><div class="rep-print-text-block">${repEsc(content.achievements)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">11. Challenges Encountered</div><div class="rep-print-text-block">${repEsc(content.challenges)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">4. Laboratory &amp; Clinical Monitoring</div><div class="rep-print-text-block">${repEsc(content.lab_monitoring)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">5. Medical Management</div><div class="rep-print-text-block">${repEsc(content.medical_mgmt)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">6. Patient Education &amp; Counselling</div><div class="rep-print-text-block">${repEsc(content.patient_education)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">7. Referrals &amp; Escalations</div><div class="rep-print-text-block">${repEsc(content.referrals)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">8. Significant Clinical Events</div><div class="rep-print-text-block">${repEsc(content.significant_events)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">9. Achievements During the Week</div><div class="rep-print-text-block">${repEsc(content.achievements)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">10. Challenges Encountered</div><div class="rep-print-text-block">${repEsc(content.challenges)||'&nbsp;'}</div>`);
 
-  blocks.push(`
-    <div class="rep-print-section-title">12. Recommendations / Action Points</div>
-    <div class="rep-print-text-block">${repEsc(content.recommendations) || (content.action_points||[]).map(r=>repEsc([r.issue,r.responsible_person,r.deadline].filter(Boolean).join(' — '))).join('<br>') || '&nbsp;'}</div>`);
-
-  blocks.push(`<div class="rep-print-section-title">13. Plan for the Following Week</div><div class="rep-print-text-block">${repEsc(content.plan_next_week)||'&nbsp;'}</div>`);
+  blocks.push(`<div class="rep-print-section-title">11. Plan for the Following Week</div><div class="rep-print-text-block">${repEsc(content.plan_next_week)||'&nbsp;'}</div>`);
 
   blocks.push(`
     <div class="rep-print-section-title">Sign-off</div>
@@ -4366,7 +4334,12 @@ function openMovement(supplyId,type){
   document.getElementById('m-backdate-fields').style.display='none';
   document.getElementById('m-received-date').value=new Date().toISOString().slice(0,10);
   document.getElementById('m-usage-rows').innerHTML='';
-  document.getElementById('m-backdate-section').style.display = type==='IN' ? 'block' : 'none';
+  document.getElementById('m-backdate-section').style.display='block';
+  document.getElementById('m-backdated-label').textContent = type==='IN'
+    ? 'This stock was received earlier and I forgot to record it'
+    : 'This was used/dispensed earlier and I forgot to record it';
+  document.getElementById('m-received-date-label').textContent = type==='IN' ? 'Date actually received *' : 'Date it was actually used *';
+  document.getElementById('m-usage-breakdown-section').style.display = type==='IN' ? 'block' : 'none';
   document.getElementById('movement-modal').classList.add('open');
 }
 function toggleBackdated(){
@@ -4424,40 +4397,46 @@ async function confirmMovement(){
   const notesVal=document.getElementById('m-notes').value.trim();
   const today=new Date().toISOString().slice(0,10);
 
-  const isBackdated = pendingMovement.type==='IN' && document.getElementById('m-backdated').checked;
-  let receivedDate=null, usageRows=[];
+  const isBackdated = document.getElementById('m-backdated').checked;
+  let effectiveDate=null, usageRows=[];
   if(isBackdated){
-    receivedDate=document.getElementById('m-received-date').value;
-    if(!receivedDate){alert('Enter the date this stock was actually received.');return;}
-    if(receivedDate>today){alert('Received date cannot be in the future.');return;}
-    usageRows=(pendingMovement.usageRows||[]).filter(r=>r.qty&&parseInt(r.qty)>0);
-    for(const r of usageRows){
-      if(!r.date){alert('Enter a date for each usage entry.');return;}
-      if(r.date<receivedDate){alert('A usage date cannot be before the date received.');return;}
-      if(r.date>today){alert('A usage date cannot be in the future.');return;}
+    effectiveDate=document.getElementById('m-received-date').value;
+    if(!effectiveDate){alert(pendingMovement.type==='IN'?'Enter the date this stock was actually received.':'Enter the date this was actually used.');return;}
+    if(effectiveDate>today){alert('That date cannot be in the future.');return;}
+    if(pendingMovement.type==='IN'){
+      usageRows=(pendingMovement.usageRows||[]).filter(r=>r.qty&&parseInt(r.qty)>0);
+      for(const r of usageRows){
+        if(!r.date){alert('Enter a date for each usage entry.');return;}
+        if(r.date<effectiveDate){alert('A usage date cannot be before the date received.');return;}
+        if(r.date>today){alert('A usage date cannot be in the future.');return;}
+      }
+      const usedTotal=usageRows.reduce((t,r)=>t+parseInt(r.qty),0);
+      if(usedTotal>qty){alert(`The usage breakdown (${usedTotal} ${s.unit}) can't exceed the quantity received (${qty} ${s.unit}).`);return;}
     }
-    const usedTotal=usageRows.reduce((t,r)=>t+parseInt(r.qty),0);
-    if(usedTotal>qty){alert(`The usage breakdown (${usedTotal} ${s.unit}) can't exceed the quantity received (${qty} ${s.unit}).`);return;}
   }
 
   if(pendingMovement.type==='OUT'&&s.daily_limit){
-    const todayKey=today;
-    const todayTotal=(s.movements||[]).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===todayKey).reduce((t,m)=>t+m.qty,0)+qty;
-    if(todayTotal>s.daily_limit){
-      const overBy=todayTotal-s.daily_limit;
-      if(!notesVal){alert(`This pushes today's ${s.name} usage to ${todayTotal} ${s.unit} — ${overBy} over the expected daily limit of ${s.daily_limit}. Please enter a reason in Notes before saving.`);return;}
-      if(!confirm(`Today's ${s.name} usage will total ${todayTotal} ${s.unit}, ${overBy} over the expected daily limit of ${s.daily_limit}.\n\nReason: "${notesVal}"\n\nSave this movement?`))return;
+    const dayKey = isBackdated ? effectiveDate : today;
+    const dayTotal=(s.movements||[]).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===dayKey).reduce((t,m)=>t+m.qty,0)+qty;
+    if(dayTotal>s.daily_limit){
+      const overBy=dayTotal-s.daily_limit;
+      const dayLabel = isBackdated ? `usage on ${effectiveDate}` : "today's usage";
+      if(!notesVal){alert(`This pushes ${dayLabel} for ${s.name} to ${dayTotal} ${s.unit} — ${overBy} over the expected daily limit of ${s.daily_limit}. Please enter a reason in Notes before saving.`);return;}
+      if(!confirm(`${dayLabel[0].toUpperCase()+dayLabel.slice(1)} for ${s.name} will total ${dayTotal} ${s.unit}, ${overBy} over the expected daily limit of ${s.daily_limit}.\n\nReason: "${notesVal}"\n\nSave this movement?`))return;
     }
   }
   showLoading('Saving...');
   const byUser=document.getElementById('m-by').value.trim()||'Nurse';
-  if(isBackdated){
-    const inNote=(notesVal?notesVal+' — ':'')+`Backdated entry: received ${receivedDate}, recorded ${today}`;
-    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'IN',p_qty:qty,p_note:inNote,p_by_user:byUser,p_occurred_at:receivedDate});
+  if(isBackdated&&pendingMovement.type==='IN'){
+    const inNote=(notesVal?notesVal+' — ':'')+`Backdated entry: received ${effectiveDate}, recorded ${today}`;
+    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'IN',p_qty:qty,p_note:inNote,p_by_user:byUser,p_occurred_at:effectiveDate});
     for(const r of usageRows){
       const outNote=(r.note?r.note+' — ':'')+'Used before this delivery was recorded';
       await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'OUT',p_qty:parseInt(r.qty),p_note:outNote,p_by_user:byUser,p_occurred_at:r.date});
     }
+  } else if(isBackdated&&pendingMovement.type==='OUT'){
+    const outNote=(notesVal?notesVal+' — ':'')+`Backdated entry: used ${effectiveDate}, recorded ${today}`;
+    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'OUT',p_qty:qty,p_note:outNote,p_by_user:byUser,p_occurred_at:effectiveDate});
   } else {
     await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:byUser,p_occurred_at:null});
   }

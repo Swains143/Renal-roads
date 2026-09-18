@@ -3307,7 +3307,18 @@ async function renderDoctorReport(){
 
     <div class="rep-card">
       <h2>3. Vascular Access Review</h2>
-      <div class="rep-field"><textarea id="doc-vascularAccess" placeholder="Fistula/graft problems, poor blood flow, suspected stenosis, aneurysmal changes, infection, prolonged bleeding, thrombosis, actions taken/referrals..."></textarea></div>
+      <div class="rep-row">
+        <div class="rep-field"><label>Patients on AV fistula/graft with problems</label><input type="text" id="doc-vaFistulaGraft"></div>
+        <div class="rep-field"><label>Poor blood flow (catheters)</label><input type="text" id="doc-vaPoorFlow"></div>
+        <div class="rep-field"><label>Suspected stenosis</label><input type="text" id="doc-vaStenosis"></div>
+      </div>
+      <div class="rep-row">
+        <div class="rep-field"><label>Aneurysmal changes</label><input type="text" id="doc-vaAneurysmal"></div>
+        <div class="rep-field"><label>Infection</label><input type="text" id="doc-vaInfection"></div>
+        <div class="rep-field"><label>Prolonged bleeding</label><input type="text" id="doc-vaBleeding"></div>
+        <div class="rep-field"><label>Thrombosis</label><input type="text" id="doc-vaThrombosis"></div>
+      </div>
+      <div class="rep-field"><label class="rep-label-light">Actions taken / referrals</label><textarea id="doc-vaActions"></textarea></div>
     </div>
 
     <div class="rep-card">
@@ -3384,19 +3395,6 @@ async function renderDoctorReport(){
   await docPopulatePastReportsDropdown();
 }
 
-function docLegacyVascularAccessText(va){
-  if(!va || typeof va !== 'object') return '';
-  const parts=[];
-  if(va.fistula_graft) parts.push('Patients on AV fistula/graft with problems: '+va.fistula_graft);
-  if(va.poor_flow) parts.push('Poor blood flow (catheters): '+va.poor_flow);
-  if(va.stenosis) parts.push('Suspected stenosis: '+va.stenosis);
-  if(va.aneurysmal) parts.push('Aneurysmal changes: '+va.aneurysmal);
-  if(va.infection) parts.push('Infection: '+va.infection);
-  if(va.bleeding) parts.push('Prolonged bleeding: '+va.bleeding);
-  if(va.thrombosis) parts.push('Thrombosis: '+va.thrombosis);
-  if(va.actions) parts.push('Actions taken / referrals: '+va.actions);
-  return parts.join('\n');
-}
 function docBuildContent(){
   return {
     report_type: 'doctor_weekly',
@@ -3422,7 +3420,16 @@ function docBuildContent(){
       procedures: document.getElementById('doc-mobileProcedures').value,
       hemo_mgmt: document.getElementById('doc-mobileHemoMgmt').value
     },
-    vascular_access: document.getElementById('doc-vascularAccess').value,
+    vascular_access: {
+      fistula_graft: document.getElementById('doc-vaFistulaGraft').value,
+      poor_flow: document.getElementById('doc-vaPoorFlow').value,
+      stenosis: document.getElementById('doc-vaStenosis').value,
+      aneurysmal: document.getElementById('doc-vaAneurysmal').value,
+      infection: document.getElementById('doc-vaInfection').value,
+      bleeding: document.getElementById('doc-vaBleeding').value,
+      thrombosis: document.getElementById('doc-vaThrombosis').value,
+      actions: document.getElementById('doc-vaActions').value
+    },
     lab_monitoring: document.getElementById('doc-labMonitoring').value,
     medical_mgmt: document.getElementById('doc-medicalMgmt').value,
     patient_education: document.getElementById('doc-patientEducation').value,
@@ -3461,9 +3468,16 @@ function docPopulateForm(content){
   document.getElementById('doc-mobileProcedures').value = mobile.procedures || '';
   document.getElementById('doc-mobileHemoMgmt').value = mobile.hemo_mgmt || '';
 
-  document.getElementById('doc-vascularAccess').value = typeof content.vascular_access === 'string'
-    ? content.vascular_access
-    : docLegacyVascularAccessText(content.vascular_access);
+  const va = (content.vascular_access && typeof content.vascular_access === 'object') ? content.vascular_access : {};
+  document.getElementById('doc-vaFistulaGraft').value = va.fistula_graft || '';
+  document.getElementById('doc-vaPoorFlow').value = va.poor_flow || '';
+  document.getElementById('doc-vaStenosis').value = va.stenosis || '';
+  document.getElementById('doc-vaAneurysmal').value = va.aneurysmal || '';
+  document.getElementById('doc-vaInfection').value = va.infection || '';
+  document.getElementById('doc-vaBleeding').value = va.bleeding || '';
+  document.getElementById('doc-vaThrombosis').value = va.thrombosis || '';
+  document.getElementById('doc-vaActions').value = va.actions ||
+    (typeof content.vascular_access === 'string' ? content.vascular_access : '');
 
   document.getElementById('doc-labMonitoring').value = content.lab_monitoring || '';
   document.getElementById('doc-medicalMgmt').value = content.medical_mgmt || '';
@@ -3643,8 +3657,17 @@ function docBuildPrintBlocks(){
     <div><em>2.7 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
     <div><em>2.8 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);
 
-  const vaText = typeof content.vascular_access === 'string' ? content.vascular_access : docLegacyVascularAccessText(content.vascular_access);
-  blocks.push(`<div class="rep-print-section-title">3. Vascular Access Review</div><div class="rep-print-text-block">${repEsc(vaText)||'&nbsp;'}</div>`);
+  {
+    const va = (content.vascular_access && typeof content.vascular_access === 'object') ? content.vascular_access : {};
+    const vaActionsText = va.actions || (typeof content.vascular_access === 'string' ? content.vascular_access : '');
+    blocks.push(`
+    <div class="rep-print-section-title">3. Vascular Access Review</div>
+    <table class="rep-print-table">
+      <thead><tr><th>Fistula/graft problems</th><th>Poor blood flow</th><th>Suspected stenosis</th><th>Aneurysmal changes</th><th>Infection</th><th>Prolonged bleeding</th><th>Thrombosis</th></tr></thead>
+      <tbody><tr><td>${repEsc(va.fistula_graft)}</td><td>${repEsc(va.poor_flow)}</td><td>${repEsc(va.stenosis)}</td><td>${repEsc(va.aneurysmal)}</td><td>${repEsc(va.infection)}</td><td>${repEsc(va.bleeding)}</td><td>${repEsc(va.thrombosis)}</td></tr></tbody>
+    </table>
+    <div><em>Actions taken / referrals</em></div><div class="rep-print-text-block">${repEsc(vaActionsText)||'&nbsp;'}</div>`);
+  }
 
   blocks.push(`<div class="rep-print-section-title">4. Laboratory &amp; Clinical Monitoring</div><div class="rep-print-text-block">${repEsc(content.lab_monitoring)||'&nbsp;'}</div>`);
   blocks.push(`<div class="rep-print-section-title">5. Medical Management</div><div class="rep-print-text-block">${repEsc(content.medical_mgmt)||'&nbsp;'}</div>`);

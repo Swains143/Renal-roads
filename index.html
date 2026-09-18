@@ -3367,10 +3367,6 @@ async function renderDoctorReport(){
         <div class="rep-field"><label>Prepared by</label><input type="text" id="doc-preparedBy" value="${currentUser?repEsc(currentUser.name):''}"></div>
         <div class="rep-field"><label>Date</label><input type="date" id="doc-preparedDate"></div>
       </div>
-      <div class="rep-row">
-        <div class="rep-field"><label>Reviewed by</label><input type="text" id="doc-reviewedBy"></div>
-        <div class="rep-field"><label>Date</label><input type="date" id="doc-reviewedDate"></div>
-      </div>
     </div>
 
     <div class="rep-footer-bar">
@@ -3439,9 +3435,7 @@ function docBuildContent(){
     challenges: document.getElementById('doc-challenges').value,
     plan_next_week: document.getElementById('doc-planNextWeek').value,
     prepared_by: document.getElementById('doc-preparedBy').value,
-    prepared_date: document.getElementById('doc-preparedDate').value,
-    reviewed_by: document.getElementById('doc-reviewedBy').value,
-    reviewed_date: document.getElementById('doc-reviewedDate').value
+    prepared_date: document.getElementById('doc-preparedDate').value
   };
 }
 function docPopulateForm(content){
@@ -3490,8 +3484,6 @@ function docPopulateForm(content){
 
   document.getElementById('doc-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
   document.getElementById('doc-preparedDate').value = content.prepared_date || '';
-  document.getElementById('doc-reviewedBy').value = content.reviewed_by || '';
-  document.getElementById('doc-reviewedDate').value = content.reviewed_date || '';
 }
 function docResetFormBlank(){
   docDraftId = null;
@@ -3683,7 +3675,6 @@ function docBuildPrintBlocks(){
     <div class="rep-print-section-title">Sign-off</div>
     <table class="rep-print-meta"><tr>
       <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)} &nbsp; <strong>Date:</strong> ${repEsc(content.prepared_date)}</td>
-      <td><strong>Reviewed by:</strong> ${repEsc(content.reviewed_by)} &nbsp; <strong>Date:</strong> ${repEsc(content.reviewed_date)}</td>
     </tr></table>`);
 
   blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`);

@@ -955,12 +955,26 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 </div></div>
 
 <!-- Movement Modal -->
-<div class="modal-bg" id="movement-modal"><div class="modal">
+<div class="modal-bg" id="movement-modal"><div class="modal" style="width:560px">
   <h2 id="mmt">Stock movement</h2><div class="modal-sub">Record quantity and details</div>
   <div class="form-grid">
-    <div class="form-group"><label>Quantity *</label><input id="m-qty" type="number" min="1" value="1"></div>
+    <div class="form-group"><label>Quantity *</label><input id="m-qty" type="number" min="1" value="1" oninput="updateNetSummary()"></div>
     <div class="form-group"><label>Recorded by</label><input id="m-by" placeholder="Your name"></div>
     <div class="form-group full"><label>Notes</label><input id="m-notes" placeholder="Reason or details"></div>
+  </div>
+  <div id="m-backdate-section" style="display:none;margin-top:8px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
+      <input type="checkbox" id="m-backdated" onchange="toggleBackdated()"> This stock was received earlier and I forgot to record it
+    </label>
+    <div id="m-backdate-fields" style="display:none;margin-top:10px;padding:12px;background:#F8FAFC;border-radius:8px">
+      <div class="form-group"><label>Date actually received *</label><input id="m-received-date" type="date" onchange="onReceivedDateChange()"></div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:600">Already used since it arrived? (optional)</label>
+        <div id="m-usage-rows"></div>
+        <button type="button" class="rep-add-row" onclick="addUsageRow()"><i class="ti ti-plus"></i> Add usage entry</button>
+        <div id="m-net-summary" style="margin-top:8px;font-size:12px;color:#555"></div>
+      </div>
+    </div>
   </div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('movement-modal')">Cancel</button><button class="btn btn-primary" onclick="confirmMovement()"><i class="ti ti-check"></i> Save</button></div>
 </div></div>
@@ -4345,10 +4359,61 @@ async function deleteSupply(id){
 }
 function openMovement(supplyId,type){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
-  pendingMovement={supplyId,type};
+  pendingMovement={supplyId,type,usageRows:[]};
   document.getElementById('mmt').textContent=(type==='IN'?'Stock IN':'Stock OUT')+' — '+s.name;
   document.getElementById('m-qty').value=1;document.getElementById('m-by').value=currentUser?currentUser.name:'';document.getElementById('m-notes').value='';
+  document.getElementById('m-backdated').checked=false;
+  document.getElementById('m-backdate-fields').style.display='none';
+  document.getElementById('m-received-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('m-usage-rows').innerHTML='';
+  document.getElementById('m-backdate-section').style.display = type==='IN' ? 'block' : 'none';
   document.getElementById('movement-modal').classList.add('open');
+}
+function toggleBackdated(){
+  const checked=document.getElementById('m-backdated').checked;
+  document.getElementById('m-backdate-fields').style.display=checked?'block':'none';
+  updateNetSummary();
+}
+function onReceivedDateChange(){
+  // Any usage rows dated before the (new) received date no longer make sense — bump them up.
+  const rd=document.getElementById('m-received-date').value;
+  (pendingMovement.usageRows||[]).forEach(r=>{ if(r.date<rd) r.date=rd; });
+  renderUsageRows();
+}
+function addUsageRow(){
+  if(!pendingMovement.usageRows)pendingMovement.usageRows=[];
+  const rd=document.getElementById('m-received-date').value||new Date().toISOString().slice(0,10);
+  pendingMovement.usageRows.push({qty:'',date:rd,note:''});
+  renderUsageRows();
+}
+function removeUsageRow(i){
+  pendingMovement.usageRows.splice(i,1);
+  renderUsageRows();
+}
+function renderUsageRows(){
+  const rows=pendingMovement.usageRows||[];
+  let h='';
+  rows.forEach((r,i)=>{
+    h+=`<div class="rep-row" style="margin-top:6px;align-items:flex-end">
+      <div class="rep-field"><label class="rep-label-light">Qty used</label><input type="number" min="1" value="${r.qty}" oninput="pendingMovement.usageRows[${i}].qty=this.value;updateNetSummary()"></div>
+      <div class="rep-field"><label class="rep-label-light">Date used</label><input type="date" value="${r.date}" onchange="pendingMovement.usageRows[${i}].date=this.value"></div>
+      <div class="rep-field"><label class="rep-label-light">Used for / reason</label><input value="${r.note||''}" oninput="pendingMovement.usageRows[${i}].note=this.value"></div>
+      <button type="button" class="btn btn-sm btn-danger" onclick="removeUsageRow(${i})"><i class="ti ti-trash"></i></button>
+    </div>`;
+  });
+  document.getElementById('m-usage-rows').innerHTML=h;
+  updateNetSummary();
+}
+function updateNetSummary(){
+  const el=document.getElementById('m-net-summary');
+  if(!el||!pendingMovement)return;
+  const qty=parseInt(document.getElementById('m-qty').value)||0;
+  const used=(pendingMovement.usageRows||[]).reduce((t,r)=>t+(parseInt(r.qty)||0),0);
+  const net=qty-used;
+  const s=supplies.find(x=>x.id===pendingMovement.supplyId);
+  const unit=s?s.unit:'';
+  el.textContent=`Received: ${qty} ${unit} · Already used: ${used} ${unit} · Net added to current stock: ${net} ${unit}`;
+  el.style.color = net<0 ? 'var(--red)' : '#555';
 }
 async function confirmMovement(){
   if(!pendingMovement)return;
@@ -4357,8 +4422,26 @@ async function confirmMovement(){
   const s=supplies.find(x=>x.id===pendingMovement.supplyId);if(!s)return;
   if(pendingMovement.type==='OUT'&&qty>getStock(s)){alert('Insufficient stock. Available: '+getStock(s)+' '+s.unit);return;}
   const notesVal=document.getElementById('m-notes').value.trim();
+  const today=new Date().toISOString().slice(0,10);
+
+  const isBackdated = pendingMovement.type==='IN' && document.getElementById('m-backdated').checked;
+  let receivedDate=null, usageRows=[];
+  if(isBackdated){
+    receivedDate=document.getElementById('m-received-date').value;
+    if(!receivedDate){alert('Enter the date this stock was actually received.');return;}
+    if(receivedDate>today){alert('Received date cannot be in the future.');return;}
+    usageRows=(pendingMovement.usageRows||[]).filter(r=>r.qty&&parseInt(r.qty)>0);
+    for(const r of usageRows){
+      if(!r.date){alert('Enter a date for each usage entry.');return;}
+      if(r.date<receivedDate){alert('A usage date cannot be before the date received.');return;}
+      if(r.date>today){alert('A usage date cannot be in the future.');return;}
+    }
+    const usedTotal=usageRows.reduce((t,r)=>t+parseInt(r.qty),0);
+    if(usedTotal>qty){alert(`The usage breakdown (${usedTotal} ${s.unit}) can't exceed the quantity received (${qty} ${s.unit}).`);return;}
+  }
+
   if(pendingMovement.type==='OUT'&&s.daily_limit){
-    const todayKey=new Date().toISOString().slice(0,10);
+    const todayKey=today;
     const todayTotal=(s.movements||[]).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===todayKey).reduce((t,m)=>t+m.qty,0)+qty;
     if(todayTotal>s.daily_limit){
       const overBy=todayTotal-s.daily_limit;
@@ -4367,7 +4450,17 @@ async function confirmMovement(){
     }
   }
   showLoading('Saving...');
-  await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:document.getElementById('m-by').value.trim()||'Nurse'});
+  const byUser=document.getElementById('m-by').value.trim()||'Nurse';
+  if(isBackdated){
+    const inNote=(notesVal?notesVal+' — ':'')+`Backdated entry: received ${receivedDate}, recorded ${today}`;
+    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'IN',p_qty:qty,p_note:inNote,p_by_user:byUser,p_occurred_at:receivedDate});
+    for(const r of usageRows){
+      const outNote=(r.note?r.note+' — ':'')+'Used before this delivery was recorded';
+      await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'OUT',p_qty:parseInt(r.qty),p_note:outNote,p_by_user:byUser,p_occurred_at:r.date});
+    }
+  } else {
+    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:byUser,p_occurred_at:null});
+  }
   hideLoading();closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){

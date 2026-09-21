@@ -21,6 +21,16 @@
   --red:#C0392B;--red-pale:#FDEEEE;--amber:#E67E22;--amber-pale:#FEF4E8;
   --radius:10px;--radius-lg:16px;
   --shadow:0 4px 24px rgba(46,45,159,0.10);--shadow-lg:0 8px 40px rgba(46,45,159,0.16);
+  /* Auto-shrink scale for print/export documents. repRenderPaginated sets
+     this on the root element before measuring/rendering a print job that
+     has a page-count cap (currently the Document and Operational Report
+     exports): it tries 1, then steps the value down and re-measures until
+     the content packs into the required number of pages, or a readability
+     floor is hit. All .rep-print-* font-size/padding/margin rules below
+     are expressed as calc(var(--print-scale) * ...) so that both the
+     offscreen measurement pass and the real printed output shrink by
+     exactly the same amount together. */
+  --print-scale:1;
 }
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
 @keyframes float{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-40px) rotate(180deg)}100%{transform:translateY(0) rotate(360deg)}}
@@ -621,33 +631,60 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-status-msg.dirty::before{content:"\25CF";margin-right:5px;font-size:9px;position:relative;top:-1px;animation:pulse 1.4s ease-in-out infinite}
 .rep-status-msg.saved{color:var(--green-dark);font-weight:600}
 #rep-printArea,#op-printArea,#doc-printArea{display:none}
+/* Sizing rules for print blocks are defined UNCONDITIONALLY (not inside
+   @media print) so that repRenderPaginated's offscreen height measurement
+   sees the exact same box model the browser will use when actually
+   printing. When these lived only inside @media print, the measurement
+   pass (which runs on the normal screen DOM, not during a real print)
+   saw borderless/paddingless/unstyled elements, undercounted their
+   height, packed too much content onto each page, and the real print
+   then overflowed onto extra pages — often leaving a near-empty trailing
+   page. Print-only concerns (visibility, positioning, page-break rules)
+   stay inside @media print below since those don't affect height. */
+.rep-print-title{text-align:center;font-size:calc(var(--print-scale) * 16pt);font-weight:bold;margin-bottom:calc(var(--print-scale) * 2px)}
+.rep-print-subtitle{text-align:center;font-size:calc(var(--print-scale) * 11pt);margin-bottom:calc(var(--print-scale) * 14px)}
+.rep-print-meta{width:100%;margin-bottom:calc(var(--print-scale) * 14px);font-size:calc(var(--print-scale) * 10.5pt)}
+.rep-print-meta td{padding:calc(var(--print-scale) * 2px) calc(var(--print-scale) * 6px)}
+.rep-print-section-title{font-size:calc(var(--print-scale) * 12pt);font-weight:bold;margin:calc(var(--print-scale) * 16px) 0 calc(var(--print-scale) * 4px);border-bottom:1px solid #000;padding-bottom:calc(var(--print-scale) * 2px)}
+.rep-print-table{width:100%;border-collapse:collapse;margin-bottom:calc(var(--print-scale) * 8px);font-size:calc(var(--print-scale) * 10pt)}
+.rep-print-table th,.rep-print-table td{border:1px solid #000;padding:calc(var(--print-scale) * 4px) calc(var(--print-scale) * 6px);text-align:left;vertical-align:top;white-space:pre-wrap}
+.rep-print-table th{background:#eee}
+.rep-print-text-block{border:1px solid #000;padding:calc(var(--print-scale) * 6px);min-height:calc(var(--print-scale) * 24px);font-size:calc(var(--print-scale) * 10pt);margin-bottom:calc(var(--print-scale) * 8px);white-space:pre-wrap}
+.rep-print-footer{margin-top:calc(var(--print-scale) * 24px);font-size:calc(var(--print-scale) * 9.5pt);color:#333}
+/* 12pt Times New Roman variant, applied to the doctor's weekly report print
+   area (and to repRenderPaginated's offscreen measuring container, so the
+   packed page heights match what actually prints). Declared unconditionally
+   for the same reason as the rules above: the measurement pass runs on the
+   normal screen DOM, not during a real print. */
+.rep-print-12{font-family:'Times New Roman',Times,serif}
+.rep-print-12 .rep-print-meta{font-size:calc(var(--print-scale) * 12pt)}
+.rep-print-12 .rep-print-table{font-size:calc(var(--print-scale) * 12pt)}
+.rep-print-12 .rep-print-text-block{font-size:calc(var(--print-scale) * 12pt)}
+.rep-print-12 .rep-print-section-title{font-size:calc(var(--print-scale) * 12pt)}
+.rep-print-12 .rep-print-footer{font-size:calc(var(--print-scale) * 12pt)}
 @media print{
   body *{visibility:hidden}
   #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *{visibility:visible}
-  #rep-printArea, #op-printArea, #doc-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;color:#000;background:#fff}
+  #rep-printArea, #op-printArea, #doc-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;font-size:calc(var(--print-scale) * 10pt);color:#000;background:#fff}
   /* Each .rep-print-page is one physical printed page (content was pre-packed
-     to fit via JS measurement in repRenderPaginated). Deliberately NOT using
-     display:flex here — flex containers do not fragment reliably across
-     printed pages in Chrome (children/overflow can land on the wrong page),
-     which is what caused headers/footers to appear on the wrong pages.
-     Plain block-level content breaks across printed pages predictably. */
+     to fit via JS measurement in repRenderPaginated, using the same sizing
+     rules defined above so the measured heights match the real render).
+     Deliberately NOT using display:flex here — flex containers do not
+     fragment reliably across printed pages in Chrome (children/overflow
+     can land on the wrong page), which is what caused headers/footers to
+     appear on the wrong pages. Plain block-level content breaks across
+     printed pages predictably. */
   .rep-print-page{position:relative;page-break-after:always;break-after:page;page-break-inside:avoid}
   .rep-print-page:last-child{page-break-after:auto;break-after:auto}
   .rep-print-watermark{position:absolute;top:138.5mm;left:95mm;transform:translate(-50%,-50%);width:104.5mm;height:auto;z-index:0;pointer-events:none}
   .rep-letterhead-header,.rep-print-page-body{position:relative;z-index:1}
   .rep-letterhead-header{width:100%;height:auto;display:block;margin-bottom:4mm}
-  .rep-print-title{text-align:center;font-size:16pt;font-weight:bold;margin-bottom:2px}
-  .rep-print-subtitle{text-align:center;font-size:11pt;margin-bottom:14px}
-  .rep-print-meta{width:100%;margin-bottom:14px;font-size:10.5pt;page-break-inside:avoid}
-  .rep-print-meta td{padding:2px 6px}
-  .rep-print-section-title{font-size:12pt;font-weight:bold;margin:16px 0 4px;border-bottom:1px solid #000;padding-bottom:2px;page-break-after:avoid;break-after:avoid}
-  .rep-print-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10pt}
+  .rep-print-meta{page-break-inside:avoid}
+  .rep-print-section-title{page-break-after:avoid;break-after:avoid}
   .rep-print-table thead{display:table-header-group}
   .rep-print-table tr{page-break-inside:avoid;break-inside:avoid}
-  .rep-print-table th,.rep-print-table td{border:1px solid #000;padding:4px 6px;text-align:left;vertical-align:top;white-space:pre-wrap}
-  .rep-print-table th{background:#eee}
-  .rep-print-text-block{border:1px solid #000;padding:6px;min-height:24px;font-size:10pt;margin-bottom:8px;white-space:pre-wrap;page-break-inside:avoid;break-inside:avoid}
-  .rep-print-footer{margin-top:24px;font-size:9.5pt;color:#333;page-break-inside:avoid;break-inside:avoid}
+  .rep-print-text-block{page-break-inside:avoid;break-inside:avoid}
+  .rep-print-footer{page-break-inside:avoid;break-inside:avoid}
   @page{margin:10mm}
 }
 
@@ -1885,9 +1922,25 @@ let repFacility = 'truck';
 const REP_PAGE_WIDTH_MM = 210, REP_PAGE_HEIGHT_MM = 297, REP_PAGE_MARGIN_MM = 10;
 const REP_PAGE_CONTENT_WIDTH_MM = REP_PAGE_WIDTH_MM - 2*REP_PAGE_MARGIN_MM;
 const REP_LETTERHEAD_HEADER_ASPECT = 2563/269;  // width:height of the header banner image
-function repRenderPaginated(blocks, area){
+// The lowest --print-scale we'll auto-shrink to. Below this, text becomes
+// impractically small to read, so we stop shrinking and accept whatever
+// page count results (best-effort) rather than making the printout
+// illegible. Nothing is ever cut from the content itself — this only
+// trades page count for font/spacing size.
+const REP_PRINT_SCALE_FLOOR = 0.55;
+const REP_PRINT_SCALE_STEP = 0.05;
+
+// Measures `blocks` at a given --print-scale and greedily packs them into
+// pages. Returns {pages, availableContentPx} — pages is an array of arrays
+// of block-html, one inner array per physical page.
+function repMeasureAndPack(blocks, scale, opts){
+  opts = opts || {};
+  const prevScale = document.documentElement.style.getPropertyValue('--print-scale');
+  document.documentElement.style.setProperty('--print-scale', scale);
+
   const meas = document.createElement('div');
-  meas.style.cssText = `position:fixed;left:-9999px;top:0;width:${REP_PAGE_CONTENT_WIDTH_MM}mm;font-family:'Times New Roman',Times,serif;font-size:10pt;visibility:hidden`;
+  meas.style.cssText = `position:fixed;left:-9999px;top:0;width:${REP_PAGE_CONTENT_WIDTH_MM}mm;font-family:'Times New Roman',Times,serif;font-size:calc(var(--print-scale) * ${opts.baseFontPt || 10}pt);visibility:hidden`;
+  if(opts.fontClass) meas.className = opts.fontClass;
   document.body.appendChild(meas);
   const pxPerMm = meas.getBoundingClientRect().width / REP_PAGE_CONTENT_WIDTH_MM;
 
@@ -1909,6 +1962,8 @@ function repRenderPaginated(blocks, area){
   // Measure each block's height individually.
   const heights = blocks.map(html => { meas.innerHTML = html; return meas.getBoundingClientRect().height; });
   document.body.removeChild(meas);
+  if(prevScale) document.documentElement.style.setProperty('--print-scale', prevScale);
+  else document.documentElement.style.removeProperty('--print-scale');
 
   // Greedily pack blocks into pages.
   const pages = [];
@@ -1924,6 +1979,31 @@ function repRenderPaginated(blocks, area){
   });
   if(current.length) pages.push(current);
   if(pages.length === 0) pages.push(['']);
+  return pages;
+}
+
+// Renders `blocks` into `area` as pre-paginated printed pages. When
+// `maxPages` is given, this first tries the normal (scale 1) layout, and
+// if that runs over the limit, steps --print-scale down and re-measures
+// until the content packs into `maxPages` pages or the readability floor
+// (REP_PRINT_SCALE_FLOOR) is reached — whichever comes first. The chosen
+// scale is left set on the document root so the real print uses the same
+// sizing that was measured.
+function repRenderPaginated(blocks, area, maxPages, opts){
+  opts = opts || {};
+  let scale = 1;
+  let pages = repMeasureAndPack(blocks, scale, opts);
+  if(maxPages){
+    while(pages.length > maxPages && scale > REP_PRINT_SCALE_FLOOR){
+      scale = Math.max(REP_PRINT_SCALE_FLOOR, +(scale - REP_PRINT_SCALE_STEP).toFixed(2));
+      pages = repMeasureAndPack(blocks, scale, opts);
+    }
+  }
+  document.documentElement.style.setProperty('--print-scale', scale);
+  // The ID-scoped @media print rule sets a font-size on the print area, which
+  // outranks any class; an inline style is what actually wins here.
+  area.className = opts.fontClass || '';
+  area.style.fontSize = opts.baseFontPt ? `calc(var(--print-scale) * ${opts.baseFontPt}pt)` : '';
 
   area.innerHTML = pages.map((pageBlocks, i) => `
     <div class="rep-print-page">
@@ -2681,107 +2761,157 @@ function repBackToCurrent(){
 }
 
 // ---------- Export / Print ----------
+// Shared across all three weekly reports: a value counts as "filled" only if
+// it is present and not just whitespace. Used to drop empty fields, empty
+// table rows and whole empty sections from exports, so printed reports carry
+// only what was actually entered — no pages of blank boxes.
+function repFilled(v){ return !!(v !== null && v !== undefined && String(v).trim()); }
+// Same, for count-style fields where 0 / "0" means "nothing recorded".
+function repFilledCount(v){ return repFilled(v) && String(v).trim() !== '0'; }
+
 function repBuildPrintBlocks(){
   const content = repBuildContent();
   const facilityLabel = repFacility==='truck' ? 'Truck' : 'Kigumo Hub';
   const periodStart = document.getElementById('rep-periodStart').value;
   const periodEnd = document.getElementById('rep-periodEnd').value;
   const blocks = [];
+  const esc = repEsc;
 
   blocks.push(`
     <div class="rep-print-title">Weekly Clinical Report</div>
     <div class="rep-print-subtitle">${facilityLabel}</div>
     <table class="rep-print-meta"><tr>
-      <td><strong>Period:</strong> ${repEsc(periodStart)} &nbsp;to&nbsp; ${repEsc(periodEnd)}</td>
-      <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)}</td>
+      <td><strong>Period:</strong> ${esc(periodStart)} &nbsp;to&nbsp; ${esc(periodEnd)}</td>
+      <td><strong>Prepared by:</strong> ${esc(content.prepared_by)}</td>
     </tr></table>`);
 
-  blocks.push(`
+  // ---- Outpatients: only days with an attendance figure or a remark ----
+  {
+    const rows = REP_DAYS
+      .map(day => ({ day, d: content.outpatients.daily[day] || {} }))
+      .filter(r => repFilledCount(r.d.count) || repFilled(r.d.remarks));
+    if(rows.length){
+      const anyRemarks = rows.some(r => repFilled(r.d.remarks));
+      blocks.push(`
     <div class="rep-print-section-title">Outpatients</div>
     <table class="rep-print-table">
-      <thead><tr><th>Day</th><th>Attended</th><th>Remarks</th></tr></thead>
+      <thead><tr><th>Day</th><th>Attended</th>${anyRemarks?'<th>Remarks</th>':''}</tr></thead>
       <tbody>
-        ${REP_DAYS.map(day=>{ const d=content.outpatients.daily[day]||{}; return `<tr><td>${day}</td><td>${d.count||0}</td><td>${repEsc(d.remarks)}</td></tr>`; }).join('')}
-        <tr><td><strong>Total</strong></td><td><strong>${content.outpatients.total_attended}</strong></td><td></td></tr>
+        ${rows.map(r=>`<tr><td>${r.day}</td><td>${esc(r.d.count)}</td>${anyRemarks?`<td>${esc(r.d.remarks)}</td>`:''}</tr>`).join('')}
+        <tr><td><strong>Total</strong></td><td><strong>${content.outpatients.total_attended}</strong></td>${anyRemarks?'<td></td>':''}</tr>
       </tbody>
     </table>`);
+    }
+  }
 
-  blocks.push(`
+  // ---- Inpatients: the Yes/No answer is itself content, so it is kept ----
+  {
+    const details = (content.inpatients.details||[]).filter(r => repFilled(r.name) || repFilled(r.station) || repFilled(r.remarks));
+    blocks.push(`
     <div class="rep-print-section-title">Inpatients</div>
     <div>Inpatients this week: <strong>${content.inpatients.has_inpatients?'Yes':'No'}</strong></div>
-    ${content.inpatients.has_inpatients && content.inpatients.details.length ? `
+    ${content.inpatients.has_inpatients && details.length ? `
     <table class="rep-print-table">
       <thead><tr><th>Name</th><th>Station</th><th>Remarks</th></tr></thead>
-      <tbody>${content.inpatients.details.map(r=>`<tr><td>${repEsc(r.name)}</td><td>${repEsc(r.station)}</td><td>${repEsc(r.remarks)}</td></tr>`).join('')}</tbody>
+      <tbody>${details.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.station)}</td><td>${esc(r.remarks)}</td></tr>`).join('')}</tbody>
     </table>` : ''}`);
+  }
 
-  blocks.push(`
+  // ---- Staff register: only days with someone recorded ----
+  {
+    const isTruck = repFacility==='truck';
+    const rows = REP_DAYS
+      .map(day => ({ day, row: content.staff_register[day] || {} }))
+      .filter(r => isTruck
+        ? (repFilled(r.row.staff) || repFilled(r.row.locum) || repFilled(r.row.remarks))
+        : (repFilled(r.row.nurses_present) || repFilled(r.row.locum_nurses) || repFilled(r.row.reviewing_doctor)));
+    if(rows.length){
+      blocks.push(`
     <div class="rep-print-section-title">Staff Register</div>
     <table class="rep-print-table">
-      <thead>${repFacility==='truck' ? '<tr><th>Day</th><th>Staff</th><th>Locum</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
+      <thead>${isTruck ? '<tr><th>Day</th><th>Staff</th><th>Locum</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
       <tbody>
-        ${REP_DAYS.map(day=>{
-          const row = content.staff_register[day]||{};
-          return repFacility==='truck'
-            ? `<tr><td>${day}</td><td>${repEsc(row.staff)}</td><td>${repEsc(row.locum)}</td><td>${repEsc(row.remarks)}</td></tr>`
-            : `<tr><td>${day}</td><td>${repEsc(row.nurses_present)}</td><td>${repEsc(row.locum_nurses)}</td><td>${repEsc(row.reviewing_doctor)}</td></tr>`;
-        }).join('')}
+        ${rows.map(({day,row}) => isTruck
+          ? `<tr><td>${day}</td><td>${esc(row.staff)}</td><td>${esc(row.locum)}</td><td>${esc(row.remarks)}</td></tr>`
+          : `<tr><td>${day}</td><td>${esc(row.nurses_present)}</td><td>${esc(row.locum_nurses)}</td><td>${esc(row.reviewing_doctor)}</td></tr>`).join('')}
       </tbody>
     </table>`);
+    }
+  }
 
-  blocks.push(`
+  // ---- Machines & RO: Yes/No answers kept, empty remark rows dropped ----
+  {
+    const ro = content.dialysis_machines_ro;
+    const rows = [];
+    rows.push(`<tr><td><strong>Reverse rinse (every 2 weeks) — done this week</strong></td><td>${ro.weekly_reverse_rinse_done?'Yes':'No'}</td></tr>`);
+    if(repFilled(ro.reverse_rinse_last_date))
+      rows.push(`<tr><td><strong>Reverse rinse last performed</strong></td><td>${esc(ro.reverse_rinse_last_date)}</td></tr>`);
+    if(repFilled(ro.reverse_rinse_remarks))
+      rows.push(`<tr><td><strong>Remarks</strong></td><td>${esc(ro.reverse_rinse_remarks)}</td></tr>`);
+    rows.push(`<tr><td><strong>Machines operational</strong></td><td>${ro.machines_operational?'Yes':'No'}</td></tr>`);
+    if(repFilled(ro.machines_operational_remarks))
+      rows.push(`<tr><td><strong>Remarks</strong></td><td>${esc(ro.machines_operational_remarks)}</td></tr>`);
+    if(repFacility==='kigumo'){
+      if(repFilledCount(ro.machines_available_count))
+        rows.push(`<tr><td><strong>Machines available</strong></td><td>${esc(ro.machines_available_count)}</td></tr>`);
+      rows.push(`<tr><td><strong>Water / power interruptions</strong></td><td>${ro.water_power_interruptions?'Yes':'No'}</td></tr>`);
+      if(repFilled(ro.interruption_details))
+        rows.push(`<tr><td><strong>Details</strong></td><td>${esc(ro.interruption_details)}</td></tr>`);
+    }
+    blocks.push(`
     <div class="rep-print-section-title">Dialysis Machines &amp; RO Plant Activity</div>
-    <table class="rep-print-table"><tbody>
-      <tr><td><strong>Reverse rinse (every 2 weeks) — done this week</strong></td><td>${content.dialysis_machines_ro.weekly_reverse_rinse_done?'Yes':'No'}</td></tr>
-      <tr><td><strong>Reverse rinse last performed</strong></td><td>${repEsc(content.dialysis_machines_ro.reverse_rinse_last_date)||'—'}</td></tr>
-      <tr><td><strong>Remarks</strong></td><td>${repEsc(content.dialysis_machines_ro.reverse_rinse_remarks)}</td></tr>
-      <tr><td><strong>Machines operational</strong></td><td>${content.dialysis_machines_ro.machines_operational?'Yes':'No'}</td></tr>
-      <tr><td><strong>Remarks</strong></td><td>${repEsc(content.dialysis_machines_ro.machines_operational_remarks)}</td></tr>
-      ${repFacility==='kigumo' ? `
-      <tr><td><strong>Machines available</strong></td><td>${content.dialysis_machines_ro.machines_available_count||0}</td></tr>
-      <tr><td><strong>Water / power interruptions</strong></td><td>${content.dialysis_machines_ro.water_power_interruptions?'Yes':'No'}</td></tr>
-      <tr><td><strong>Details</strong></td><td>${repEsc(content.dialysis_machines_ro.interruption_details)}</td></tr>` : ''}
-    </tbody></table>`);
+    <table class="rep-print-table"><tbody>${rows.join('')}</tbody></table>`);
+  }
 
-  blocks.push(`
+  // ---- By-exception sections: omitted entirely when there is nothing ----
+  {
+    const usage = (content.heparin_usage||[]).filter(r => repFilled(r.item) || repFilled(r.used) || repFilled(r.reason));
+    if(usage.length){
+      blocks.push(`
     <div class="rep-print-section-title">Item Used More Than Expected</div>
-    ${content.heparin_usage.length ? `
     <table class="rep-print-table">
       <thead><tr><th>Item</th><th>Date</th><th>Expected/Day</th><th>Total Used</th><th>Over By</th><th>Reason</th></tr></thead>
-      <tbody>${content.heparin_usage.map(r=>`<tr><td>${repEsc(r.item)}</td><td>${repEsc(r.date)}</td><td>${repEsc(r.expected)}</td><td>${repEsc(r.used)}</td><td>${repEsc(r.over_by)}</td><td>${repEsc(r.reason)}</td></tr>`).join('')}</tbody>
-    </table>` : '<div class="rep-print-text-block">No usage alerts recorded this period.</div>'}`);
+      <tbody>${usage.map(r=>`<tr><td>${esc(r.item)}</td><td>${esc(r.date)}</td><td>${esc(r.expected)}</td><td>${esc(r.used)}</td><td>${esc(r.over_by)}</td><td>${esc(r.reason)}</td></tr>`).join('')}</tbody>
+    </table>`);
+    }
+  }
 
   if(repFacility==='truck'){
-    blocks.push(`
+    if(repFilled(content.truck_mechanical_activity.remarks)){
+      blocks.push(`
     <div class="rep-print-section-title">Truck Mechanical Activity Report</div>
-    <div class="rep-print-text-block">${repEsc(content.truck_mechanical_activity.remarks)||'&nbsp;'}</div>`);
-    blocks.push(`
+    <div class="rep-print-text-block">${esc(content.truck_mechanical_activity.remarks)}</div>`);
+    }
+    const stations = ['Gatura','Kirwara','Maragwa'].filter(st => repFilled(content.stations_activity[st]));
+    if(stations.length){
+      blocks.push(`
     <div class="rep-print-section-title">Stations Activity Report</div>
     <table class="rep-print-table">
       <thead><tr><th>Station</th><th>Activity notes</th></tr></thead>
-      <tbody>
-        <tr><td>Gatura</td><td>${repEsc(content.stations_activity.Gatura)}</td></tr>
-        <tr><td>Kirwara</td><td>${repEsc(content.stations_activity.Kirwara)}</td></tr>
-        <tr><td>Maragwa</td><td>${repEsc(content.stations_activity.Maragwa)}</td></tr>
-      </tbody>
+      <tbody>${stations.map(st=>`<tr><td>${st}</td><td>${esc(content.stations_activity[st])}</td></tr>`).join('')}</tbody>
     </table>`);
+    }
   }
 
-  blocks.push(`
+  {
+    const points = (content.action_points||[]).filter(r => repFilled(r.issue) || repFilled(r.responsible_person) || repFilled(r.deadline));
+    if(points.length){
+      blocks.push(`
     <div class="rep-print-section-title">Action Points</div>
-    ${content.action_points.length ? `
     <table class="rep-print-table">
       <thead><tr><th>Issue</th><th>Responsible person</th><th>Deadline</th></tr></thead>
-      <tbody>${content.action_points.map(r=>`<tr><td>${repEsc(r.issue)}</td><td>${repEsc(r.responsible_person)}</td><td>${repEsc(r.deadline)}</td></tr>`).join('')}</tbody>
-    </table>` : '<div class="rep-print-text-block">&nbsp;</div>'}`);
+      <tbody>${points.map(r=>`<tr><td>${esc(r.issue)}</td><td>${esc(r.responsible_person)}</td><td>${esc(r.deadline)}</td></tr>`).join('')}</tbody>
+    </table>`);
+    }
+  }
 
-  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`);
+  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${esc(currentUser?currentUser.name:'')}</div>`);
 
   return blocks;
 }
 function repExportPrint(){
   const area = document.getElementById('rep-printArea');
-  repRenderPaginated(repBuildPrintBlocks(), area);
+  repRenderPaginated(repBuildPrintBlocks(), area, null, { fontClass:'rep-print-12', baseFontPt:12 });
   repPrintWhenImagesReady(area);
 }
 
@@ -3178,47 +3308,63 @@ function opBuildPrintBlocks(){
   if(eq.maintenance_required) eqStatusParts.push('Maintenance required');
   if(eq.out_of_service) eqStatusParts.push('Out of service');
   const blocks = [];
+  const esc = repEsc;
+  // Sections are numbered as they are emitted, so anything omitted for being
+  // empty does not leave a gap in the numbering.
+  let sec = 0;
 
   blocks.push(`
     <div class="rep-print-title">Weekly Operational Report — Renal Unit</div>
-    <div class="rep-print-subtitle">${repEsc(facilityLabel)}</div>
+    <div class="rep-print-subtitle">${esc(facilityLabel)}</div>
     <table class="rep-print-meta"><tr>
-      <td><strong>Period:</strong> ${repEsc(periodStart)} &nbsp;to&nbsp; ${repEsc(periodEnd)}</td>
-      <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)}</td>
+      <td><strong>Period:</strong> ${esc(periodStart)} &nbsp;to&nbsp; ${esc(periodEnd)}</td>
+      <td><strong>Prepared by:</strong> ${esc(content.prepared_by)}</td>
     </tr></table>`);
 
-  blocks.push(`
-    <div class="rep-print-section-title">1. Staffing</div>
-    <div>Status: <strong>${content.staffing.issues?'New developments identified':'Adequate and no new developments'}</strong></div>
-    ${content.staffing.issues ? `<div class="rep-print-text-block">${repEsc(content.staffing.remarks)||'&nbsp;'}</div>` : ''}`);
+  // A recorded status ("Adequate", "No issues") is an answer, not a blank, so
+  // these sections always print; only their empty remark boxes are dropped.
+  const statusSection = (title, status, remarks) => {
+    sec++;
+    blocks.push(`
+    <div class="rep-print-section-title">${sec}. ${title}</div>
+    <div>Status: <strong>${status}</strong></div>
+    ${repFilled(remarks) ? `<div class="rep-print-text-block">${esc(remarks)}</div>` : ''}`);
+  };
 
-  blocks.push(`
-    <div class="rep-print-section-title">2. Medical Supplies</div>
-    <div>Status: <strong>${content.medical_supplies.issues?'Issues identified':'Adequate and of good quality'}</strong></div>
-    ${content.medical_supplies.issues ? `<div class="rep-print-text-block">${repEsc(content.medical_supplies.remarks)||'&nbsp;'}</div>` : ''}`);
+  statusSection('Staffing',
+    content.staffing.issues?'New developments identified':'Adequate and no new developments',
+    content.staffing.issues ? content.staffing.remarks : '');
 
-  blocks.push(`
-    <div class="rep-print-section-title">3. Equipment</div>
-    <div>Status: <strong>${repEsc(eqStatusParts.join(', ')||'—')}</strong></div>
-    ${eq.maintenance_required ? `<div><em>Maintenance required:</em></div><div class="rep-print-text-block">${repEsc(eq.maintenance_remarks)||'&nbsp;'}</div>` : ''}
-    ${eq.out_of_service ? `<div><em>Out of service:</em></div><div class="rep-print-text-block">${repEsc(eq.out_of_service_remarks)||'&nbsp;'}</div>` : ''}`);
+  statusSection('Medical Supplies',
+    content.medical_supplies.issues?'Issues identified':'Adequate and of good quality',
+    content.medical_supplies.issues ? content.medical_supplies.remarks : '');
 
-  blocks.push(`
-    <div class="rep-print-section-title">4. Operations &amp; Infrastructure</div>
-    <div>Status: <strong>${content.support_infrastructure.issues?'Issues identified':'No operational issues'}</strong></div>
-    ${content.support_infrastructure.issues ? `<div class="rep-print-text-block">${repEsc(content.support_infrastructure.remarks)||'&nbsp;'}</div>` : ''}`);
+  {
+    sec++;
+    blocks.push(`
+    <div class="rep-print-section-title">${sec}. Equipment</div>
+    <div>Status: <strong>${esc(eqStatusParts.join(', ')||'—')}</strong></div>
+    ${eq.maintenance_required && repFilled(eq.maintenance_remarks) ? `<div><em>Maintenance required:</em></div><div class="rep-print-text-block">${esc(eq.maintenance_remarks)}</div>` : ''}
+    ${eq.out_of_service && repFilled(eq.out_of_service_remarks) ? `<div><em>Out of service:</em></div><div class="rep-print-text-block">${esc(eq.out_of_service_remarks)}</div>` : ''}`);
+  }
 
-  blocks.push(`
+  statusSection('Operations &amp; Infrastructure',
+    content.support_infrastructure.issues?'Issues identified':'No operational issues',
+    content.support_infrastructure.issues ? content.support_infrastructure.remarks : '');
+
+  if(repFilled(content.patient_feedback)){
+    blocks.push(`
     <div class="rep-print-section-title">Patient Feedback</div>
-    <div class="rep-print-text-block">${repEsc(content.patient_feedback)||'&nbsp;'}</div>`);
+    <div class="rep-print-text-block">${esc(content.patient_feedback)}</div>`);
+  }
 
-  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`);
+  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${esc(currentUser?currentUser.name:'')}</div>`);
 
   return blocks;
 }
 function opExportPrint(){
   const area = document.getElementById('op-printArea');
-  repRenderPaginated(opBuildPrintBlocks(), area);
+  repRenderPaginated(opBuildPrintBlocks(), area, null, { fontClass:'rep-print-12', baseFontPt:12 });
   repPrintWhenImagesReady(area);
 }
 
@@ -3274,39 +3420,33 @@ async function renderDoctorReport(){
     </div>
 
     <div class="rep-card">
-      <h2>1. Executive Summary</h2>
-      <div class="rep-field"><textarea id="doc-execSummary" placeholder="Overview of the week..."></textarea></div>
-    </div>
-
-    <div class="rep-card">
-      <h2>2. Dialysis Hub &amp; Mobile Dialysis Activities</h2>
+      <h2>1. Dialysis Hub &amp; Mobile Dialysis Activities</h2>
       <div class="rep-hint" style="font-weight:700;font-size:13px;color:#1E3A5F;margin-bottom:6px">Dialysis Hub</div>
-      <div class="rep-hint">2.1 Patient Reviews</div>
+      <div class="rep-hint">1.1 Patient Reviews</div>
       <div class="rep-row">
         <div class="rep-field"><label>No. of patients reviewed</label><input type="text" id="doc-hubReviewed"></div>
         <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-hubNewAssessed"></div>
         <div class="rep-field"><label>Follow-up patients reviewed</label><input type="text" id="doc-hubFollowUp"></div>
-        <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-hubSpecialistReview"></div>
       </div>
-      <div class="rep-field"><label class="rep-label-light">2.2 Hemodialysis management</label><textarea id="doc-hubHemoMgmt"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">2.3 Intradialysis complications managed</label><textarea id="doc-hubComplications"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">2.4 Procedures performed</label><textarea id="doc-hubProcedures"></textarea></div>
+      <div class="rep-field"><label>Requiring specialist/medical review</label><textarea id="doc-hubSpecialistReview" rows="3" placeholder="One per line..."></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.2 Hemodialysis management</label><textarea id="doc-hubHemoMgmt"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.3 Procedures performed</label><textarea id="doc-hubProcedures"></textarea></div>
 
       <div class="rep-hint" style="font-weight:700;font-size:13px;color:#1E3A5F;margin-top:20px;margin-bottom:6px">Mobile Dialysis</div>
-      <div class="rep-hint">2.5 Patient Reviews</div>
+      <div class="rep-hint">1.4 Patient Reviews</div>
       <div class="rep-row">
         <div class="rep-field"><label>No. of patients attended to</label><input type="text" id="doc-mobileAttended"></div>
         <div class="rep-field"><label>Locations</label><input type="text" id="doc-mobileLocations"></div>
         <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-mobileNewAssessed"></div>
-        <div class="rep-field"><label>Requiring specialist/medical review</label><input type="text" id="doc-mobileSpecialistReview"></div>
       </div>
-      <div class="rep-field"><label class="rep-label-light">2.6 Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">2.7 Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">2.8 Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
+      <div class="rep-field"><label>Requiring specialist/medical review</label><textarea id="doc-mobileSpecialistReview" rows="3" placeholder="One per line..."></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.5 Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.6 Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.7 Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>3. Vascular Access Review</h2>
+      <h2>2. Vascular Access Review</h2>
       <div class="rep-row">
         <div class="rep-field"><label>Patients on AV fistula/graft with problems</label><input type="text" id="doc-vaFistulaGraft"></div>
         <div class="rep-field"><label>Poor blood flow (catheters)</label><input type="text" id="doc-vaPoorFlow"></div>
@@ -3322,42 +3462,37 @@ async function renderDoctorReport(){
     </div>
 
     <div class="rep-card">
-      <h2>4. Laboratory &amp; Clinical Monitoring</h2>
+      <h2>3. Laboratory &amp; Clinical Monitoring</h2>
       <div class="rep-field"><textarea id="doc-labMonitoring"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>5. Medical Management</h2>
-      <div class="rep-field"><textarea id="doc-medicalMgmt"></textarea></div>
-    </div>
-
-    <div class="rep-card">
-      <h2>6. Patient Education &amp; Counselling</h2>
+      <h2>4. Patient Education &amp; Counselling</h2>
       <div class="rep-field"><textarea id="doc-patientEducation"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>7. Referrals &amp; Escalations</h2>
+      <h2>5. Referrals &amp; Escalations</h2>
       <div class="rep-field"><textarea id="doc-referrals"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>8. Significant Clinical Events</h2>
+      <h2>6. Significant Clinical Events</h2>
       <div class="rep-field"><textarea id="doc-significantEvents"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>9. Achievements During the Week</h2>
+      <h2>7. Achievements During the Week</h2>
       <div class="rep-field"><textarea id="doc-achievements"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>10. Challenges Encountered</h2>
+      <h2>8. Challenges Encountered</h2>
       <div class="rep-field"><textarea id="doc-challenges"></textarea></div>
     </div>
 
     <div class="rep-card">
-      <h2>11. Plan for the Following Week</h2>
+      <h2>9. Plan for the Following Week</h2>
       <div class="rep-field"><textarea id="doc-planNextWeek"></textarea></div>
     </div>
 
@@ -3397,14 +3532,12 @@ function docBuildContent(){
     clinician_name: document.getElementById('doc-clinicianName').value,
     designation: document.getElementById('doc-designation').value,
     reporting_units: document.getElementById('doc-reportingUnits').value,
-    exec_summary: document.getElementById('doc-execSummary').value,
     hub: {
       reviewed: document.getElementById('doc-hubReviewed').value,
       new_assessed: document.getElementById('doc-hubNewAssessed').value,
       follow_up: document.getElementById('doc-hubFollowUp').value,
       specialist_review: document.getElementById('doc-hubSpecialistReview').value,
       hemo_mgmt: document.getElementById('doc-hubHemoMgmt').value,
-      complications: document.getElementById('doc-hubComplications').value,
       procedures: document.getElementById('doc-hubProcedures').value
     },
     mobile: {
@@ -3427,7 +3560,6 @@ function docBuildContent(){
       actions: document.getElementById('doc-vaActions').value
     },
     lab_monitoring: document.getElementById('doc-labMonitoring').value,
-    medical_mgmt: document.getElementById('doc-medicalMgmt').value,
     patient_education: document.getElementById('doc-patientEducation').value,
     referrals: document.getElementById('doc-referrals').value,
     significant_events: document.getElementById('doc-significantEvents').value,
@@ -3442,15 +3574,12 @@ function docPopulateForm(content){
   document.getElementById('doc-clinicianName').value = content.clinician_name || (currentUser?currentUser.name:'');
   document.getElementById('doc-designation').value = content.designation || '';
   document.getElementById('doc-reportingUnits').value = content.reporting_units || '';
-  document.getElementById('doc-execSummary').value = content.exec_summary || '';
-
   const hub = content.hub || {};
   document.getElementById('doc-hubReviewed').value = hub.reviewed || '';
   document.getElementById('doc-hubNewAssessed').value = hub.new_assessed || '';
   document.getElementById('doc-hubFollowUp').value = hub.follow_up || '';
   document.getElementById('doc-hubSpecialistReview').value = hub.specialist_review || '';
   document.getElementById('doc-hubHemoMgmt').value = hub.hemo_mgmt || '';
-  document.getElementById('doc-hubComplications').value = hub.complications || '';
   document.getElementById('doc-hubProcedures').value = hub.procedures || '';
 
   const mobile = content.mobile || {};
@@ -3474,7 +3603,6 @@ function docPopulateForm(content){
     (typeof content.vascular_access === 'string' ? content.vascular_access : '');
 
   document.getElementById('doc-labMonitoring').value = content.lab_monitoring || '';
-  document.getElementById('doc-medicalMgmt').value = content.medical_mgmt || '';
   document.getElementById('doc-patientEducation').value = content.patient_education || '';
   document.getElementById('doc-referrals').value = content.referrals || '';
   document.getElementById('doc-significantEvents').value = content.significant_events || '';
@@ -3616,74 +3744,159 @@ function docBuildPrintBlocks(){
   const periodEnd = document.getElementById('doc-periodEnd').value;
   const blocks = [];
 
+  // Only what was actually filled in gets exported. Empty fields are skipped
+  // entirely rather than printing an empty bordered box, and whatever remains
+  // is renumbered consecutively (1, 2, 3...) so the printed document has no
+  // numbering gaps and no pages of blank boxes.
+  const filled = repFilled;
+  const esc = v => repEsc(v);
+  let sec = 0;
+
   blocks.push(`
     <div class="rep-print-title">Weekly Dialysis Hub &amp; Mobile Dialysis Service Report</div>
     <table class="rep-print-meta"><tr>
-      <td><strong>Reporting period:</strong> ${repEsc(periodStart)} &nbsp;to&nbsp; ${repEsc(periodEnd)}</td>
-      <td><strong>Clinician:</strong> ${repEsc(content.clinician_name)}</td>
+      <td><strong>Reporting period:</strong> ${esc(periodStart)} &nbsp;to&nbsp; ${esc(periodEnd)}</td>
+      <td><strong>Clinician:</strong> ${esc(content.clinician_name)}</td>
     </tr><tr>
-      <td><strong>Designation:</strong> ${repEsc(content.designation)}</td>
-      <td><strong>Reporting units:</strong> ${repEsc(content.reporting_units)}</td>
+      <td><strong>Designation:</strong> ${esc(content.designation)}</td>
+      <td><strong>Reporting units:</strong> ${esc(content.reporting_units)}</td>
     </tr></table>`);
 
-  blocks.push(`<div class="rep-print-section-title">1. Executive Summary</div><div class="rep-print-text-block">${repEsc(content.exec_summary)||'&nbsp;'}</div>`);
+  // ---- Dialysis Hub & Mobile Dialysis Activities ----
+  {
+    const hub = content.hub || {};
+    const mobile = content.mobile || {};
+    const hubFields = [hub.reviewed, hub.new_assessed, hub.follow_up, hub.specialist_review, hub.hemo_mgmt, hub.procedures];
+    const mobileFields = [mobile.attended, mobile.locations, mobile.new_assessed, mobile.specialist_review, mobile.complications, mobile.procedures, mobile.hemo_mgmt];
+    const hubAny = hubFields.some(filled);
+    const mobileAny = mobileFields.some(filled);
 
-  blocks.push(`
-    <div class="rep-print-section-title">2. Dialysis Hub &amp; Mobile Dialysis Activities</div>
-    <div><strong>Dialysis Hub</strong></div>
-    <div><em>2.1 Patient Reviews</em></div>
-    <table class="rep-print-table">
-      <thead><tr><th>Reviewed</th><th>New assessed</th><th>Follow-up</th><th>Specialist review</th></tr></thead>
-      <tbody><tr><td>${repEsc(content.hub.reviewed)}</td><td>${repEsc(content.hub.new_assessed)}</td><td>${repEsc(content.hub.follow_up)}</td><td>${repEsc(content.hub.specialist_review)}</td></tr></tbody>
-    </table>
-    <div><em>2.2 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.hub.hemo_mgmt)||'&nbsp;'}</div>
-    <div><em>2.3 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.hub.complications)||'&nbsp;'}</div>
-    <div><em>2.4 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.hub.procedures)||'&nbsp;'}</div>
-    <div style="margin-top:14px"><strong>Mobile Dialysis</strong></div>
-    <div><em>2.5 Patient Reviews</em></div>
-    <table class="rep-print-table">
-      <thead><tr><th>Attended to</th><th>Locations</th><th>New assessed</th><th>Specialist review</th></tr></thead>
-      <tbody><tr><td>${repEsc(content.mobile.attended)}</td><td>${repEsc(content.mobile.locations)}</td><td>${repEsc(content.mobile.new_assessed)}</td><td>${repEsc(content.mobile.specialist_review)}</td></tr></tbody>
-    </table>
-    <div><em>2.6 Intradialysis complications managed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.complications)||'&nbsp;'}</div>
-    <div><em>2.7 Procedures performed</em></div><div class="rep-print-text-block">${repEsc(content.mobile.procedures)||'&nbsp;'}</div>
-    <div><em>2.8 Hemodialysis management</em></div><div class="rep-print-text-block">${repEsc(content.mobile.hemo_mgmt)||'&nbsp;'}</div>`);
+    if(hubAny || mobileAny){
+      sec++;
+      // Each chunk is packed onto a page independently, so a long section
+      // flows across pages instead of overflowing a single one. The section
+      // title is glued to the first chunk so it can't be orphaned.
+      const parts = [];
+      let sub = 0;
+      // A group heading ("Dialysis Hub" / "Mobile Dialysis") is held back and
+      // prepended to the next chunk that is actually emitted, so it can never
+      // be stranded alone at the bottom of a page.
+      let pending = '';
+      const emit = html => { parts.push(pending + html); pending = ''; };
+      const textPart = (title, value) => {
+        if(!filled(value)) return;
+        sub++;
+        emit(`<div><em>${sec}.${sub} ${title}</em></div><div class="rep-print-text-block">${esc(value)}</div>`);
+      };
+      const reviewPart = (heading, cols) => {
+        const shown = cols.filter(c => filled(c.v));
+        if(!shown.length) return;
+        sub++;
+        emit(`
+          <div><em>${sec}.${sub} ${heading}</em></div>
+          <table class="rep-print-table">
+            <thead><tr>${shown.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>
+            <tbody><tr>${shown.map(c => `<td>${esc(c.v)}</td>`).join('')}</tr></tbody>
+          </table>`);
+      };
 
+      if(hubAny){
+        pending = '<div><strong>Dialysis Hub</strong></div>';
+        reviewPart('Patient Reviews', [
+          {label:'Reviewed', v:hub.reviewed},
+          {label:'New assessed', v:hub.new_assessed},
+          {label:'Follow-up', v:hub.follow_up}
+        ]);
+        if(filled(hub.specialist_review))
+          emit(`<div><em>Requiring specialist/medical review</em></div><div class="rep-print-text-block">${esc(hub.specialist_review)}</div>`);
+        textPart('Hemodialysis management', hub.hemo_mgmt);
+        textPart('Procedures performed', hub.procedures);
+      }
+
+      if(mobileAny){
+        pending += `<div style="margin-top:14px"><strong>Mobile Dialysis</strong></div>`;
+        reviewPart('Patient Reviews', [
+          {label:'Attended to', v:mobile.attended},
+          {label:'Locations', v:mobile.locations},
+          {label:'New assessed', v:mobile.new_assessed}
+        ]);
+        if(filled(mobile.specialist_review))
+          emit(`<div><em>Requiring specialist/medical review</em></div><div class="rep-print-text-block">${esc(mobile.specialist_review)}</div>`);
+        textPart('Intradialysis complications managed', mobile.complications);
+        textPart('Procedures performed', mobile.procedures);
+        textPart('Hemodialysis management', mobile.hemo_mgmt);
+      }
+
+      if(pending) emit('');
+      const title = `<div class="rep-print-section-title">${sec}. Dialysis Hub &amp; Mobile Dialysis Activities</div>`;
+      blocks.push(title + (parts.shift() || ''));
+      parts.forEach(p => blocks.push(p));
+    }
+  }
+
+  // ---- Vascular Access Review ----
   {
     const va = (content.vascular_access && typeof content.vascular_access === 'object') ? content.vascular_access : {};
     const vaActionsText = va.actions || (typeof content.vascular_access === 'string' ? content.vascular_access : '');
-    blocks.push(`
-    <div class="rep-print-section-title">3. Vascular Access Review</div>
+    const cols = [
+      {label:'Fistula/graft problems', v:va.fistula_graft},
+      {label:'Poor blood flow', v:va.poor_flow},
+      {label:'Suspected stenosis', v:va.stenosis},
+      {label:'Aneurysmal changes', v:va.aneurysmal},
+      {label:'Infection', v:va.infection},
+      {label:'Prolonged bleeding', v:va.bleeding},
+      {label:'Thrombosis', v:va.thrombosis}
+    ].filter(c => filled(c.v));
+
+    if(cols.length || filled(vaActionsText)){
+      sec++;
+      let html = `<div class="rep-print-section-title">${sec}. Vascular Access Review</div>`;
+      if(cols.length){
+        html += `
     <table class="rep-print-table">
-      <thead><tr><th>Fistula/graft problems</th><th>Poor blood flow</th><th>Suspected stenosis</th><th>Aneurysmal changes</th><th>Infection</th><th>Prolonged bleeding</th><th>Thrombosis</th></tr></thead>
-      <tbody><tr><td>${repEsc(va.fistula_graft)}</td><td>${repEsc(va.poor_flow)}</td><td>${repEsc(va.stenosis)}</td><td>${repEsc(va.aneurysmal)}</td><td>${repEsc(va.infection)}</td><td>${repEsc(va.bleeding)}</td><td>${repEsc(va.thrombosis)}</td></tr></tbody>
-    </table>
-    <div><em>Actions taken / referrals</em></div><div class="rep-print-text-block">${repEsc(vaActionsText)||'&nbsp;'}</div>`);
+      <thead><tr>${cols.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>
+      <tbody><tr>${cols.map(c => `<td>${esc(c.v)}</td>`).join('')}</tr></tbody>
+    </table>`;
+      }
+      blocks.push(html);
+      if(filled(vaActionsText))
+        blocks.push(`<div><em>Actions taken / referrals</em></div><div class="rep-print-text-block">${esc(vaActionsText)}</div>`);
+    }
   }
 
-  blocks.push(`<div class="rep-print-section-title">4. Laboratory &amp; Clinical Monitoring</div><div class="rep-print-text-block">${repEsc(content.lab_monitoring)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">5. Medical Management</div><div class="rep-print-text-block">${repEsc(content.medical_mgmt)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">6. Patient Education &amp; Counselling</div><div class="rep-print-text-block">${repEsc(content.patient_education)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">7. Referrals &amp; Escalations</div><div class="rep-print-text-block">${repEsc(content.referrals)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">8. Significant Clinical Events</div><div class="rep-print-text-block">${repEsc(content.significant_events)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">9. Achievements During the Week</div><div class="rep-print-text-block">${repEsc(content.achievements)||'&nbsp;'}</div>`);
-  blocks.push(`<div class="rep-print-section-title">10. Challenges Encountered</div><div class="rep-print-text-block">${repEsc(content.challenges)||'&nbsp;'}</div>`);
+  // ---- Remaining free-text sections ----
+  [
+    ['Laboratory &amp; Clinical Monitoring', content.lab_monitoring],
+    ['Patient Education &amp; Counselling', content.patient_education],
+    ['Referrals &amp; Escalations', content.referrals],
+    ['Significant Clinical Events', content.significant_events],
+    ['Achievements During the Week', content.achievements],
+    ['Challenges Encountered', content.challenges],
+    ['Plan for the Following Week', content.plan_next_week]
+  ].forEach(([title, value]) => {
+    if(!filled(value)) return;
+    sec++;
+    blocks.push(`<div class="rep-print-section-title">${sec}. ${title}</div><div class="rep-print-text-block">${esc(value)}</div>`);
+  });
 
-  blocks.push(`<div class="rep-print-section-title">11. Plan for the Following Week</div><div class="rep-print-text-block">${repEsc(content.plan_next_week)||'&nbsp;'}</div>`);
-
-  blocks.push(`
+  if(filled(content.prepared_by) || filled(content.prepared_date)){
+    blocks.push(`
     <div class="rep-print-section-title">Sign-off</div>
     <table class="rep-print-meta"><tr>
-      <td><strong>Prepared by:</strong> ${repEsc(content.prepared_by)} &nbsp; <strong>Date:</strong> ${repEsc(content.prepared_date)}</td>
+      <td><strong>Prepared by:</strong> ${esc(content.prepared_by)} &nbsp; <strong>Date:</strong> ${esc(content.prepared_date)}</td>
     </tr></table>`);
+  }
 
-  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${repEsc(currentUser?currentUser.name:'')}</div>`);
+  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${esc(currentUser?currentUser.name:'')}</div>`);
 
   return blocks;
 }
 function docExportPrint(){
   const area = document.getElementById('doc-printArea');
-  repRenderPaginated(docBuildPrintBlocks(), area);
+  // No max-page cap here: capping would auto-shrink --print-scale below the
+  // requested 12pt. Skipping the unfilled sections already keeps the page
+  // count down, so the type size stays exactly as specified.
+  repRenderPaginated(docBuildPrintBlocks(), area, null, { fontClass:'rep-print-12', baseFontPt:12 });
   repPrintWhenImagesReady(area);
 }
 

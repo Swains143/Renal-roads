@@ -871,6 +871,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
+    <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
   </div>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -881,6 +882,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
       <option value="report" id="opt-report">📋 Weekly Report</option>
+      <option value="monthlyreport" id="opt-monthlyreport">🗓️ Monthly Report</option>
     </select>
   </div>
   <div class="content" id="main-content"></div>
@@ -1412,14 +1414,20 @@ function applyRoleTabVisibility(role){
 }
 
 function switchTab(t){
-  if(currentTab==='report' && t!=='report' && repDirty){
+  const leavingReportTabs = (currentTab==='report'||currentTab==='monthlyreport');
+  if(leavingReportTabs && t!==currentTab && repDirty){
     if(!confirm('You have unsaved changes in this report. Leave without saving?\n\n(Tip: changes are also autosaved as a draft periodically.)')){
       const sel=document.getElementById('tab-select');
-      if(sel) sel.value='report';
+      if(sel) sel.value=currentTab;
       return;
     }
     repDirty = false;
   }
+  // Freshly entering either report tab (not just re-clicking the one
+  // already open) resets which report form shows: Weekly Report always
+  // starts on Clinical Report, Monthly Report always shows the monthly form.
+  if(t!==currentTab && t==='report') repKind='clinical';
+  if(t!==currentTab && t==='monthlyreport') repKind='monthly';
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
   const sel=document.getElementById('tab-select');
@@ -1586,7 +1594,7 @@ async function restoreSession(){
 
 async function render(){
   await updateBadge();
-  if(currentTab!=='report'){ repStopAutoSave(); repStopRealtime(); }
+  if(currentTab!=='report' && currentTab!=='monthlyreport'){ repStopAutoSave(); repStopRealtime(); }
   if(currentTab==='home') await renderHome();
   else if(currentTab==='patients') await renderPatients();
   else if(currentTab==='supplies') await renderSupplies();
@@ -1594,6 +1602,7 @@ async function render(){
   else if(currentTab==='users') await renderUsers();
   else if(currentTab==='disinfection') await renderDisinfection();
   else if(currentTab==='report') await renderReport();
+  else if(currentTab==='monthlyreport') await renderMonthlyReportTab();
 }
 
 async function updateBadge(){
@@ -2030,7 +2039,7 @@ function repPrintWhenImagesReady(area){
   setTimeout(finish, 2500); // safety net so print always eventually fires
 }
 let repDraftId = null;
-let repKind = 'clinical'; // 'clinical' | 'operational' | 'doctor' — which weekly report form is showing
+let repKind = 'clinical'; // 'clinical' | 'operational' | 'doctor' | 'monthly' — which report form is showing
 
 // ---------- Unsaved-changes tracking + autosave ----------
 // While filling a report, any edit sets repDirty=true. A background timer
@@ -2046,12 +2055,12 @@ let repQuickSaveTimer = null; // one-off short timer for a brand-new draft's ver
 const REP_QUICKSAVE_MS = 8000; // a fresh draft (no id yet) is pushed to the DB this fast, so it shows up for others quickly, instead of waiting the full autosave interval
 
 function repCurrentDraftId(){
-  return repKind==='operational' ? opDraftId : repKind==='doctor' ? docDraftId : repDraftId;
+  return repKind==='operational' ? opDraftId : repKind==='doctor' ? docDraftId : repKind==='monthly' ? moDraftId : repDraftId;
 }
 function repMarkDirty(){
   if(repPopulating) return;
   repDirty = true;
-  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : 'rep-statusMsg');
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : repKind==='monthly' ? 'mo-statusMsg' : 'rep-statusMsg');
   if(el){
     el.textContent = 'Unsaved changes — autosaving shortly...';
     el.classList.add('dirty'); el.classList.remove('saved');
@@ -2064,7 +2073,7 @@ function repMarkDirty(){
   }
 }
 function repShowSavedIndicator(msg){
-  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : 'rep-statusMsg');
+  const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : repKind==='monthly' ? 'mo-statusMsg' : 'rep-statusMsg');
   if(el){ el.textContent = msg; el.classList.remove('dirty'); el.classList.add('saved'); }
 }
 function repStopAutoSave(){ if(repAutoSaveTimer){ clearInterval(repAutoSaveTimer); repAutoSaveTimer=null; } if(repQuickSaveTimer){ clearTimeout(repQuickSaveTimer); repQuickSaveTimer=null; } }
@@ -2073,17 +2082,18 @@ function repStartAutoSave(){
   repAutoSaveTimer = setInterval(repAutoSaveTick, REP_AUTOSAVE_MS);
 }
 async function repAutoSaveTick(){
-  if(!repDirty || !currentUser || currentTab!=='report') return;
-  const backBtnId = repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : 'rep-backToCurrentBtn';
+  if(!repDirty || !currentUser || (currentTab!=='report' && currentTab!=='monthlyreport')) return;
+  const backBtnId = repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : repKind==='monthly' ? 'mo-backToCurrentBtn' : 'rep-backToCurrentBtn';
   const backBtn = document.getElementById(backBtnId);
   if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — nothing to autosave
   if(repKind==='operational') await opSaveReport('draft', true);
   else if(repKind==='doctor') await docSaveReport('draft', true);
+  else if(repKind==='monthly') await moSaveReport('draft', true);
   else await repSaveReport('draft', true);
 }
 // Delegated listeners: catch typing/edits anywhere inside the report forms,
 // even though the form markup is fully rebuilt on every render.
-const REP_DIRTY_EXCLUDE_IDS = ['rep-periodStart','rep-periodEnd','op-periodStart','op-periodEnd','rep-pastReportSelect','op-pastReportSelect','doc-periodStart','doc-periodEnd','doc-pastReportSelect'];
+const REP_DIRTY_EXCLUDE_IDS = ['rep-periodStart','rep-periodEnd','op-periodStart','op-periodEnd','rep-pastReportSelect','op-pastReportSelect','doc-periodStart','doc-periodEnd','doc-pastReportSelect','mo-periodStart','mo-periodEnd','mo-pastReportSelect'];
 function repDelegatedDirtyCheck(e){
   const t = e.target;
   if(!t || !t.closest || !t.closest('#rep-kind-body')) return;
@@ -2094,7 +2104,7 @@ document.addEventListener('input', repDelegatedDirtyCheck);
 document.addEventListener('change', repDelegatedDirtyCheck);
 // Warn on browser close/refresh/navigation with unsaved report edits
 window.addEventListener('beforeunload', function(e){
-  if(currentTab==='report' && repDirty){ e.preventDefault(); e.returnValue=''; return ''; }
+  if((currentTab==='report'||currentTab==='monthlyreport') && repDirty){ e.preventDefault(); e.returnValue=''; return ''; }
 });
 
 // ---------- Live sync across devices/users (Supabase Realtime) ----------
@@ -2118,9 +2128,10 @@ function repRealtimeRelevant(row){
   const rowReportType = row.content && row.content.report_type;
   if(repKind==='operational' && rowReportType!=='operational') return false;
   if(repKind==='doctor' && rowReportType!=='doctor_weekly') return false;
-  if(repKind==='clinical' && (rowReportType==='operational' || rowReportType==='doctor_weekly')) return false;
-  const psEl = document.getElementById(repKind==='operational' ? 'op-periodStart' : repKind==='doctor' ? 'doc-periodStart' : 'rep-periodStart');
-  const peEl = document.getElementById(repKind==='operational' ? 'op-periodEnd' : repKind==='doctor' ? 'doc-periodEnd' : 'rep-periodEnd');
+  if(repKind==='monthly' && rowReportType!=='monthly_clinical') return false;
+  if(repKind==='clinical' && (rowReportType==='operational' || rowReportType==='doctor_weekly' || rowReportType==='monthly_clinical')) return false;
+  const psEl = document.getElementById(repKind==='operational' ? 'op-periodStart' : repKind==='doctor' ? 'doc-periodStart' : repKind==='monthly' ? 'mo-periodStart' : 'rep-periodStart');
+  const peEl = document.getElementById(repKind==='operational' ? 'op-periodEnd' : repKind==='doctor' ? 'doc-periodEnd' : repKind==='monthly' ? 'mo-periodEnd' : 'rep-periodEnd');
   if(!psEl || !peEl) return false;
   return row.period_start===psEl.value && row.period_end===peEl.value;
 }
@@ -2128,8 +2139,8 @@ function repHandleRealtimeChange(payload){
   if(payload.eventType==='DELETE') return;
   const row = payload.new;
   if(!row || row.updated_at===repLastLocalSaveIso) return; // our own save echoing back
-  if(currentTab!=='report' || !repRealtimeRelevant(row)) return;
-  const backBtn = document.getElementById(repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : 'rep-backToCurrentBtn');
+  if((currentTab!=='report' && currentTab!=='monthlyreport') || !repRealtimeRelevant(row)) return;
+  const backBtn = document.getElementById(repKind==='operational' ? 'op-backToCurrentBtn' : repKind==='doctor' ? 'doc-backToCurrentBtn' : repKind==='monthly' ? 'mo-backToCurrentBtn' : 'rep-backToCurrentBtn');
   if(backBtn && backBtn.style.display!=='none') return; // viewing a read-only past report — not the live draft
   if(repDirty) repShowLiveUpdateBanner(row);
   else repApplyRemoteRow(row);
@@ -2138,6 +2149,7 @@ function repApplyRemoteRow(row){
   repPopulating = true;
   if(repKind==='operational'){ opDraftId = row.id; opPopulateForm(row.content||{}); }
   else if(repKind==='doctor'){ docDraftId = row.id; docPopulateForm(row.content||{}); }
+  else if(repKind==='monthly'){ moDraftId = row.id; moPopulateForm(row.content||{}); }
   else { repDraftId = row.id; repPopulateForm(row.content||{}); }
   repPopulating = false;
   repDirty = false;
@@ -2146,7 +2158,7 @@ function repApplyRemoteRow(row){
 }
 function repShowLiveUpdateBanner(row){
   repPendingRemoteRow = row;
-  const el = document.getElementById(repKind==='operational' ? 'op-liveUpdateBanner' : repKind==='doctor' ? 'doc-liveUpdateBanner' : 'rep-liveUpdateBanner');
+  const el = document.getElementById(repKind==='operational' ? 'op-liveUpdateBanner' : repKind==='doctor' ? 'doc-liveUpdateBanner' : repKind==='monthly' ? 'mo-liveUpdateBanner' : 'rep-liveUpdateBanner');
   if(!el) return;
   const who = row.created_by || 'Someone';
   el.querySelector('.rep-live-update-text').textContent = `${who} just saved changes to this report. You still have unsaved edits here — reloading will discard yours in favor of theirs.`;
@@ -2154,7 +2166,7 @@ function repShowLiveUpdateBanner(row){
 }
 function repHideLiveUpdateBanner(){
   repPendingRemoteRow = null;
-  ['rep-liveUpdateBanner','op-liveUpdateBanner','doc-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  ['rep-liveUpdateBanner','op-liveUpdateBanner','doc-liveUpdateBanner','mo-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
 function repApplyPendingRemoteRow(){
   if(!repPendingRemoteRow) return;
@@ -2170,6 +2182,12 @@ function repCurrentWeekRange(){
   const monday = new Date(today); monday.setDate(today.getDate() + diffToMonday);
   const saturday = new Date(monday); saturday.setDate(monday.getDate() + 5);
   return { start: repIsoDate(monday), end: repIsoDate(saturday) };
+}
+function repCurrentMonthRange(){
+  const today = new Date();
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  const last = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  return { start: repIsoDate(first), end: repIsoDate(last) };
 }
 function repEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -2192,6 +2210,7 @@ async function renderReport(){
   document.getElementById('main-content').innerHTML = h;
   if(repKind==='operational') await renderOperationalReport();
   else if(repKind==='doctor') await renderDoctorReport();
+  else if(repKind==='monthly') await renderMonthlyReport();
   else await renderClinicalReport();
   repStartAutoSave();
 }
@@ -2200,6 +2219,21 @@ function repSetKind(kind){
   repDirty = false;
   repKind = kind;
   renderReport();
+}
+
+// ---------- Monthly Report (top-level tab) ----------
+// A thin wrapper around the existing Monthly Clinical Report form so it can
+// live as its own top-level tab instead of a sub-option inside the Weekly
+// Report tab. Reuses renderMonthlyReport() and every mo* helper unchanged —
+// they all key off the '#rep-kind-body' container id, so we just provide
+// that container directly under #main-content.
+async function renderMonthlyReportTab(){
+  document.getElementById('main-content').innerHTML = `
+  <div class="rep-kind-page">
+    <div id="rep-kind-body"></div>
+  </div>`;
+  await renderMonthlyReport();
+  repStartAutoSave();
 }
 
 async function renderClinicalReport(){
@@ -2243,6 +2277,13 @@ async function renderClinicalReport(){
       <div id="rep-liveUpdateBanner" class="alert alert-warn" style="display:none">
         <i class="ti ti-refresh"></i><div style="flex:1"><span class="rep-live-update-text"></span> <button type="button" class="btn" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="repApplyPendingRemoteRow()">Reload latest</button></div>
       </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Patient Events</h2>
+      <div class="rep-hint">Recorded weekly — these roll up automatically into the Monthly Report totals</div>
+      ${MO_FIELDS.map(([id,label])=>`
+      <div class="rep-field"><label>${label}</label><input type="number" min="0" step="1" id="rep-ev-${id}"></div>`).join('')}
     </div>
 
     <div class="rep-card">
@@ -2553,7 +2594,8 @@ function repBuildContent(){
       machines_operational_remarks: document.getElementById('rep-machinesRemarks').value
     },
     action_points: repCollectDynamicRows('rep-actionRows'),
-    heparin_usage: repCollectDynamicRows('rep-heparinRows')
+    heparin_usage: repCollectDynamicRows('rep-heparinRows'),
+    patient_events: Object.fromEntries(MO_FIELDS.map(([id])=>[id, document.getElementById('rep-ev-'+id).value]))
   };
   if(repFacility==='kigumo'){
     content.dialysis_machines_ro.machines_available_count = Number(document.getElementById('rep-machinesAvailable').value)||0;
@@ -2573,6 +2615,11 @@ function repBuildContent(){
 
 function repPopulateForm(content){
   document.getElementById('rep-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
+  const events = content.patient_events || {};
+  MO_FIELDS.forEach(([id])=>{
+    const el = document.getElementById('rep-ev-'+id);
+    if(el) el.value = (events[id]===undefined || events[id]===null) ? '' : events[id];
+  });
   const daily = (content.outpatients && content.outpatients.daily) || {};
   document.querySelectorAll('#rep-outpatientRows tr').forEach(tr=>{
     const countInp = tr.querySelector('[data-field="count"]');
@@ -2633,6 +2680,7 @@ function repResetFormBlank(){
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const avail = document.getElementById('rep-machinesAvailable'); if(avail) avail.value='';
   repUpdateRinseDueHint();
+  MO_FIELDS.forEach(([id])=>{ const el=document.getElementById('rep-ev-'+id); if(el) el.value=''; });
 }
 
 // ---------- Load / continue this week's draft ----------
@@ -2863,6 +2911,19 @@ function repBuildPrintBlocks(){
     <table class="rep-print-table"><tbody>${rows.join('')}</tbody></table>`);
   }
 
+  // ---- Patient events: only counters actually entered print ----
+  {
+    const events = content.patient_events || {};
+    const rows = MO_FIELDS.filter(([id]) => repFilled(events[id]));
+    if(rows.length){
+      blocks.push(`
+    <div class="rep-print-section-title">Patient Events</div>
+    <table class="rep-print-table"><tbody>
+      ${rows.map(([id,label])=>`<tr><td>${esc(label)}</td><td style="text-align:right;width:70px"><strong>${esc(events[id])}</strong></td></tr>`).join('')}
+    </tbody></table>`);
+    }
+  }
+
   // ---- By-exception sections: omitted entirely when there is nothing ----
   {
     const usage = (content.heparin_usage||[]).filter(r => repFilled(r.item) || repFilled(r.used) || repFilled(r.reason));
@@ -2912,6 +2973,344 @@ function repBuildPrintBlocks(){
 function repExportPrint(){
   const area = document.getElementById('rep-printArea');
   repRenderPaginated(repBuildPrintBlocks(), area, null, { fontClass:'rep-print-12', baseFontPt:12 });
+  repPrintWhenImagesReady(area);
+}
+
+// =====================================================================
+// MONTHLY RENAL UNIT CLINICAL REPORT
+// Shares the same 'facility_reports' table as the weekly reports above
+// (facility_type is still 'truck'/'kigumo'; period_start/period_end cover
+// a calendar month instead of a week). Rows are distinguished by
+// content.report_type === 'monthly_clinical', matched client-side, so no
+// database schema change is required — same pattern as the Operational
+// Report sharing the table via a report_type tag.
+// =====================================================================
+let moFacility = 'truck';
+let moDraftId = null;
+
+const MO_FIELDS = [
+  ['dialysis_sessions', 'Total number of dialysis sessions'],
+  ['new_patients_admitted', 'Total number of new patients admitted'],
+  ['patients_relocated', 'Total number of patients relocated from our Renal Unit to other centers'],
+  ['patients_referred', 'Total number of patients referred to other hospitals for specialized care'],
+  ['blood_transfusions', 'Total number of blood transfusions conducted'],
+  ['demises_within_unit', 'Total number of patient demises within the Renal Unit'],
+  ['demises_outside_unit', 'Total number of patient demises outside the Renal Unit'],
+  ['missed_dialysis_sessions', 'Total missed dialysis sessions'],
+  ['patients_resolved_discontinued', 'Patients whose kidney disease has resolved and dialysis discontinued']
+];
+
+// Sums the Patient Events counters (same fields as MO_FIELDS) across every
+// *submitted* Weekly Clinical Report for this facility whose period falls
+// entirely within the given month. Draft (unsubmitted) weekly reports are
+// intentionally excluded, since their numbers aren't final yet. Returns the
+// summed totals plus how many weekly reports contributed, so the UI can be
+// transparent about what was included.
+async function moComputeWeeklySums(facility, periodStart, periodEnd){
+  const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:facility});
+  if(error || !data) return { sums:null, count:0, error: error?error.message:null };
+  const weeklyReports = data.filter(r =>
+    (!r.content || r.content.report_type !== 'operational') &&
+    (!r.content || r.content.report_type !== 'monthly_clinical') &&
+    r.period_start >= periodStart && r.period_end <= periodEnd
+  );
+  const sums = {};
+  MO_FIELDS.forEach(([id])=>{ sums[id] = 0; });
+  weeklyReports.forEach(r=>{
+    const events = (r.content && r.content.patient_events) || {};
+    MO_FIELDS.forEach(([id])=>{ sums[id] += Number(events[id])||0; });
+  });
+  return { sums, count: weeklyReports.length, error:null };
+}
+async function moRecalculateFromWeekly(silent){
+  const facility = moFacility;
+  const periodStart = document.getElementById('mo-periodStart').value;
+  const periodEnd = document.getElementById('mo-periodEnd').value;
+  const statusMsg = document.getElementById('mo-statusMsg');
+  const hasExisting = MO_FIELDS.some(([id])=>repFilled(document.getElementById('mo-'+id).value));
+  if(hasExisting && !silent && !confirm('This will overwrite the current totals with the sum of submitted weekly reports for this period. Continue?')) return;
+  statusMsg.textContent = 'Summing submitted weekly reports...';
+  const { sums, count, error } = await moComputeWeeklySums(facility, periodStart, periodEnd);
+  if(error){ statusMsg.textContent = 'Could not sum weekly reports: '+error; return; }
+  MO_FIELDS.forEach(([id])=>{ document.getElementById('mo-'+id).value = sums[id]; });
+  repDirty = true;
+  statusMsg.textContent = count
+    ? `Filled from ${count} submitted weekly report${count===1?'':'s'} for this period — review and adjust if needed.`
+    : 'No submitted weekly reports found for this period — totals left as-is.';
+}
+async function renderMonthlyReport(){
+  const { start, end } = repCurrentMonthRange();
+  const h = `
+  <div class="rep-page">
+
+    <div class="rep-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <h2 style="margin-bottom:2px">Monthly Renal Unit Clinical Report</h2>
+        <div class="rep-hint" style="margin-bottom:0">Mobile Truck &amp; Kigumo Dialysis Hub — monthly totals</div>
+      </div>
+      <div class="rep-toggle" id="mo-facility-toggle">
+        <button type="button" class="${moFacility==='truck'?'active':''}" onclick="moSetFacility('truck')">Truck</button>
+        <button type="button" class="${moFacility==='kigumo'?'active':''}" onclick="moSetFacility('kigumo')">Kigumo</button>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2>Reporting period</h2>
+      <div class="rep-hint" id="mo-draftStatusHint">This month's period is set automatically. Change the dates to open a different month's draft.</div>
+      <div class="rep-row">
+        <div class="rep-field"><label>From</label><input type="date" id="mo-periodStart" value="${start}" onchange="moLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>To</label><input type="date" id="mo-periodEnd" value="${end}" onchange="moLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>Prepared by</label><input type="text" id="mo-preparedBy" placeholder="Full name" value="${currentUser?repEsc(currentUser.name):''}"></div>
+      </div>
+      <div class="rep-row" style="align-items:flex-end">
+        <div class="rep-field" style="flex:2">
+          <label>View a past submitted report</label>
+          <select id="mo-pastReportSelect" onchange="moOnPastReportChange(this.value)">
+            <option value="">Current month (editable)</option>
+          </select>
+        </div>
+        <div class="rep-field" style="flex:0 0 auto">
+          <button type="button" class="btn" id="mo-backToCurrentBtn" style="display:none" onclick="moBackToCurrent()">Back to current month</button>
+        </div>
+      </div>
+      <div id="mo-viewingPastBanner" class="alert alert-info" style="display:none">
+        <i class="ti ti-info-circle"></i><div>Viewing a past submitted report (read-only). Use Export to save it, or "Back to current month" to resume editing.</div>
+      </div>
+      <div id="mo-liveUpdateBanner" class="alert alert-warn" style="display:none">
+        <i class="ti ti-refresh"></i><div style="flex:1"><span class="rep-live-update-text"></span> <button type="button" class="btn" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="repApplyPendingRemoteRow()">Reload latest</button></div>
+      </div>
+    </div>
+
+    <div class="rep-card">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <span>Monthly Totals</span>
+        <button type="button" class="btn" id="mo-recalcBtn" onclick="moRecalculateFromWeekly()" style="font-size:12px;padding:4px 10px"><i class="ti ti-refresh"></i> Recalculate from weekly reports</button>
+      </h2>
+      <div class="rep-hint">Auto-filled from submitted Weekly Clinical Reports (Patient Events section) for this period — figures stay editable in case a week is missing or needs correcting.</div>
+      ${MO_FIELDS.map(([id,label])=>`
+      <div class="rep-field"><label>${label}</label><input type="number" min="0" step="1" id="mo-${id}"></div>`).join('')}
+    </div>
+
+    <div class="rep-footer-bar">
+      <span class="rep-status-msg" id="mo-statusMsg"></span>
+      <button type="button" class="btn" id="mo-exportBtn" onclick="moExportPrint()"><i class="ti ti-printer"></i> Export / Print</button>
+      <button type="button" class="btn" id="mo-saveDraftBtn" onclick="moSaveReport('draft')"><i class="ti ti-device-floppy"></i> Save draft</button>
+      <button type="button" class="btn btn-primary" id="mo-submitBtn" onclick="moSaveReport('submitted')"><i class="ti ti-send"></i> Submit report</button>
+    </div>
+
+    <div id="mo-printArea"></div>
+  </div>`;
+  document.getElementById('rep-kind-body').innerHTML = h;
+
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
+    moSetFormEditable(false);
+    document.getElementById('mo-saveDraftBtn').style.display='none';
+    document.getElementById('mo-submitBtn').style.display='none';
+    document.getElementById('mo-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    await moLoadDraftForCurrentSelection();
+  }
+  await moPopulatePastReportsDropdown();
+}
+
+function moSetFacility(facility){
+  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+  repDirty = false;
+  moFacility = facility;
+  document.querySelectorAll('#mo-facility-toggle button').forEach(b=>b.classList.remove('active'));
+  const activeBtn = document.querySelector(`#mo-facility-toggle button[onclick="moSetFacility('${facility}')"]`);
+  if(activeBtn) activeBtn.classList.add('active');
+  document.getElementById('mo-pastReportSelect').value='';
+  document.getElementById('mo-viewingPastBanner').style.display='none';
+  document.getElementById('mo-backToCurrentBtn').style.display='none';
+  moSetFormEditable(true);
+  if(currentUser && currentUser.role==='viewer' && !currentUser.hidden){
+    moSetFormEditable(false);
+    document.getElementById('mo-statusMsg').textContent = 'Select a submitted report below to view and export.';
+  } else {
+    moLoadDraftForCurrentSelection();
+  }
+  moPopulatePastReportsDropdown();
+}
+
+// ---------- Build / populate / reset ----------
+function moBuildContent(){
+  const content = { report_type: 'monthly_clinical', prepared_by: document.getElementById('mo-preparedBy').value };
+  MO_FIELDS.forEach(([id])=>{
+    content[id] = document.getElementById('mo-'+id).value;
+  });
+  return content;
+}
+function moPopulateForm(content){
+  document.getElementById('mo-preparedBy').value = content.prepared_by || (currentUser?currentUser.name:'');
+  MO_FIELDS.forEach(([id])=>{
+    document.getElementById('mo-'+id).value = (content[id]===undefined || content[id]===null) ? '' : content[id];
+  });
+}
+function moResetFormBlank(){
+  moDraftId = null;
+  document.getElementById('mo-preparedBy').value = currentUser?currentUser.name:'';
+  MO_FIELDS.forEach(([id])=>{ document.getElementById('mo-'+id).value = ''; });
+}
+
+// ---------- Load / continue this month's draft ----------
+async function moLoadDraftForCurrentSelection(){
+  repPopulating = true;
+  const statusMsg = document.getElementById('mo-statusMsg');
+  const periodStart = document.getElementById('mo-periodStart').value;
+  const periodEnd = document.getElementById('mo-periodEnd').value;
+  moResetFormBlank();
+  document.getElementById('mo-periodStart').value = periodStart;
+  document.getElementById('mo-periodEnd').value = periodEnd;
+
+  statusMsg.textContent = 'Checking for an existing draft this month...';
+  statusMsg.classList.remove('dirty','saved');
+  const { data, error } = await db.rpc('rr_report_drafts', {p_session:sessionToken, p_facility_type:moFacility, p_period_start:periodStart, p_period_end:periodEnd});
+
+  if(error){ statusMsg.textContent = 'Error loading draft: '+error.message; repPopulating=false; return; }
+  const match = (data||[]).find(r => r.content && r.content.report_type === 'monthly_clinical');
+  if(match){
+    moDraftId = match.id;
+    moPopulateForm(match.content || {});
+    statusMsg.textContent = "Continuing this month's existing draft.";
+  } else {
+    statusMsg.textContent = 'No draft yet for this month — filling totals from submitted weekly reports...';
+    await moRecalculateFromWeekly(true);
+  }
+  repDirty = false;
+  repPopulating = false;
+  repStartRealtime(moFacility);
+}
+
+// ---------- Save / submit ----------
+async function moSaveReport(status, silent){
+  const statusMsg = document.getElementById('mo-statusMsg');
+  const periodStart = document.getElementById('mo-periodStart').value;
+  const periodEnd = document.getElementById('mo-periodEnd').value;
+  if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
+
+  if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
+  const result = await db.rpc('rr_report_save', {
+    p_session:sessionToken, p_id: moDraftId||null, p_facility_type: moFacility,
+    p_period_start: periodStart, p_period_end: periodEnd,
+    p_content: moBuildContent(), p_status: status
+  });
+  if(!silent) hideLoading();
+  if(result.error){ statusMsg.textContent = (silent?'Autosave failed: ':'Error: ')+result.error.message; statusMsg.classList.remove('dirty','saved'); return; }
+  if(result.data){ moDraftId = result.data.id; repLastLocalSaveIso = result.data.updated_at; }
+  repDirty = false;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(status==='draft'){
+    repShowSavedIndicator(silent ? `Autosaved at ${timeStr}` : `Draft saved at ${timeStr}`);
+  } else {
+    statusMsg.textContent = 'Report submitted for the month.';
+    statusMsg.classList.remove('dirty','saved');
+  }
+  if(status==='submitted') await moPopulatePastReportsDropdown();
+}
+
+// ---------- Past submitted reports ----------
+function moSetFormEditable(editable){
+  document.querySelectorAll('#rep-kind-body .rep-card input, #rep-kind-body .rep-card textarea, #rep-kind-body .rep-card select, #rep-kind-body .rep-card button').forEach(el=>{
+    if(el.id==='mo-pastReportSelect' || el.id==='mo-backToCurrentBtn' || el.closest('#mo-facility-toggle')) return;
+    el.disabled = !editable;
+  });
+  document.getElementById('mo-saveDraftBtn').disabled = !editable;
+  document.getElementById('mo-submitBtn').disabled = !editable;
+}
+async function moPopulatePastReportsDropdown(){
+  const select = document.getElementById('mo-pastReportSelect');
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
+  select.innerHTML = isViewer ? '<option value="">Select a submitted report...</option>' : '<option value="">Current month (editable)</option>';
+  const { data, error } = await db.rpc(isViewer?'rr_report_list_submitted_viewer':'rr_report_list_submitted', {p_session:sessionToken, p_facility_type:moFacility});
+  if(error || !data) return;
+  data.filter(r => r.content && r.content.report_type === 'monthly_clinical').slice(0,52).forEach(r=>{
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = `${r.period_start} to ${r.period_end}`;
+    select.appendChild(opt);
+  });
+}
+async function moOnPastReportChange(id){
+  const isViewer = currentUser && currentUser.role === 'viewer' && !currentUser.hidden;
+  const banner = document.getElementById('mo-viewingPastBanner');
+  const backBtn = document.getElementById('mo-backToCurrentBtn');
+  if(!id){
+    if(isViewer){
+      banner.style.display='none'; backBtn.style.display='none';
+      document.getElementById('mo-statusMsg').textContent = 'Select a submitted report above to view and export.';
+      return;
+    }
+    banner.style.display='none'; backBtn.style.display='none';
+    moSetFormEditable(true);
+    await moLoadDraftForCurrentSelection();
+    return;
+  }
+  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+    document.getElementById('mo-pastReportSelect').value='';
+    return;
+  }
+  repPopulating = true;
+  document.getElementById('mo-statusMsg').textContent = 'Loading past report...';
+  const { data, error } = await db.rpc(isViewer?'rr_report_get_viewer':'rr_report_get', {p_session:sessionToken, p_id:id});
+  if(error || !data){ document.getElementById('mo-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
+  moDraftId = null;
+  document.getElementById('mo-periodStart').value = data.period_start;
+  document.getElementById('mo-periodEnd').value = data.period_end;
+  moPopulateForm(data.content || {});
+  moSetFormEditable(false);
+  if(isViewer){
+    document.getElementById('mo-saveDraftBtn').style.display='none';
+    document.getElementById('mo-submitBtn').style.display='none';
+  }
+  banner.style.display= isViewer ? 'none' : 'block';
+  backBtn.style.display= isViewer ? 'none' : 'inline-block';
+  document.getElementById('mo-statusMsg').textContent = 'Viewing submitted report — use Export to save it.';
+  document.getElementById('mo-statusMsg').classList.remove('dirty','saved');
+  repDirty = false;
+  repPopulating = false;
+}
+function moBackToCurrent(){
+  document.getElementById('mo-pastReportSelect').value='';
+  moOnPastReportChange('');
+}
+
+// ---------- Export / Print ----------
+function moBuildPrintBlocks(){
+  const content = moBuildContent();
+  const facilityLabel = moFacility==='truck' ? 'Truck' : 'Kigumo Hub';
+  const periodStart = document.getElementById('mo-periodStart').value;
+  const periodEnd = document.getElementById('mo-periodEnd').value;
+  const blocks = [];
+  const esc = repEsc;
+
+  blocks.push(`
+    <div class="rep-print-title">Monthly Renal Unit Clinical Report</div>
+    <div class="rep-print-subtitle">${facilityLabel}</div>
+    <table class="rep-print-meta"><tr>
+      <td><strong>Period:</strong> ${esc(periodStart)} &nbsp;to&nbsp; ${esc(periodEnd)}</td>
+      <td><strong>Prepared by:</strong> ${esc(content.prepared_by)}</td>
+    </tr></table>`);
+
+  // Only totals that were actually entered print — a field left blank is
+  // skipped rather than printing an empty row; an explicit 0 is treated as
+  // a real answer and still prints.
+  const rows = MO_FIELDS.filter(([id]) => repFilled(content[id]));
+  if(rows.length){
+    blocks.push(`
+    <table class="rep-print-table"><tbody>
+      ${rows.map(([id,label])=>`<tr><td>${esc(label)}</td><td style="text-align:right;width:70px"><strong>${esc(content[id])}</strong></td></tr>`).join('')}
+    </tbody></table>`);
+  }
+
+  blocks.push(`<div class="rep-print-footer">Generated ${new Date().toLocaleString()} by ${esc(currentUser?currentUser.name:'')}</div>`);
+
+  return blocks;
+}
+function moExportPrint(){
+  const area = document.getElementById('mo-printArea');
+  repRenderPaginated(moBuildPrintBlocks(), area, null, { fontClass:'rep-print-12', baseFontPt:12 });
   repPrintWhenImagesReady(area);
 }
 
@@ -3440,9 +3839,8 @@ async function renderDoctorReport(){
         <div class="rep-field"><label>New patients assessed</label><input type="text" id="doc-mobileNewAssessed"></div>
       </div>
       <div class="rep-field"><label>Requiring specialist/medical review</label><textarea id="doc-mobileSpecialistReview" rows="3" placeholder="One per line..."></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">1.5 Intradialysis complications managed</label><textarea id="doc-mobileComplications"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">1.6 Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
-      <div class="rep-field"><label class="rep-label-light">1.7 Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.5 Procedures performed</label><textarea id="doc-mobileProcedures"></textarea></div>
+      <div class="rep-field"><label class="rep-label-light">1.6 Hemodialysis management</label><textarea id="doc-mobileHemoMgmt"></textarea></div>
     </div>
 
     <div class="rep-card">
@@ -3545,7 +3943,6 @@ function docBuildContent(){
       locations: document.getElementById('doc-mobileLocations').value,
       new_assessed: document.getElementById('doc-mobileNewAssessed').value,
       specialist_review: document.getElementById('doc-mobileSpecialistReview').value,
-      complications: document.getElementById('doc-mobileComplications').value,
       procedures: document.getElementById('doc-mobileProcedures').value,
       hemo_mgmt: document.getElementById('doc-mobileHemoMgmt').value
     },
@@ -3587,7 +3984,6 @@ function docPopulateForm(content){
   document.getElementById('doc-mobileLocations').value = mobile.locations || '';
   document.getElementById('doc-mobileNewAssessed').value = mobile.new_assessed || '';
   document.getElementById('doc-mobileSpecialistReview').value = mobile.specialist_review || '';
-  document.getElementById('doc-mobileComplications').value = mobile.complications || '';
   document.getElementById('doc-mobileProcedures').value = mobile.procedures || '';
   document.getElementById('doc-mobileHemoMgmt').value = mobile.hemo_mgmt || '';
 
@@ -3767,7 +4163,7 @@ function docBuildPrintBlocks(){
     const hub = content.hub || {};
     const mobile = content.mobile || {};
     const hubFields = [hub.reviewed, hub.new_assessed, hub.follow_up, hub.specialist_review, hub.hemo_mgmt, hub.procedures];
-    const mobileFields = [mobile.attended, mobile.locations, mobile.new_assessed, mobile.specialist_review, mobile.complications, mobile.procedures, mobile.hemo_mgmt];
+    const mobileFields = [mobile.attended, mobile.locations, mobile.new_assessed, mobile.specialist_review, mobile.procedures, mobile.hemo_mgmt];
     const hubAny = hubFields.some(filled);
     const mobileAny = mobileFields.some(filled);
 
@@ -3822,7 +4218,6 @@ function docBuildPrintBlocks(){
         ]);
         if(filled(mobile.specialist_review))
           emit(`<div><em>Requiring specialist/medical review</em></div><div class="rep-print-text-block">${esc(mobile.specialist_review)}</div>`);
-        textPart('Intradialysis complications managed', mobile.complications);
         textPart('Procedures performed', mobile.procedures);
         textPart('Hemodialysis management', mobile.hemo_mgmt);
       }

@@ -2176,7 +2176,26 @@ function repApplyPendingRemoteRow(){
   repApplyRemoteRow(repPendingRemoteRow);
 }
 
-function repIsoDate(d){ return d.toISOString().slice(0,10); }
+// Format a Date using LOCAL calendar values. toISOString() converts to UTC first,
+// which in UTC+ time zones (e.g. Nairobi, UTC+3) shifts local midnight back to the
+// previous day — that made every month start on the last day of the previous month.
+function repIsoDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Month helpers: a month always runs from the 1st to its last day.
+function moMonthRange(year, month1){ // month1 = 1..12
+  const last = new Date(year, month1, 0).getDate();
+  const mm = String(month1).padStart(2,'0');
+  return { start: `${year}-${mm}-01`, end: `${year}-${mm}-${String(last).padStart(2,'0')}`, month: `${year}-${mm}` };
+}
+// Normalises any stored period to the full calendar month of its END date
+// (the end date is reliable even on reports saved before the fix above).
+function moNormalizePeriod(startStr, endStr){
+  const ref = (endStr||startStr||'').slice(0,7);
+  const m = /^(\d{4})-(\d{2})$/.exec(ref);
+  if(!m) return { start:startStr, end:endStr, month:'' };
+  return moMonthRange(parseInt(m[1],10), parseInt(m[2],10));
+}
 function repCurrentWeekRange(){
   const today = new Date();
   const dow = today.getDay();
@@ -3003,18 +3022,21 @@ const MO_FIELDS = [
 ];
 
 // Sums the Patient Events counters (same fields as MO_FIELDS) across every
-// *submitted* Weekly Clinical Report for this facility whose period falls
-// entirely within the given month. Draft (unsubmitted) weekly reports are
+// *submitted* Weekly Clinical Report for this facility whose period ENDS
+// within the given month. Draft (unsubmitted) weekly reports are
 // intentionally excluded, since their numbers aren't final yet. Returns the
 // summed totals plus how many weekly reports contributed, so the UI can be
 // transparent about what was included.
 async function moComputeWeeklySums(facility, periodStart, periodEnd){
   const { data, error } = await db.rpc('rr_report_list_submitted', {p_session:sessionToken, p_facility_type:facility});
   if(error || !data) return { sums:null, count:0, error: error?error.message:null };
+  // A week counts toward the month its END date falls in, so weeks that straddle
+  // two months are counted once (previously they were dropped from both months).
   const weeklyReports = data.filter(r =>
-    (!r.content || r.content.report_type !== 'operational') &&
-    (!r.content || r.content.report_type !== 'monthly_clinical') &&
-    r.period_start >= periodStart && r.period_end <= periodEnd
+    (!r.content || (r.content.report_type !== 'operational' &&
+                    r.content.report_type !== 'doctor_weekly' &&
+                    r.content.report_type !== 'monthly_clinical')) &&
+    r.period_end >= periodStart && r.period_end <= periodEnd
   );
   const sums = {};
   MO_FIELDS.forEach(([id])=>{ sums[id] = 0; });
@@ -3029,6 +3051,7 @@ async function moRecalculateFromWeekly(silent){
   const periodStart = document.getElementById('mo-periodStart').value;
   const periodEnd = document.getElementById('mo-periodEnd').value;
   const statusMsg = document.getElementById('mo-statusMsg');
+  if(!periodStart || !periodEnd){ statusMsg.textContent = 'Please choose a month first.'; return; }
   const hasExisting = MO_FIELDS.some(([id])=>repFilled(document.getElementById('mo-'+id).value));
   if(hasExisting && !silent && !confirm('This will overwrite the current totals with the sum of submitted weekly reports for this period. Continue?')) return;
   statusMsg.textContent = 'Summing submitted weekly reports...';
@@ -3058,10 +3081,11 @@ async function renderMonthlyReport(){
 
     <div class="rep-card">
       <h2>Reporting period</h2>
-      <div class="rep-hint" id="mo-draftStatusHint">This month's period is set automatically. Change the dates to open a different month's draft.</div>
+      <div class="rep-hint" id="mo-draftStatusHint">The period is always the full calendar month (1st to last day). Pick a different month to open its draft.</div>
       <div class="rep-row">
-        <div class="rep-field"><label>From</label><input type="date" id="mo-periodStart" value="${start}" onchange="moLoadDraftForCurrentSelection()"></div>
-        <div class="rep-field"><label>To</label><input type="date" id="mo-periodEnd" value="${end}" onchange="moLoadDraftForCurrentSelection()"></div>
+        <div class="rep-field"><label>Month</label><input type="month" id="mo-month" value="${start.slice(0,7)}" onchange="moOnMonthChange(this.value)"></div>
+        <div class="rep-field"><label>From</label><input type="date" id="mo-periodStart" value="${start}" readonly tabindex="-1"></div>
+        <div class="rep-field"><label>To</label><input type="date" id="mo-periodEnd" value="${end}" readonly tabindex="-1"></div>
         <div class="rep-field"><label>Prepared by</label><input type="text" id="mo-preparedBy" placeholder="Full name" value="${currentUser?repEsc(currentUser.name):''}"></div>
       </div>
       <div class="rep-row" style="align-items:flex-end">
@@ -3115,6 +3139,18 @@ async function renderMonthlyReport(){
   await moPopulatePastReportsDropdown();
 }
 
+function moOnMonthChange(val){
+  const m = /^(\d{4})-(\d{2})$/.exec(val||'');
+  if(!m){ const cur = repCurrentMonthRange(); document.getElementById('mo-month').value = cur.start.slice(0,7); return moOnMonthChange(cur.start.slice(0,7)); }
+  if(repDirty && !confirm('You have unsaved changes in this report. Switch month and discard them?')){
+    const ps = document.getElementById('mo-periodStart').value; document.getElementById('mo-month').value = ps.slice(0,7); return;
+  }
+  const r = moMonthRange(parseInt(m[1],10), parseInt(m[2],10));
+  document.getElementById('mo-periodStart').value = r.start;
+  document.getElementById('mo-periodEnd').value = r.end;
+  repDirty = false;
+  moLoadDraftForCurrentSelection();
+}
 function moSetFacility(facility){
   if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
   repDirty = false;
@@ -3189,7 +3225,8 @@ async function moSaveReport(status, silent){
   const statusMsg = document.getElementById('mo-statusMsg');
   const periodStart = document.getElementById('mo-periodStart').value;
   const periodEnd = document.getElementById('mo-periodEnd').value;
-  if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please set the reporting period.'; return; }
+  if(!periodStart||!periodEnd){ statusMsg.textContent = 'Please choose the reporting month.'; return; }
+  if(periodStart.slice(8,10)!=='01' || moNormalizePeriod(periodStart,periodEnd).end!==periodEnd){ statusMsg.textContent = 'The reporting period must be a full calendar month (1st to last day).'; return; }
 
   if(!silent) showLoading(status==='draft'?'Saving draft...':'Submitting report...');
   const result = await db.rpc('rr_report_save', {
@@ -3230,7 +3267,8 @@ async function moPopulatePastReportsDropdown(){
   data.filter(r => r.content && r.content.report_type === 'monthly_clinical').slice(0,52).forEach(r=>{
     const opt = document.createElement('option');
     opt.value = r.id;
-    opt.textContent = `${r.period_start} to ${r.period_end}`;
+    const np = moNormalizePeriod(r.period_start, r.period_end);
+    opt.textContent = `${np.start} to ${np.end}`;
     select.appendChild(opt);
   });
 }
@@ -3258,8 +3296,10 @@ async function moOnPastReportChange(id){
   const { data, error } = await db.rpc(isViewer?'rr_report_get_viewer':'rr_report_get', {p_session:sessionToken, p_id:id});
   if(error || !data){ document.getElementById('mo-statusMsg').textContent = 'Could not load that report.'; repPopulating=false; return; }
   moDraftId = null;
-  document.getElementById('mo-periodStart').value = data.period_start;
-  document.getElementById('mo-periodEnd').value = data.period_end;
+  const np = moNormalizePeriod(data.period_start, data.period_end);
+  document.getElementById('mo-periodStart').value = np.start;
+  document.getElementById('mo-periodEnd').value = np.end;
+  if(np.month) document.getElementById('mo-month').value = np.month;
   moPopulateForm(data.content || {});
   moSetFormEditable(false);
   if(isViewer){

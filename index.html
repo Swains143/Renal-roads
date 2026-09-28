@@ -1293,6 +1293,20 @@ function hideLoading(){document.getElementById('loading-overlay').classList.add(
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yob:YEAR-p.yob;}
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
+// Shared error surfacing for supply/stock writes. Returns true if the RPC failed
+// (and has already told the user why), so callers can stop instead of pretending it saved.
+function rpcFailed(error, what){
+  if(!error) return false;
+  console.error('[Renal Roads] '+what+' failed:', error);
+  const msg=(error.message||'Unknown error')+(error.details?' — '+error.details:'')+(error.hint?' ('+error.hint+')':'');
+  if(/session|expired|not authori[sz]ed|invalid token/i.test(msg)){
+    alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.');
+    doLogout();
+  } else {
+    alert('Could not save — '+what+' was NOT recorded.\n\n'+msg);
+  }
+  return true;
+}
 function togglePwd(){
   const i=document.getElementById('login-password');const ic=document.getElementById('eye-icon');
   i.type=i.type==='password'?'text':'password';
@@ -4895,7 +4909,8 @@ function downloadDischargeSummary(){
 // SUPPLIES
 async function renderSupplies(){
   showLoading('Loading supplies...');
-  const {data}=await db.rpc('rr_supplies_list',{p_session:sessionToken});
+  const {data,error:listErr}=await db.rpc('rr_supplies_list',{p_session:sessionToken});
+  if(listErr){ hideLoading(); rpcFailed(listErr,'loading the supplies list (what you see may be out of date)'); }
   supplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   const isAdmin=currentUser&&currentUser.role==='admin';
   const isViewer = currentUser && currentUser.role === 'viewer';
@@ -4998,8 +5013,10 @@ async function saveSupply(){
 async function deleteSupply(id){
   if(!confirm('Delete this supply item?'))return;
   showLoading('Deleting...');
-  await db.rpc('rr_supply_delete',{p_session:sessionToken,p_id:id});
-  hideLoading();await renderSupplies();
+  const {error:delErr}=await db.rpc('rr_supply_delete',{p_session:sessionToken,p_id:id});
+  hideLoading();
+  if(rpcFailed(delErr,'deleting this item'))return;
+  await renderSupplies();
 }
 function openMovement(supplyId,type){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
@@ -5103,20 +5120,37 @@ async function confirmMovement(){
   }
   showLoading('Saving...');
   const byUser=document.getElementById('m-by').value.trim()||'Nurse';
+  const addMove=async(type,q,note,when)=>{
+    const {error}=await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:type,p_qty:q,p_note:note,p_by_user:byUser,p_occurred_at:when});
+    return error;
+  };
+  let failure=null, savedAny=false;
   if(isBackdated&&pendingMovement.type==='IN'){
     const inNote=(notesVal?notesVal+' — ':'')+`Backdated entry: received ${effectiveDate}, recorded ${today}`;
-    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'IN',p_qty:qty,p_note:inNote,p_by_user:byUser,p_occurred_at:effectiveDate});
-    for(const r of usageRows){
-      const outNote=(r.note?r.note+' — ':'')+'Used before this delivery was recorded';
-      await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'OUT',p_qty:parseInt(r.qty),p_note:outNote,p_by_user:byUser,p_occurred_at:r.date});
+    failure=await addMove('IN',qty,inNote,effectiveDate);
+    if(!failure){
+      savedAny=true;
+      for(const r of usageRows){
+        const outNote=(r.note?r.note+' — ':'')+'Used before this delivery was recorded';
+        failure=await addMove('OUT',parseInt(r.qty),outNote,r.date);
+        if(failure)break;
+      }
     }
   } else if(isBackdated&&pendingMovement.type==='OUT'){
     const outNote=(notesVal?notesVal+' — ':'')+`Backdated entry: used ${effectiveDate}, recorded ${today}`;
-    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:'OUT',p_qty:qty,p_note:outNote,p_by_user:byUser,p_occurred_at:effectiveDate});
+    failure=await addMove('OUT',qty,outNote,effectiveDate);
   } else {
-    await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:pendingMovement.type,p_qty:qty,p_note:notesVal,p_by_user:byUser,p_occurred_at:null});
+    failure=await addMove(pendingMovement.type,qty,notesVal,null);
   }
-  hideLoading();closeModal('movement-modal');pendingMovement=null;await renderSupplies();
+  hideLoading();
+  if(failure){
+    // Keep the modal open so nothing typed is lost. If the IN went through but a usage
+    // row failed, refresh so the list reflects what actually got stored.
+    if(savedAny) await renderSupplies();
+    rpcFailed(failure, savedAny?'part of this entry (the stock IN saved, but a usage row did not)':'this stock movement');
+    return;
+  }
+  closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
@@ -5138,8 +5172,9 @@ async function cancelMovement(supplyId,movementId){
   if(!currentUser||currentUser.role!=='admin'){alert('Only an admin can cancel a movement.');return;}
   if(!confirm('Cancel this movement? This will reverse its effect on the stock level.'))return;
   showLoading('Cancelling...');
-  await db.rpc('rr_movement_delete',{p_session:sessionToken,p_id:movementId});
+  const {error:cmErr}=await db.rpc('rr_movement_delete',{p_session:sessionToken,p_id:movementId});
   hideLoading();
+  if(rpcFailed(cmErr,'cancelling this movement'))return;
   await renderSupplies();
   await showMovements(supplyId);
 }
@@ -5155,8 +5190,10 @@ async function submitRequest(){
   const qty=parseInt(document.getElementById('r-qty').value);
   if(!supplyId||!qty||qty<1){alert('Select an item and a valid quantity.');return;}
   showLoading('Submitting...');
-  await db.rpc('rr_request_submit',{p_session:sessionToken,p_supply_id:supplyId,p_qty:qty,p_requested_by:document.getElementById('r-by').value.trim(),p_notes:document.getElementById('r-notes').value.trim()});
-  hideLoading();closeModal('request-modal');await updateBadge();alert('Request submitted successfully.');
+  const {error:reqErr}=await db.rpc('rr_request_submit',{p_session:sessionToken,p_supply_id:supplyId,p_qty:qty,p_requested_by:document.getElementById('r-by').value.trim(),p_notes:document.getElementById('r-notes').value.trim()});
+  hideLoading();
+  if(rpcFailed(reqErr,'this supply request'))return;
+  closeModal('request-modal');await updateBadge();alert('Request submitted successfully.');
 }
 async function renderRequests(){
   showLoading('Loading requests...');

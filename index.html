@@ -896,6 +896,8 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Full name *</label><input id="f-name" placeholder="Patient full name"></div>
     <div class="form-group"><label>ID number</label><input id="f-id" placeholder="National ID"></div>
     <div class="form-group"><label>Phone</label><input id="f-phone" placeholder="+254..."></div>
+    <div class="form-group"><label>Next of kin</label><input id="f-nok-name" placeholder="Full name"></div>
+    <div class="form-group"><label>Next of kin phone</label><input id="f-nok-phone" placeholder="+254..."></div>
     <div class="form-group"><label>Year of birth *</label><input id="f-yob" type="number" min="1900" max="2026" placeholder="e.g. 1985"></div>
     <div class="form-group"><label>Gender</label><select id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="form-group"><label>Blood group</label><select id="f-blood"><option value="">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
@@ -4449,12 +4451,12 @@ function renderPatientsView(){
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
   <div class="table-wrapper"><table>
-    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
-  if(!filtered.length)h+=`<tr><td colspan="10"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
+    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+  if(!filtered.length)h+=`<tr><td colspan="11"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
   else filtered.forEach(p=>{
     const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
-    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.station||'—'}</td>
+    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
@@ -4466,7 +4468,7 @@ function openAddPatient(){
   editingPatientId=null;
   document.getElementById('pmt').textContent='Register patient';
   document.getElementById('pms').textContent='Fill in the patient details';
-  ['f-ip','f-name','f-id','f-phone','f-yob'].forEach(k=>document.getElementById(k).value='');
+  ['f-ip','f-name','f-id','f-phone','f-nok-name','f-nok-phone','f-yob'].forEach(k=>document.getElementById(k).value='');
   document.getElementById('f-gender').value='';
   document.getElementById('f-blood').value='';
   document.getElementById('f-station').value='';
@@ -4486,6 +4488,8 @@ function openEditPatient(id){
   document.getElementById('f-name').value=p.name;
   document.getElementById('f-id').value=p.id_no||'';
   document.getElementById('f-phone').value=p.phone||'';
+  document.getElementById('f-nok-name').value=p.next_of_kin_name||'';
+  document.getElementById('f-nok-phone').value=p.next_of_kin_phone||'';
   document.getElementById('f-yob').value=p.yob||'';
   document.getElementById('f-gender').value=p.gender||'';
   document.getElementById('f-blood').value=p.blood_group||'';
@@ -4526,7 +4530,9 @@ async function savePatient(){
     p_id_no:document.getElementById('f-id').value.trim(), p_phone:document.getElementById('f-phone').value.trim(),
     p_yob:yob, p_gender:document.getElementById('f-gender').value, p_station:station, p_status:status,
     p_discharge_date:dischargeDate, p_discharge_notes:dischargeNotes, p_death_year:deathYear,
-    p_blood_group:document.getElementById('f-blood').value||null
+    p_blood_group:document.getElementById('f-blood').value||null,
+    p_next_of_kin_name:document.getElementById('f-nok-name').value.trim()||null,
+    p_next_of_kin_phone:document.getElementById('f-nok-phone').value.trim()||null
   });
   hideLoading();
   if(error){showErr('Save failed: '+error.message);return;}
@@ -5352,7 +5358,7 @@ function dlXLSX(headers,rows,fn,sheetName){
 function getFilteredPatients(){
   const f=patientFilter;
   return patients.filter(p=>{
-    const s=(p.ip+p.name+(p.id_no||'')+(p.phone||'')+(p.station||'')).toLowerCase();
+    const s=(p.ip+p.name+(p.id_no||'')+(p.phone||'')+(p.next_of_kin_name||'')+(p.next_of_kin_phone||'')+(p.station||'')).toLowerCase();
     if(f.search&&!s.includes(f.search.toLowerCase()))return false;
     if(f.status.length&&!f.status.includes(p.status))return false;
     if(f.gender.length&&!f.gender.includes(p.gender))return false;
@@ -5366,8 +5372,8 @@ function getFilteredSupplies(){
 }
 function exportPatients(){
   const rows=getFilteredPatients();
-  dlXLSX(['IP No','Name','ID No','Phone','YOB','Age','Gender','Blood Group','Station','Status','Discharge Date','Discharge Notes'],
-    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.yob,calcAge(p),p.gender,p.blood_group||'',p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
+  dlXLSX(['IP No','Name','ID No','Phone','Next of Kin','Next of Kin Phone','YOB','Age','Gender','Blood Group','Station','Status','Discharge Date','Discharge Notes'],
+    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.next_of_kin_name||'',p.next_of_kin_phone||'',p.yob,calcAge(p),p.gender,p.blood_group||'',p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
     'patients_'+new Date().toISOString().slice(0,10)+'.xlsx','Patients');
 }
 function dlXLSXMulti(sheets,fn){

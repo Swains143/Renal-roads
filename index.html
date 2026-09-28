@@ -2111,7 +2111,8 @@ function repMarkDirty(){
   repDirty = true;
   const el = document.getElementById(repKind==='operational' ? 'op-statusMsg' : repKind==='doctor' ? 'doc-statusMsg' : repKind==='monthly' ? 'mo-statusMsg' : 'rep-statusMsg');
   if(el){
-    el.textContent = 'Unsaved changes — autosaving shortly...';
+    const _pfx = repKind==='operational' ? 'op' : repKind==='doctor' ? 'doc' : repKind==='monthly' ? 'mo' : 'rep';
+    el.textContent = (typeof repAdminEditing!=='undefined' && repAdminEditing[_pfx]) ? 'Unsaved corrections — click "Save corrections" to keep them.' : 'Unsaved changes — autosaving shortly...';
     el.classList.add('dirty'); el.classList.remove('saved');
   }
   // A draft with no id yet has never reached the database — get it there
@@ -5633,6 +5634,86 @@ function exportRequests(){
     requests.map(r=>[r.supplies?r.supplies.name:'?',r.qty,r.requested_by,r.notes,r.status,new Date(r.created_at).toLocaleDateString()]),
     'requests_'+new Date().toISOString().slice(0,10)+'.xlsx','Requests');
 }
+
+// =====================================================================
+// ADMIN CORRECTIONS TO SUBMITTED REPORTS
+// Submitted reports open read-only for everyone. An admin gets an
+// "Edit this report" button on the read-only banner (all four report types:
+// rep = weekly clinical, doc = doctor, op = operational, mo = monthly).
+// Editing keeps the SAME database row (same id) and keeps status 'submitted',
+// so nothing turns back into a draft. Autosave stays off while editing (the
+// Back button is visible), and the reporting period is locked.
+// =====================================================================
+const REP_ADMIN_KINDS = ['rep','doc','op','mo'];
+let repAdminEditing = { rep:false, doc:false, op:false, mo:false };
+function repAdminSetDraftId(p,id){ if(p==='rep')repDraftId=id; else if(p==='doc')docDraftId=id; else if(p==='mo')moDraftId=id; else opDraftId=id; }
+function repAdminIsAdmin(){ return !!(currentUser && currentUser.role==='admin'); }
+function repAdminEditReset(p){
+  repAdminEditing[p]=false;
+  const draftBtn=document.getElementById(p+'-saveDraftBtn'), submitBtn=document.getElementById(p+'-submitBtn');
+  if(draftBtn) draftBtn.style.display='';
+  if(submitBtn){
+    if(submitBtn.dataset.origHtml){ submitBtn.innerHTML=submitBtn.dataset.origHtml; submitBtn.onclick=function(){ window[p+'SaveReport']('submitted'); }; delete submitBtn.dataset.origHtml; }
+  }
+  const eb=document.getElementById(p+'-adminEditBtn'); if(eb) eb.remove();
+}
+function repAdminAfterLoad(p,id){
+  if(!repAdminIsAdmin() || !id) return;
+  const sel=document.getElementById(p+'-pastReportSelect'), banner=document.getElementById(p+'-viewingPastBanner'), back=document.getElementById(p+'-backToCurrentBtn');
+  if(!sel || sel.value!==id || !banner || !back || back.style.display==='none') return; // load failed or was cancelled
+  if(document.getElementById(p+'-adminEditBtn')) return;
+  const btn=document.createElement('button');
+  btn.type='button'; btn.id=p+'-adminEditBtn'; btn.className='btn btn-primary';
+  btn.style.cssText='margin-left:10px;padding:4px 12px;font-size:12px';
+  btn.innerHTML='<i class="ti ti-edit"></i> Edit this report';
+  btn.onclick=function(){ repAdminEditStart(p); };
+  const holder=banner.querySelector('div')||banner; holder.appendChild(btn);
+}
+function repAdminEditStart(p){
+  if(!repAdminIsAdmin()) return;
+  const sel=document.getElementById(p+'-pastReportSelect'); const id=sel&&sel.value; if(!id) return;
+  if(!confirm('Edit this SUBMITTED report as admin?\n\nYour changes will replace what the nurses submitted. Make sure you save when done.')) return;
+  repAdminSetDraftId(p,id);
+  window[p+'SetFormEditable'](true);
+  // Lock the reporting period so a correction can't move the report to a different week/month
+  [p+'-periodStart',p+'-periodEnd',p+'-month'].forEach(x=>{ const el=document.getElementById(x); if(el) el.disabled=true; });
+  repAdminEditing[p]=true;
+  const draftBtn=document.getElementById(p+'-saveDraftBtn'), submitBtn=document.getElementById(p+'-submitBtn');
+  if(draftBtn) draftBtn.style.display='none'; // never turn a submitted report back into a draft
+  if(submitBtn){
+    submitBtn.dataset.origHtml=submitBtn.innerHTML;
+    submitBtn.innerHTML='<i class="ti ti-device-floppy"></i> Save corrections';
+    submitBtn.onclick=function(){ repAdminEditSave(p); };
+    submitBtn.disabled=false;
+  }
+  const eb=document.getElementById(p+'-adminEditBtn'); if(eb) eb.style.display='none';
+  const msg=document.getElementById(p+'-statusMsg');
+  if(msg){ msg.textContent='Editing submitted report (admin) — click "Save corrections" when done.'; msg.classList.remove('saved'); msg.classList.add('dirty'); }
+}
+async function repAdminEditSave(p){
+  const id=document.getElementById(p+'-pastReportSelect').value; if(!id) return;
+  repDirty=true;                              // the save functions clear this only on success
+  await window[p+'SaveReport']('submitted');  // same id + status 'submitted' => updates the existing row in place
+  if(repDirty){ return; }                     // failed — the save function already showed the error; stay in edit mode
+  // Success: the save re-built the dropdown; re-select this report and show it read-only again
+  repAdminEditReset(p);
+  const sel=document.getElementById(p+'-pastReportSelect'); if(sel) sel.value=id;
+  await window[p+'OnPastReportChange'](id);
+  const msg=document.getElementById(p+'-statusMsg');
+  if(msg){ msg.textContent='Corrections saved to the submitted report.'; msg.classList.remove('dirty'); msg.classList.add('saved'); }
+}
+// Hook the four existing "view past report" loaders without rewriting them
+REP_ADMIN_KINDS.forEach(p=>{
+  const name=p+'OnPastReportChange', orig=window[name];
+  if(typeof orig!=='function') return;
+  window[name]=async function(id){
+    repAdminEditReset(p);
+    const r=await orig.apply(this,arguments);
+    repAdminAfterLoad(p,id);
+    return r;
+  };
+});
+
 </script>
 
 <!-- Supply Comment Modal -->

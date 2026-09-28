@@ -630,7 +630,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-status-msg.dirty{color:var(--amber);font-weight:600}
 .rep-status-msg.dirty::before{content:"\25CF";margin-right:5px;font-size:9px;position:relative;top:-1px;animation:pulse 1.4s ease-in-out infinite}
 .rep-status-msg.saved{color:var(--green-dark);font-weight:600}
-#rep-printArea,#op-printArea,#doc-printArea{display:none}
+#rep-printArea,#op-printArea,#doc-printArea,#mo-printArea{display:none}
 /* Sizing rules for print blocks are defined UNCONDITIONALLY (not inside
    @media print) so that repRenderPaginated's offscreen height measurement
    sees the exact same box model the browser will use when actually
@@ -664,8 +664,8 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-print-12 .rep-print-footer{font-size:calc(var(--print-scale) * 12pt)}
 @media print{
   body *{visibility:hidden}
-  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *{visibility:visible}
-  #rep-printArea, #op-printArea, #doc-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;font-size:calc(var(--print-scale) * 10pt);color:#000;background:#fff}
+  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *, #mo-printArea, #mo-printArea *{visibility:visible}
+  #rep-printArea, #op-printArea, #doc-printArea, #mo-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;font-size:calc(var(--print-scale) * 10pt);color:#000;background:#fff}
   /* Each .rep-print-page is one physical printed page (content was pre-packed
      to fit via JS measurement in repRenderPaginated, using the same sizing
      rules defined above so the measured heights match the real render).
@@ -3322,16 +3322,18 @@ function moBackToCurrent(){
 function moBuildPrintBlocks(){
   const content = moBuildContent();
   const facilityLabel = moFacility==='truck' ? 'Truck' : 'Kigumo Hub';
-  const periodStart = document.getElementById('mo-periodStart').value;
-  const periodEnd = document.getElementById('mo-periodEnd').value;
+  const np = moNormalizePeriod(document.getElementById('mo-periodStart').value, document.getElementById('mo-periodEnd').value);
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const fmtLong = iso => { const p = (iso||'').split('-'); return p.length===3 ? `${parseInt(p[2],10)} ${MONTHS[parseInt(p[1],10)-1]} ${p[0]}` : (iso||''); };
+  const monthLabel = np.month ? `${MONTHS[parseInt(np.month.slice(5),10)-1]} ${np.month.slice(0,4)}` : '';
   const blocks = [];
   const esc = repEsc;
 
   blocks.push(`
     <div class="rep-print-title">Monthly Renal Unit Clinical Report</div>
-    <div class="rep-print-subtitle">${facilityLabel}</div>
+    <div class="rep-print-subtitle">${facilityLabel}${monthLabel?` — ${esc(monthLabel)}`:''}</div>
     <table class="rep-print-meta"><tr>
-      <td><strong>Period:</strong> ${esc(periodStart)} &nbsp;to&nbsp; ${esc(periodEnd)}</td>
+      <td><strong>Period:</strong> ${esc(fmtLong(np.start))} &nbsp;to&nbsp; ${esc(fmtLong(np.end))}</td>
       <td><strong>Prepared by:</strong> ${esc(content.prepared_by)}</td>
     </tr></table>`);
 

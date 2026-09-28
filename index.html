@@ -1235,12 +1235,33 @@ window.addEventListener('storage', e=>{
   }
 });
 
+// Server-side sessions can expire on their own clock, independent of the local idle timer above.
+// Ping the server every 2 minutes so an expired session is caught BEFORE someone spends time entering records.
+let sessionHeartbeat = null;
+function startSessionHeartbeat(){
+  if(sessionHeartbeat) clearInterval(sessionHeartbeat);
+  sessionHeartbeat = setInterval(async()=>{
+    if(!currentUser || !sessionToken) return;
+    try{
+      const {data:rows,error}=await db.rpc('rr_resume_session',{p_session:sessionToken});
+      if(error) return; // network hiccup — don't sign anyone out for that
+      const d=rows&&rows[0];
+      if(!d||!d.active){
+        stopIdleMonitor(); doLogout();
+        document.getElementById('login-error-msg').textContent='Your session expired. Please sign in again before entering records.';
+        document.getElementById('login-error').classList.add('show');
+      }
+    }catch(e){}
+  }, 120000);
+}
 function startIdleMonitor(){
   stopIdleMonitor();
   localStorage.setItem('rr_last_activity', String(Date.now()));
   idleCheckInterval = setInterval(checkIdle, 5000);
+  startSessionHeartbeat();
 }
 function stopIdleMonitor(){
+  if(sessionHeartbeat) clearInterval(sessionHeartbeat); sessionHeartbeat = null;
   if(idleCheckInterval) clearInterval(idleCheckInterval);
   if(idleCountdownInterval) clearInterval(idleCountdownInterval);
   idleCheckInterval = null; idleCountdownInterval = null;
@@ -1299,12 +1320,15 @@ function rpcFailed(error, what){
   if(!error) return false;
   console.error('[Renal Roads] '+what+' failed:', error);
   const msg=(error.message||'Unknown error')+(error.details?' — '+error.details:'')+(error.hint?' ('+error.hint+')':'');
-  if(/session|expired|not authori[sz]ed|invalid token/i.test(msg)){
-    alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.');
-    doLogout();
-  } else {
-    alert('Could not save — '+what+' was NOT recorded.\n\n'+msg);
-  }
+  // Defer so the loading spinner is actually repainted away before the blocking alert appears
+  setTimeout(()=>{
+    if(/session|expired|not authori[sz]ed|invalid token/i.test(msg)){
+      alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.');
+      doLogout();
+    } else {
+      alert('Could not save — '+what+' was NOT recorded.\n\n'+msg);
+    }
+  },60);
   return true;
 }
 function togglePwd(){

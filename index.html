@@ -4390,6 +4390,12 @@ async function renderHome(){
       <p>${isViewer?'Browse and download submitted weekly clinical and operational reports.':'Fill in or review the weekly clinical and operational reports for the Truck and Kigumo Hub.'}</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
     </div>
+    <div class="dash-card" onclick="switchTab('monthlyreport')">
+      <div class="dash-card-icon" style="background:#EEF2FF"><i class="ti ti-calendar-stats" style="color:var(--navy);font-size:26px"></i></div>
+      <h3>Monthly report</h3>
+      <p>${isViewer?'Browse and download submitted monthly clinical reports.':'Fill in or review the monthly clinical report for the Truck and Kigumo Hub — totals are filled automatically from the submitted weekly reports.'}</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
     ${isAdmin?`
     <div class="dash-card" onclick="switchTab('requests')">
       <div class="dash-card-icon" style="background:var(--amber-pale)"><i class="ti ti-bell" style="color:var(--amber);font-size:26px"></i></div>

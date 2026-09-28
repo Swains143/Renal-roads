@@ -5154,7 +5154,12 @@ async function confirmMovement(){
   showLoading('Saving...');
   const byUser=document.getElementById('m-by').value.trim()||'Nurse';
   const addMove=async(type,q,note,when)=>{
-    const {error}=await db.rpc('rr_movement_add',{p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:type,p_qty:q,p_note:note,p_by_user:byUser,p_occurred_at:when});
+    // The live database function currently has 6 parameters (no p_occurred_at). Only send p_occurred_at
+    // when a backdated date is really needed, so normal entries match the existing function and save.
+    // Backdated entries need the upgraded function (see the SQL update) and will report a clear error until then.
+    const params={p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:type,p_qty:q,p_note:note,p_by_user:byUser};
+    if(when) params.p_occurred_at=when;
+    const {error}=await db.rpc('rr_movement_add',params);
     return error;
   };
   let failure=null, savedAny=false;

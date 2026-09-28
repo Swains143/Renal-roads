@@ -1319,14 +1319,23 @@ function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty
 function rpcFailed(error, what){
   if(!error) return false;
   console.error('[Renal Roads] '+what+' failed:', error);
-  const msg=(error.message||'Unknown error')+(error.details?' — '+error.details:'')+(error.hint?' ('+error.hint+')':'');
+  const raw=(error.message||'Unknown error');
+  const msg=raw+(error.details?' — '+error.details:'')+(error.hint?' ('+error.hint+')':'');
+  const code=String(error.code||'');
+  // IMPORTANT: every call passes a parameter literally named "p_session", so a bare /session/ test
+  // wrongly matched database signature errors ("Could not find the function ...(p_session, ...)").
+  // Signature/schema problems are classified first and never treated as an expired login.
+  const isSignature = /^PGRST20[0-9]/.test(code) || /schema cache|could not find the function|could not choose the best candidate|does not exist/i.test(raw);
+  const isExpired = !isSignature && (/invalid session|session (has )?(expired|invalid|not found|timed out)|expired session|not authenticated|not logged in|unauthori[sz]ed|jwt expired/i.test(raw) || code==='28000' || code==='401');
   // Defer so the loading spinner is actually repainted away before the blocking alert appears
   setTimeout(()=>{
-    if(/session|expired|not authori[sz]ed|invalid token/i.test(msg)){
-      alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.');
+    if(isExpired){
+      alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.\n\n(Server said: '+raw+')');
       doLogout();
+    } else if(isSignature){
+      alert('Could not save — '+what+' was NOT recorded.\n\nThe database function does not match what the app is sending (this is a server-side setup problem, not your login):\n\n'+msg+'\n\nCode: '+(code||'n/a'));
     } else {
-      alert('Could not save — '+what+' was NOT recorded.\n\n'+msg);
+      alert('Could not save — '+what+' was NOT recorded.\n\n'+msg+(code?'\n\nCode: '+code:''));
     }
   },60);
   return true;
@@ -5279,8 +5288,9 @@ async function confirmApprove() {
     : 'Approved request from ' + (pendingApproval.by || 'staff') +
       (dispenseQty !== pendingApproval.qty ? ' (requested ' + pendingApproval.qty + ', dispensed ' + dispenseQty + ')' : '');
 
-  await db.rpc('rr_request_approve', {p_session:sessionToken, p_id:pendingApproval.id, p_dispense_qty:dispenseQty, p_note:noteText});
+  const {error:apErr}=await db.rpc('rr_request_approve', {p_session:sessionToken, p_id:pendingApproval.id, p_dispense_qty:dispenseQty, p_note:noteText});
   hideLoading();
+  if(rpcFailed(apErr,'this approval'))return;
   closeModal('approve-modal');
   pendingApproval = null;
   await renderRequests();

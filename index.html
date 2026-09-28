@@ -617,6 +617,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-table td input,.rep-table td textarea{border:1px solid transparent;background:transparent;padding:6px 7px;font-family:'Inter',sans-serif;font-size:13px;width:100%;border-radius:6px}
 .rep-table td input:hover,.rep-table td textarea:hover,.rep-table td input:focus,.rep-table td textarea:focus{border-color:var(--gray-200)}
 .rep-table td textarea.rep-autogrow{resize:none;overflow:hidden;min-height:34px;line-height:1.35;font-family:'Inter',sans-serif}
+.rep-day-date{display:block;font-weight:500;font-size:11px;color:var(--gray-600)}
 .rep-day-label{font-weight:700;font-size:12.5px;color:var(--gray-800);white-space:nowrap}
 .rep-add-row{margin-top:8px;background:none;border:1px dashed var(--gray-200);border-radius:var(--radius);padding:7px 12px;font-size:12.5px;color:var(--gray-600);cursor:pointer;font-family:'Inter',sans-serif;font-weight:600}
 .rep-add-row:hover{border-color:var(--navy);color:var(--navy)}
@@ -2562,7 +2563,7 @@ function repRenderOutpatientTable(){
   const tbody = document.getElementById('rep-outpatientRows');
   tbody.innerHTML = REP_DAYS.map(day=>`
     <tr>
-      <td class="rep-day-label">${day}</td>
+      <td class="rep-day-label" data-daylabel="${day}">${day}</td>
       <td><input type="number" min="0" data-day="${day}" data-field="count" class="rep-outpatient-count" oninput="repUpdateOutpatientTotal()"></td>
       <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="remarks" oninput="repAutoGrow(this)"></textarea></td>
     </tr>`).join('');
@@ -2598,14 +2599,14 @@ function repRenderStaffTable(){
   tbody.innerHTML = REP_DAYS.map(day=>{
     if(repFacility==='truck'){
       return `<tr>
-        <td class="rep-day-label">${day}</td>
+        <td class="rep-day-label" data-daylabel="${day}">${day}</td>
         <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="staff" oninput="repAutoGrow(this)"></textarea></td>
         <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="locum" oninput="repAutoGrow(this)"></textarea></td>
         <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="remarks" oninput="repAutoGrow(this)"></textarea></td>
       </tr>`;
     }
     return `<tr>
-      <td class="rep-day-label">${day}</td>
+      <td class="rep-day-label" data-daylabel="${day}">${day}</td>
       <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="nurses_present" oninput="repAutoGrow(this)"></textarea></td>
       <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="locum_nurses" oninput="repAutoGrow(this)"></textarea></td>
       <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="reviewing_doctor" oninput="repAutoGrow(this)"></textarea></td>
@@ -2914,7 +2915,7 @@ function repBuildPrintBlocks(){
     <table class="rep-print-table">
       <thead><tr><th>Day</th><th>Attended</th>${anyRemarks?'<th>Remarks</th>':''}</tr></thead>
       <tbody>
-        ${rows.map(r=>`<tr><td>${r.day}</td><td>${esc(r.d.count)}</td>${anyRemarks?`<td>${esc(r.d.remarks)}</td>`:''}</tr>`).join('')}
+        ${rows.map(r=>`<tr><td>${r.day}${repPrintDate(r.day,periodStart,periodEnd)}</td><td>${esc(r.d.count)}</td>${anyRemarks?`<td>${esc(r.d.remarks)}</td>`:''}</tr>`).join('')}
         <tr><td><strong>Total</strong></td><td><strong>${content.outpatients.total_attended}</strong></td>${anyRemarks?'<td></td>':''}</tr>
       </tbody>
     </table>`);
@@ -2949,8 +2950,8 @@ function repBuildPrintBlocks(){
       <thead>${isTruck ? '<tr><th>Day</th><th>Staff</th><th>Locum</th><th>Remarks</th></tr>' : '<tr><th>Day</th><th>Nurses present</th><th>Locum nurses</th><th>Reviewing doctor</th></tr>'}</thead>
       <tbody>
         ${rows.map(({day,row}) => isTruck
-          ? `<tr><td>${day}</td><td>${esc(row.staff)}</td><td>${esc(row.locum)}</td><td>${esc(row.remarks)}</td></tr>`
-          : `<tr><td>${day}</td><td>${esc(row.nurses_present)}</td><td>${esc(row.locum_nurses)}</td><td>${esc(row.reviewing_doctor)}</td></tr>`).join('')}
+          ? `<tr><td>${day}${repPrintDate(day,periodStart,periodEnd)}</td><td>${esc(row.staff)}</td><td>${esc(row.locum)}</td><td>${esc(row.remarks)}</td></tr>`
+          : `<tr><td>${day}${repPrintDate(day,periodStart,periodEnd)}</td><td>${esc(row.nurses_present)}</td><td>${esc(row.locum_nurses)}</td><td>${esc(row.reviewing_doctor)}</td></tr>`).join('')}
       </tbody>
     </table>`);
     }
@@ -5713,6 +5714,44 @@ REP_ADMIN_KINDS.forEach(p=>{
     return r;
   };
 });
+
+
+// =====================================================================
+// DATES FOR MONDAY-SATURDAY ROWS
+// Each day row shows the calendar date that falls in the reporting period.
+// Saved data is still keyed by weekday name, so old reports are unaffected.
+// =====================================================================
+function repDayDateStr(day, startIso, endIso){
+  const idx = REP_DAYS.indexOf(day); if(idx<0 || !startIso) return '';
+  const d = new Date(startIso+'T00:00:00'); if(isNaN(d)) return '';
+  const e = endIso ? new Date(endIso+'T00:00:00') : null;
+  for(let i=0;i<7;i++){
+    if(d.getDay()===idx+1){
+      if(e && d>e) return '';
+      return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return '';
+}
+function repPrintDate(day, startIso, endIso){ const t=repDayDateStr(day,startIso,endIso); return t?' ('+t+')':''; }
+function repRefreshDayDates(){
+  const s=document.getElementById('rep-periodStart'), e=document.getElementById('rep-periodEnd'); if(!s) return;
+  document.querySelectorAll('.rep-day-label[data-daylabel]').forEach(td=>{
+    const t=repDayDateStr(td.dataset.daylabel, s.value, e&&e.value);
+    td.innerHTML = td.dataset.daylabel + (t ? '<span class="rep-day-date">'+t+'</span>' : '');
+  });
+}
+['repRenderOutpatientTable','repRenderStaffTable','repPopulateForm','repLoadDraftForCurrentSelection','repOnPastReportChange'].forEach(name=>{
+  const orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=function(){
+    const r=orig.apply(this,arguments);
+    if(r && typeof r.then==='function') return r.then(v=>{ repRefreshDayDates(); return v; });
+    repRefreshDayDates(); return r;
+  };
+});
+document.addEventListener('change',ev=>{ if(ev.target && (ev.target.id==='rep-periodStart'||ev.target.id==='rep-periodEnd')) repRefreshDayDates(); });
+document.addEventListener('input',ev=>{ if(ev.target && (ev.target.id==='rep-periodStart'||ev.target.id==='rep-periodEnd')) repRefreshDayDates(); });
 
 </script>
 

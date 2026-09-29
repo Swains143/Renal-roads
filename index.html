@@ -873,6 +873,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
     <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
+    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
   </div>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -884,6 +885,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
       <option value="report" id="opt-report">📋 Weekly Report</option>
       <option value="monthlyreport" id="opt-monthlyreport">🗓️ Monthly Report</option>
+      <option value="heparin" id="opt-heparin">💧 Heparin</option>
     </select>
   </div>
   <div class="content" id="main-content"></div>
@@ -5752,6 +5754,181 @@ function repRefreshDayDates(){
 });
 document.addEventListener('change',ev=>{ if(ev.target && (ev.target.id==='rep-periodStart'||ev.target.id==='rep-periodEnd')) repRefreshDayDates(); });
 document.addEventListener('input',ev=>{ if(ev.target && (ev.target.id==='rep-periodStart'||ev.target.id==='rep-periodEnd')) repRefreshDayDates(); });
+
+
+// =====================================================================
+// HEPARIN: manual per-hub usage log + manually tracked stock remaining
+// Independent of the general Supplies stock-out system. Two hubs: Truck
+// and Kigumo. Needs new backend RPCs (see chat for the SQL to add):
+//   rr_heparin_stock_get, rr_heparin_stock_adjust, rr_heparin_settings_save,
+//   rr_heparin_usage_add, rr_heparin_usage_list
+// =====================================================================
+const HEP_HUBS=[{key:'truck',label:'Truck'},{key:'kigumo',label:'Kigumo Hub'}];
+let hepState={hub:'truck',mode:'week'};
+let hepStock={}, hepUsage={}, hepSetupError=null;
+(function(){const st=document.createElement('style');st.textContent='.hep-page{display:flex;flex-direction:column;gap:14px}.hep-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--radius-lg);padding:16px}.hep-card h2{font-size:14px;margin-bottom:10px;color:var(--gray-800)}.hep-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.hep-stat{background:var(--gray-50);border-radius:var(--radius);padding:10px 12px}.hep-stat b{display:block;font-size:20px;color:var(--navy)}.hep-stat span{font-size:11px;color:var(--gray-600);text-transform:uppercase;letter-spacing:.04em;font-weight:700}.hep-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}.hep-form label{font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;display:block;margin-bottom:4px}.hep-form input,.hep-form select,.hep-top select{width:100%;padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font:inherit}.hep-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.hep-svg{width:100%;height:auto}.hep-hubtabs{display:flex;gap:8px}.hep-hubtabs button.active{background:var(--navy);color:#fff;border-color:var(--navy)}';document.head.appendChild(st);})();
+const _hepOrigRender=render;
+render=async function(){
+  if(currentTab==='heparin'){ await updateBadge(); repStopAutoSave(); repStopRealtime(); return renderHeparin(); }
+  return _hepOrigRender();
+};
+function hepIso(d){return d.toISOString().slice(0,10);}
+function hepSeriesFromUsage(rows,days){
+  const by={};(rows||[]).forEach(r=>{by[r.usage_date]=(by[r.usage_date]||0)+Number(r.qty);});
+  const t=new Date();t.setUTCHours(0,0,0,0);const out=[];
+  for(let i=days-1;i>=0;i--){const d=new Date(t);d.setUTCDate(t.getUTCDate()-i);const k=hepIso(d);out.push({date:k,v:by[k]||0});}
+  return out;
+}
+function hepModel(){
+  const hub=hepState.hub, stock=hepStock[hub]||{qty_remaining:0,unit:'vials',daily_limit:null};
+  const rows=hepUsage[hub]||[];
+  const days=hepState.mode==='week'?7:30, fitDays=hepState.mode==='week'?14:30;
+  const all=hepSeriesFromUsage(rows,fitDays), n=all.length, ys=all.map(p=>p.v);
+  const mx=(n-1)/2, my=ys.reduce((a,b)=>a+b,0)/n;
+  let sxx=0,sxy=0;ys.forEach((y,i)=>{sxx+=(i-mx)**2;sxy+=(i-mx)*(y-my);});
+  const b=sxx?sxy/sxx:0, a=my-b*mx;
+  const sd=Math.sqrt(ys.reduce((t,y,i)=>t+(y-(a+b*i))**2,0)/Math.max(1,n-2));
+  const ma=ys.map((_,i)=>{const w=ys.slice(Math.max(0,i-6),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
+  const hist=all.slice(-days).map((p,i)=>({...p,ma:ma[n-days+i]}));
+  const last=new Date(all[n-1].date+'T00:00:00Z'), fc=[];
+  for(let h=1;h<=days;h++){const d=new Date(last);d.setUTCDate(last.getUTCDate()+h);const v=Math.max(0,a+b*(n-1+h));fc.push({date:hepIso(d),v,lo:Math.max(0,v-sd),hi:v+sd});}
+  const total=hist.reduce((t,p)=>t+p.v,0), avg=total/days;
+  const peak=hist.reduce((p,c)=>c.v>p.v?c:p,hist[0]);
+  const over=stock.daily_limit?hist.filter(p=>p.v>stock.daily_limit).length:null;
+  const proj=fc.reduce((t,p)=>t+p.v,0), remaining=Number(stock.qty_remaining)||0, rate=proj/days;
+  let runOut='—',daysLeft=null;
+  if(rate>0){daysLeft=remaining/rate;if(daysLeft<365){const d=new Date(last);d.setUTCDate(last.getUTCDate()+Math.floor(daysLeft));runOut=hepIso(d);}}
+  const rel=my>0?b/my:0, trend=my===0?'No usage':rel>0.03?'Rising':rel<-0.03?'Falling':'Steady';
+  return {hub,stock,days,hist,fc,total,avg,peak,over,proj,remaining,daysLeft,runOut,trend,limit:stock.daily_limit||0,mode:hepState.mode,unit:stock.unit||'vials'};
+}
+function hepChartSvg(m){
+  const W=720,H=270,ml=42,mr=10,mt=14,mb=36,N=m.hist.length+m.fc.length,pw=W-ml-mr,ph=H-mt-mb,bw=pw/N;
+  const ymax=Math.max(1,m.limit,...m.hist.map(p=>p.v),...m.fc.map(p=>p.hi))*1.15;
+  const X=i=>ml+i*bw+bw/2, Y=v=>mt+ph-(v/ymax)*ph, k=m.hist.length;
+  let g='';
+  for(let t=0;t<=4;t++){const v=ymax*t/4,y=Y(v);g+=`<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="#D8D8EE" stroke-width="1"/><text x="${ml-6}" y="${y+4}" font-size="10" text-anchor="end" fill="#5A5A88">${Math.round(v*10)/10}</text>`;}
+  m.hist.forEach((p,i)=>{g+=`<rect x="${ml+i*bw+bw*0.15}" y="${Y(p.v)}" width="${bw*0.7}" height="${ph+mt-Y(p.v)}" fill="${m.limit&&p.v>m.limit?'#E67E22':'#4A49C4'}" opacity="0.85"><title>${p.date}: ${p.v}</title></rect>`;});
+  g+=`<polyline fill="none" stroke="#6BBF3E" stroke-width="2.5" points="${m.hist.map((p,i)=>X(i)+','+Y(p.ma)).join(' ')}"/>`;
+  const up=m.fc.map((p,i)=>X(k+i)+','+Y(p.hi)).join(' '), dn=m.fc.map((p,i)=>X(k+i)+','+Y(p.lo)).reverse().join(' ');
+  g+=`<polygon points="${up} ${dn}" fill="#E67E22" opacity="0.15"/><polyline fill="none" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="6 4" points="${m.fc.map((p,i)=>X(k+i)+','+Y(p.v)).join(' ')}"/>`;
+  if(m.limit)g+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(m.limit)}" y2="${Y(m.limit)}" stroke="#C0392B" stroke-dasharray="3 3"/><text x="${W-mr}" y="${Y(m.limit)-4}" font-size="10" text-anchor="end" fill="#C0392B">Daily limit ${m.limit}</text>`;
+  g+=`<line x1="${ml+k*bw}" x2="${ml+k*bw}" y1="${mt}" y2="${mt+ph}" stroke="#9898BB" stroke-dasharray="2 3"/><text x="${ml+k*bw+4}" y="${mt+10}" font-size="10" fill="#5A5A88">Forecast →</text>`;
+  const all=[...m.hist,...m.fc],step=Math.ceil(N/9);
+  all.forEach((p,i)=>{if(i%step===0)g+=`<text x="${X(i)}" y="${H-mb+14}" font-size="10" text-anchor="middle" fill="#5A5A88">${p.date.slice(8)}/${p.date.slice(5,7)}</text>`;});
+  g+=`<g font-size="10" fill="#5A5A88"><rect x="${ml}" y="${H-12}" width="10" height="8" fill="#4A49C4"/><text x="${ml+14}" y="${H-5}">Daily used</text><line x1="${ml+80}" x2="${ml+96}" y1="${H-8}" y2="${H-8}" stroke="#6BBF3E" stroke-width="2.5"/><text x="${ml+100}" y="${H-5}">Trend (7-day avg)</text><line x1="${ml+200}" x2="${ml+216}" y1="${H-8}" y2="${H-8}" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${ml+220}" y="${H-5}">Predicted (shaded = likely range)</text></g>`;
+  return `<svg class="hep-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif">${g}</svg>`;
+}
+function hepSummaryText(m){
+  const u=m.unit, r=x=>Math.round(x*10)/10, p=m.mode==='week'?'7 days':'30 days';
+  let t=`Usage is <b>${m.trend.toLowerCase()}</b>. At this trend about <b>${r(m.proj)} ${u}</b> will be used over the next ${p}.`;
+  t+=m.daysLeft===null?' No usage is forecast, so no run-out date.':` Current remaining stock of ${m.remaining} ${u} lasts about <b>${Math.floor(m.daysLeft)} days</b>${m.runOut!=='—'?` (around ${m.runOut})`:''}.`;
+  return t;
+}
+async function hepLoadHub(hub){
+  const [{data:stockData,error:e1},{data:usageData,error:e2}]=await Promise.all([
+    db.rpc('rr_heparin_stock_get',{p_session:sessionToken}),
+    db.rpc('rr_heparin_usage_list',{p_session:sessionToken,p_hub:hub})
+  ]);
+  if(e1||e2){hepSetupError=(e1||e2).message;return;}
+  hepSetupError=null;
+  (stockData||[]).forEach(r=>{hepStock[r.hub]={qty_remaining:r.qty_remaining,unit:r.unit||'vials',daily_limit:r.daily_limit};});
+  if(!hepStock[hub])hepStock[hub]={qty_remaining:0,unit:'vials',daily_limit:null};
+  hepUsage[hub]=usageData||[];
+}
+async function renderHeparin(){
+  showLoading('Loading heparin data...');
+  await hepLoadHub(hepState.hub);
+  hideLoading();
+  const mc=document.getElementById('main-content'), isAdmin=currentUser&&currentUser.role==='admin', viewer=currentUser&&currentUser.role==='viewer';
+  const hubTabs=`<div class="hep-hubtabs">${HEP_HUBS.map(h=>`<button class="btn ${hepState.hub===h.key?'active':''}" onclick="hepState.hub='${h.key}';renderHeparin()">${h.label}</button>`).join('')}</div>`;
+  if(hepSetupError){
+    mc.innerHTML=`<div class="hep-page"><div class="hep-card">${hubTabs}</div><div class="alert alert-info" style="margin-top:4px"><i class="ti ti-info-circle"></i><div><b>Heparin tracking isn't set up in the database yet.</b><br>The app tried to call <code>rr_heparin_stock_get</code> / <code>rr_heparin_usage_list</code> and got: <i>${hepSetupError}</i>.<br>Ask whoever manages the database to run the setup SQL, then reload this page.</div></div></div>`;
+    return;
+  }
+  const m=hepModel(), today=hepIso(new Date());
+  const todayUsed=(hepUsage[hepState.hub]||[]).filter(r=>r.usage_date===today).reduce((t,r)=>t+Number(r.qty),0);
+  const r=x=>Math.round(x*10)/10, st=(l,v)=>`<div class="hep-stat"><span>${l}</span><b>${v}</b></div>`;
+  mc.innerHTML=`<div class="hep-page">
+   <div class="hep-card">${hubTabs}</div>
+   <div class="hep-card"><h2>Stock remaining — ${HEP_HUBS.find(h=>h.key===m.hub).label}</h2>
+     <div class="hep-grid">${st('Remaining',m.remaining+' '+m.unit)}${st('Est. run-out',m.runOut)}${m.limit?st('Daily limit',m.limit+' '+m.unit):''}</div>
+     ${isAdmin?`<div class="hep-form" style="margin-top:12px">
+        <div><label>Record a delivery / correction (${m.unit})</label><input type="number" id="hep-stock-delta" placeholder="e.g. 50 or -2"></div>
+        <div><label>Reason</label><input type="text" id="hep-stock-reason" placeholder="e.g. New delivery"></div>
+        <div><button class="btn" style="width:100%" onclick="hepAdjustStock()"><i class="ti ti-adjustments"></i> Apply</button></div>
+        <div><label>Daily limit (optional)</label><input type="number" id="hep-daily-limit" value="${m.limit||''}"></div>
+        <div><button class="btn" style="width:100%" onclick="hepSaveLimit()"><i class="ti ti-device-floppy"></i> Save limit</button></div>
+      </div>`:''}
+   </div>
+   ${viewer?'':`<div class="hep-card"><h2>Record heparin used — ${HEP_HUBS.find(h=>h.key===m.hub).label}</h2><div class="hep-form">
+     <div><label>Date</label><input type="date" id="hep-date" value="${today}" max="${today}"></div>
+     <div><label>Quantity used (${m.unit})</label><input type="number" id="hep-qty" min="1"></div>
+     <div style="grid-column:span 2"><label>Notes / reason (needed if over daily limit)</label><input type="text" id="hep-note"></div>
+     <div><button class="btn btn-primary" style="width:100%" onclick="hepSave()"><i class="ti ti-check"></i> Save usage</button></div></div>
+     <div style="font-size:12px;color:var(--gray-600);margin-top:8px">Used today so far: <b>${todayUsed} ${m.unit}</b> · This is a manual log — it does not touch the general Supplies stock.</div></div>`}
+   <div class="hep-card"><div class="hep-top"><h2 style="margin:0">Usage trend &amp; forecast</h2><div style="display:flex;gap:8px;flex-wrap:wrap">
+     <button class="btn ${m.mode==='week'?'btn-primary':''}" onclick="hepState.mode='week';renderHeparin()">Weekly</button>
+     <button class="btn ${m.mode==='month'?'btn-primary':''}" onclick="hepState.mode='month';renderHeparin()">Monthly</button>
+     <button class="btn" onclick="hepExport()"><i class="ti ti-download"></i> Excel</button>
+     <button class="btn" onclick="hepPrint()"><i class="ti ti-printer"></i> Print</button></div></div>
+     <div style="margin:12px 0" class="hep-grid">${st('Total used ('+m.days+' days)',r(m.total)+' '+m.unit)}${st('Average / day',r(m.avg))}${st('Peak day',m.peak.v+' <small style="font-size:11px">'+m.peak.date.slice(5)+'</small>')}${m.over===null?'':st('Days over limit',m.over)}${st('Forecast next '+m.days+' days',r(m.proj)+' '+m.unit)}</div>
+     ${hepChartSvg(m)}
+     <div style="font-size:13px;margin-top:10px;color:var(--gray-800)">${hepSummaryText(m)}</div>
+     <div style="font-size:11px;color:var(--gray-400);margin-top:6px">Forecast is a straight-line trend fitted to the last ${m.mode==='week'?14:30} days; treat it as an estimate.</div></div></div>`;
+}
+async function hepSave(){
+  const hub=hepState.hub, g=id=>document.getElementById(id).value.trim();
+  const date=g('hep-date'),qty=parseInt(g('hep-qty')),note=g('hep-note'),today=hepIso(new Date());
+  const stock=hepStock[hub]||{qty_remaining:0,unit:'vials',daily_limit:null};
+  if(!qty||qty<1){alert('Enter the quantity used.');return;}
+  if(!date||date>today){alert('Choose today or an earlier date.');return;}
+  if(qty>stock.qty_remaining){if(!confirm(`Recorded stock remaining is only ${stock.qty_remaining} ${stock.unit}. Save this usage anyway?`))return;}
+  if(stock.daily_limit){
+    const tot=(hepUsage[hub]||[]).filter(r=>r.usage_date===date).reduce((t,r)=>t+Number(r.qty),0)+qty;
+    if(tot>stock.daily_limit&&!note){alert(`That brings ${date} to ${tot} ${stock.unit}, over the daily limit of ${stock.daily_limit}. Please add a reason in Notes.`);return;}
+  }
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_heparin_usage_add',{p_session:sessionToken,p_hub:hub,p_date:date,p_qty:qty,p_note:note||null,p_by_user:(currentUser&&currentUser.name)||'Nurse'});
+  hideLoading();
+  if(rpcFailed(error,'this heparin usage entry'))return;
+  await renderHeparin();
+}
+async function hepAdjustStock(){
+  const delta=parseFloat(document.getElementById('hep-stock-delta').value);
+  const reason=document.getElementById('hep-stock-reason').value.trim();
+  if(!delta){alert('Enter a positive number for a delivery, or negative for a correction.');return;}
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_heparin_stock_adjust',{p_session:sessionToken,p_hub:hepState.hub,p_delta:delta,p_reason:reason||null});
+  hideLoading();
+  if(rpcFailed(error,'updating the heparin stock'))return;
+  await renderHeparin();
+}
+async function hepSaveLimit(){
+  const v=document.getElementById('hep-daily-limit').value;
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_heparin_settings_save',{p_session:sessionToken,p_hub:hepState.hub,p_daily_limit:v?parseInt(v):null});
+  hideLoading();
+  if(rpcFailed(error,'saving the daily limit'))return;
+  await renderHeparin();
+}
+function hepExport(){
+  const m=hepModel();const f=x=>Math.round(x*10)/10;
+  dlXLSX(['Date','Type','Used','Likely low','Likely high'],
+    [...m.hist.map(p=>[p.date,'Actual',p.v,'','']),...m.fc.map(p=>[p.date,'Forecast',f(p.v),f(p.lo),f(p.hi)])],
+    'heparin_'+m.hub+'_'+m.mode+'ly_'+hepIso(new Date())+'.xlsx','Heparin usage');
+}
+function hepPrint(){
+  const m=hepModel();const f=x=>Math.round(x*10)/10,u=m.unit;
+  const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print.');return;}
+  const row=(p,t)=>`<tr><td>${p.date}</td><td>${t}</td><td>${f(p.v)}</td></tr>`;
+  w.document.write(`<html><head><title>Heparin ${m.mode}ly report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ccc;padding:4px 8px;text-align:left}</style></head><body>
+  <h2>Heparin usage – ${m.mode==='week'?'Weekly':'Monthly'} report</h2><p>${HEP_HUBS.find(h=>h.key===m.hub).label} · Generated ${hepIso(new Date())}</p>
+  <p>Total used: <b>${f(m.total)} ${u}</b> · Average/day: <b>${f(m.avg)}</b> · Peak: <b>${m.peak.v}</b> (${m.peak.date})${m.over===null?'':` · Days over limit: <b>${m.over}</b>`} · Remaining stock: <b>${m.remaining} ${u}</b> · Run-out: <b>${m.runOut}</b></p>
+  ${hepChartSvg(m)}<p>${hepSummaryText(m)}</p>
+  <table><thead><tr><th>Date</th><th>Type</th><th>Used (${u})</th></tr></thead><tbody>${m.hist.map(p=>row(p,'Actual')).join('')}${m.fc.map(p=>row(p,'Forecast')).join('')}</tbody></table>
+  <script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
 
 </script>
 

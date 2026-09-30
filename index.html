@@ -904,6 +904,9 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Year of birth *</label><input id="f-yob" type="number" min="1900" max="2026" placeholder="e.g. 1985"></div>
     <div class="form-group"><label>Gender</label><select id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="form-group"><label>Blood group</label><select id="f-blood"><option value="">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+    <div class="form-group"><label>Dialysis access</label><select id="f-access"><option value="">Not specified</option><option>AVF</option><option>AVG</option><option>Tunneled catheter</option><option>Non-tunneled catheter</option><option>Peritoneal catheter</option><option>Other</option></select></div>
+    <div class="form-group"><label>Sessions per week</label><input id="f-sessions" type="number" min="1" max="7" placeholder="e.g. 3"></div>
+    <div class="form-group full"><label>Comorbidities</label><input id="f-comorbidities" placeholder="e.g. Hypertension, Diabetes (comma separated)"></div>
     <div class="form-group"><label>Station *</label>
       <select id="f-station">
         <option value="">Select station</option>
@@ -4391,6 +4394,64 @@ function docExportPrint(){
 }
 
 
+// =====================================================================
+// HOME DASHBOARD: patients by station & status charts
+// =====================================================================
+const HOME_STATUSES=[{k:'Active',c:'#4E9429'},{k:'Discharged',c:'#3C3489'},{k:'Transferred',c:'#E67E22'},{k:'Transplant',c:'#0F6656'},{k:'Deceased',c:'#C0392B'}];
+function homeDonutSvg(parts){
+  const total=parts.reduce((t,p)=>t+p.v,0)||1, cx=38,cy=38,r=30,ir=18; let ang=-90,g='';
+  parts.forEach(p=>{
+    const a0=ang, sweep=p.v/total*360; ang+=sweep;
+    if(p.v<=0)return;
+    const a1=ang, large=sweep>180?1:0;
+    const pt=(a,rad)=>[cx+rad*Math.cos(a*Math.PI/180),cy+rad*Math.sin(a*Math.PI/180)];
+    const [x0,y0]=pt(a0,r),[x1,y1]=pt(a1,r),[x2,y2]=pt(a1,ir),[x3,y3]=pt(a0,ir);
+    g+=`<path d="M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${ir},${ir} 0 ${large} 0 ${x3},${y3} Z" fill="${p.c}"><title>${p.k}: ${p.v}</title></path>`;
+  });
+  g+=`<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--navy)">${total}</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="6" fill="var(--gray-600)">patients</text>`;
+  return `<svg viewBox="0 0 76 76" style="width:64px;height:64px;flex-shrink:0">${g}</svg>`;
+}
+function homeStatusBarsSvg(stations){
+  const max=Math.max(1,...stations.flatMap(s=>HOME_STATUSES.map(st=>s.counts[st.k]||0)));
+  const W=560,rowH=11,gap=4,ml=66,mr=26,barMax=W-ml-mr;
+  let y=4,g='';
+  stations.forEach(s=>{
+    g+=`<text x="0" y="${y+8}" font-size="8" font-weight="700" fill="var(--gray-800)">${s.label}</text>`;
+    HOME_STATUSES.forEach(st=>{
+      const v=s.counts[st.k]||0, w=v/max*barMax;
+      g+=`<text x="${ml-5}" y="${y+6}" font-size="7" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
+      g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="6" rx="2" fill="var(--gray-100)"/>`;
+      g+=`<rect x="${ml}" y="${y}" width="${w}" height="6" rx="2" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
+      g+=`<text x="${ml+barMax+5}" y="${y+6}" font-size="7" font-weight="700" fill="var(--gray-800)">${v}</text>`;
+      y+=rowH;
+    });
+    y+=gap;
+  });
+  return `<svg viewBox="0 0 ${W} ${y}" style="width:100%;height:auto">${g}</svg>`;
+}
+function homePatientCharts(patients){
+  const stationKeys=[...new Set(patients.map(p=>p.station).filter(Boolean))].sort();
+  if(!stationKeys.length)return '';
+  const stations=stationKeys.map(key=>{
+    const rows=patients.filter(p=>p.station===key);
+    const counts={}; HOME_STATUSES.forEach(st=>counts[st.k]=rows.filter(p=>p.status===st.k).length);
+    return {label:key,total:rows.length,counts};
+  });
+  const donutParts=stations.map((s,i)=>({k:s.label,v:s.total,c:i===0?'var(--navy)':'#6BBF3E'}));
+  const legend=stations.map((s,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray-800)"><span style="width:10px;height:10px;border-radius:3px;background:${i===0?'var(--navy)':'#6BBF3E'};display:inline-block"></span>${s.label}: <b>${s.total}</b></div>`).join('');
+  const statusLegend=HOME_STATUSES.map(st=>`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-600)"><span style="width:9px;height:9px;border-radius:3px;background:${st.c};display:inline-block"></span>${st.k}</div>`).join('');
+  return `<div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.6fr);gap:8px;margin-bottom:6px">
+    <div class="hep-card" style="padding:6px 8px;display:flex;align-items:center;gap:8px">
+      ${homeDonutSvg(donutParts.map(p=>({...p,c:p.c==='var(--navy)'?'#2E2D9F':p.c})))}
+      <div style="display:flex;flex-direction:column;gap:2px">${legend}</div>
+    </div>
+    <div class="hep-card" style="padding:6px 8px">
+      ${homeStatusBarsSvg(stations)}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">${statusLegend}</div>
+    </div>
+  </div>`;
+}
+
 async function renderHome(){
   const isAdmin = currentUser&&currentUser.role==='admin';
   const isViewer = currentUser&&currentUser.role==='viewer';
@@ -4398,6 +4459,9 @@ async function renderHome(){
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const hour = now.getHours();
   const greeting = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+
+  const {data:homePatients}=await db.rpc('rr_patients_list',{p_session:sessionToken});
+  const hp=homePatients||[];
 
   let h = `
   <div class="dash-hero">
@@ -4407,6 +4471,8 @@ async function renderHome(){
       <div class="dash-hero-time"><i class="ti ti-calendar"></i>${timeStr}</div>
     </div>
   </div>
+
+  ${homePatientCharts(hp)}
 
   <div class="dash-section-title">Quick access</div>
   <div class="dash-cards">
@@ -4550,12 +4616,12 @@ function renderPatientsView(){
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
   <div class="table-wrapper"><table>
-    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
-  if(!filtered.length)h+=`<tr><td colspan="11"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
+    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Access</th><th>Sessions/wk</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+  if(!filtered.length)h+=`<tr><td colspan="13"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
   else filtered.forEach(p=>{
     const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
-    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.station||'—'}</td>
+    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}${p.comorbidities?`<div style="font-size:11px;color:var(--text-2,#666)" title="Comorbidities">${repEsc(p.comorbidities)}</div>`:''}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.dialysis_access||'—'}</td><td>${p.sessions_per_week||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
@@ -4567,9 +4633,10 @@ function openAddPatient(){
   editingPatientId=null;
   document.getElementById('pmt').textContent='Register patient';
   document.getElementById('pms').textContent='Fill in the patient details';
-  ['f-ip','f-name','f-id','f-phone','f-nok-name','f-nok-phone','f-yob'].forEach(k=>document.getElementById(k).value='');
+  ['f-ip','f-name','f-id','f-phone','f-nok-name','f-nok-phone','f-yob','f-sessions','f-comorbidities'].forEach(k=>document.getElementById(k).value='');
   document.getElementById('f-gender').value='';
   document.getElementById('f-blood').value='';
+  document.getElementById('f-access').value='';
   document.getElementById('f-station').value='';
   document.getElementById('f-status').value='Active';
   document.getElementById('f-discharge-date').value='';
@@ -4592,6 +4659,9 @@ function openEditPatient(id){
   document.getElementById('f-yob').value=p.yob||'';
   document.getElementById('f-gender').value=p.gender||'';
   document.getElementById('f-blood').value=p.blood_group||'';
+  document.getElementById('f-access').value=p.dialysis_access||'';
+  document.getElementById('f-sessions').value=p.sessions_per_week||'';
+  document.getElementById('f-comorbidities').value=p.comorbidities||'';
   document.getElementById('f-station').value=p.station||'';
   document.getElementById('f-status').value=p.status;
   document.getElementById('f-discharge-date').value=p.discharge_date||'';
@@ -4631,7 +4701,10 @@ async function savePatient(){
     p_discharge_date:dischargeDate, p_discharge_notes:dischargeNotes, p_death_year:deathYear,
     p_blood_group:document.getElementById('f-blood').value||null,
     p_next_of_kin_name:document.getElementById('f-nok-name').value.trim()||null,
-    p_next_of_kin_phone:document.getElementById('f-nok-phone').value.trim()||null
+    p_next_of_kin_phone:document.getElementById('f-nok-phone').value.trim()||null,
+    p_dialysis_access:document.getElementById('f-access').value||null,
+    p_sessions_per_week:document.getElementById('f-sessions').value?parseInt(document.getElementById('f-sessions').value):null,
+    p_comorbidities:document.getElementById('f-comorbidities').value.trim()||null
   });
   hideLoading();
   if(error){showErr('Save failed: '+error.message);return;}
@@ -5500,8 +5573,8 @@ function getFilteredSupplies(){
 }
 function exportPatients(){
   const rows=getFilteredPatients();
-  dlXLSX(['IP No','Name','ID No','Phone','Next of Kin','Next of Kin Phone','YOB','Age','Gender','Blood Group','Station','Status','Discharge Date','Discharge Notes'],
-    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.next_of_kin_name||'',p.next_of_kin_phone||'',p.yob,calcAge(p),p.gender,p.blood_group||'',p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
+  dlXLSX(['IP No','Name','ID No','Phone','Next of Kin','Next of Kin Phone','YOB','Age','Gender','Blood Group','Dialysis Access','Sessions/wk','Comorbidities','Station','Status','Discharge Date','Discharge Notes'],
+    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.next_of_kin_name||'',p.next_of_kin_phone||'',p.yob,calcAge(p),p.gender,p.blood_group||'',p.dialysis_access||'',p.sessions_per_week||'',p.comorbidities||'',p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
     'patients_'+new Date().toISOString().slice(0,10)+'.xlsx','Patients');
 }
 function dlXLSXMulti(sheets,fn){

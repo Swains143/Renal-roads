@@ -904,7 +904,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group"><label>Year of birth *</label><input id="f-yob" type="number" min="1900" max="2026" placeholder="e.g. 1985"></div>
     <div class="form-group"><label>Gender</label><select id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="form-group"><label>Blood group</label><select id="f-blood"><option value="">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
-    <div class="form-group"><label>Dialysis access</label><select id="f-access"><option value="">Not specified</option><option>AVF</option><option>AVG</option><option>Tunneled catheter</option><option>Non-tunneled catheter</option><option>Peritoneal catheter</option><option>Other</option></select></div>
+    <div class="form-group"><label>Dialysis access</label><select id="f-access"><option value="">Not specified</option><option>AVF</option><option>AVG</option><option>Tunneled catheter - Permanent</option><option>Non-tunneled catheter - Temporary</option><option>Peritoneal catheter</option><option>Other</option></select></div>
     <div class="form-group"><label>Sessions per week</label><input id="f-sessions" type="number" min="1" max="7" placeholder="e.g. 3"></div>
     <div class="form-group full"><label>Comorbidities</label><input id="f-comorbidities" placeholder="e.g. Hypertension, Diabetes (comma separated)"></div>
     <div class="form-group"><label>Station *</label>
@@ -4399,7 +4399,7 @@ function docExportPrint(){
 // =====================================================================
 const HOME_STATUSES=[{k:'Active',c:'#4E9429'},{k:'Discharged',c:'#3C3489'},{k:'Transferred',c:'#E67E22'},{k:'Transplant',c:'#0F6656'},{k:'Deceased',c:'#C0392B'}];
 function homeDonutSvg(parts){
-  const total=parts.reduce((t,p)=>t+p.v,0)||1, cx=38,cy=38,r=30,ir=18; let ang=-90,g='';
+  const total=parts.reduce((t,p)=>t+p.v,0)||1, cx=130,cy=130,r=114,ir=64; let ang=-90,g='';
   parts.forEach(p=>{
     const a0=ang, sweep=p.v/total*360; ang+=sweep;
     if(p.v<=0)return;
@@ -4408,21 +4408,21 @@ function homeDonutSvg(parts){
     const [x0,y0]=pt(a0,r),[x1,y1]=pt(a1,r),[x2,y2]=pt(a1,ir),[x3,y3]=pt(a0,ir);
     g+=`<path d="M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${ir},${ir} 0 ${large} 0 ${x3},${y3} Z" fill="${p.c}"><title>${p.k}: ${p.v}</title></path>`;
   });
-  g+=`<text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--navy)">${total}</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="6" fill="var(--gray-600)">patients</text>`;
-  return `<svg viewBox="0 0 76 76" style="width:64px;height:64px;flex-shrink:0">${g}</svg>`;
+  g+=`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="38" font-weight="700" fill="var(--navy)">${total}</text><text x="${cx}" y="${cy+26}" text-anchor="middle" font-size="16" fill="var(--gray-600)">patients</text>`;
+  return `<svg viewBox="0 0 260 260" style="width:220px;height:220px;flex-shrink:0">${g}</svg>`;
 }
 function homeStatusBarsSvg(stations){
   const max=Math.max(1,...stations.flatMap(s=>HOME_STATUSES.map(st=>s.counts[st.k]||0)));
-  const W=560,rowH=11,gap=4,ml=66,mr=26,barMax=W-ml-mr;
-  let y=4,g='';
+  const W=560,rowH=8,gap=3,ml=64,mr=24,barMax=W-ml-mr;
+  let y=3,g='';
   stations.forEach(s=>{
-    g+=`<text x="0" y="${y+8}" font-size="8" font-weight="700" fill="var(--gray-800)">${s.label}</text>`;
+    g+=`<text x="0" y="${y+6}" font-size="7" font-weight="700" fill="var(--gray-800)">${s.label}</text>`;
     HOME_STATUSES.forEach(st=>{
       const v=s.counts[st.k]||0, w=v/max*barMax;
-      g+=`<text x="${ml-5}" y="${y+6}" font-size="7" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
-      g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="6" rx="2" fill="var(--gray-100)"/>`;
-      g+=`<rect x="${ml}" y="${y}" width="${w}" height="6" rx="2" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
-      g+=`<text x="${ml+barMax+5}" y="${y+6}" font-size="7" font-weight="700" fill="var(--gray-800)">${v}</text>`;
+      g+=`<text x="${ml-5}" y="${y+4}" font-size="6" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
+      g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="4" rx="1.5" fill="var(--gray-100)"/>`;
+      g+=`<rect x="${ml}" y="${y}" width="${w}" height="4" rx="1.5" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
+      g+=`<text x="${ml+barMax+5}" y="${y+4}" font-size="6" font-weight="700" fill="var(--gray-800)">${v}</text>`;
       y+=rowH;
     });
     y+=gap;
@@ -4437,12 +4437,13 @@ function homePatientCharts(patients){
     const counts={}; HOME_STATUSES.forEach(st=>counts[st.k]=rows.filter(p=>p.status===st.k).length);
     return {label:key,total:rows.length,counts};
   });
-  const donutParts=stations.map((s,i)=>({k:s.label,v:s.total,c:i===0?'var(--navy)':'#6BBF3E'}));
-  const legend=stations.map((s,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray-800)"><span style="width:10px;height:10px;border-radius:3px;background:${i===0?'var(--navy)':'#6BBF3E'};display:inline-block"></span>${s.label}: <b>${s.total}</b></div>`).join('');
+  const HOME_STATION_COLORS=['#2E2D9F','#6BBF3E','#E67E22','#0F6656','#C0392B','#9B59B6','#2E86C1','#D4AC0D'];
+  const donutParts=stations.map((s,i)=>({k:s.label,v:s.total,c:HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]}));
+  const legend=stations.map((s,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray-800)"><span style="width:10px;height:10px;border-radius:3px;background:${HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]};display:inline-block"></span>${s.label}: <b>${s.total}</b></div>`).join('');
   const statusLegend=HOME_STATUSES.map(st=>`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-600)"><span style="width:9px;height:9px;border-radius:3px;background:${st.c};display:inline-block"></span>${st.k}</div>`).join('');
   return `<div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.6fr);gap:8px;margin-bottom:6px">
     <div class="hep-card" style="padding:6px 8px;display:flex;align-items:center;gap:8px">
-      ${homeDonutSvg(donutParts.map(p=>({...p,c:p.c==='var(--navy)'?'#2E2D9F':p.c})))}
+      ${homeDonutSvg(donutParts)}
       <div style="display:flex;flex-direction:column;gap:2px">${legend}</div>
     </div>
     <div class="hep-card" style="padding:6px 8px">
@@ -4499,6 +4500,12 @@ async function renderHome(){
       <div class="dash-card-icon" style="background:#EEF2FF"><i class="ti ti-virus-off" style="color:var(--navy);font-size:26px"></i></div>
       <h3>Disinfection</h3>
       <p>Track machine heat disinfection schedules and log reverse rinse sessions for Kigumo and Truck.</p>
+      <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
+    </div>
+    <div class="dash-card" onclick="switchTab('heparin')">
+      <div class="dash-card-icon" style="background:#FDEEEE"><i class="ti ti-droplet" style="color:var(--red);font-size:26px"></i></div>
+      <h3>Heparin</h3>
+      <p>${isViewer?'View heparin usage trends and forecasts for the Truck and Kigumo Hub.':'Log daily heparin usage and view weekly/monthly trend and forecast reports for the Truck and Kigumo Hub.'}</p>
       <div class="dash-arrow"><i class="ti ti-arrow-right"></i></div>
     </div>
     <div class="dash-card" onclick="switchTab('report')">
@@ -4616,12 +4623,12 @@ function renderPatientsView(){
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
   <div class="table-wrapper"><table>
-    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Access</th><th>Sessions/wk</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
-  if(!filtered.length)h+=`<tr><td colspan="13"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
+    <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Access</th><th>Sessions/wk</th><th>Comorbidities</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+  if(!filtered.length)h+=`<tr><td colspan="14"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
   else filtered.forEach(p=>{
     const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
-    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}${p.comorbidities?`<div style="font-size:11px;color:var(--text-2,#666)" title="Comorbidities">${repEsc(p.comorbidities)}</div>`:''}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.dialysis_access||'—'}</td><td>${p.sessions_per_week||'—'}</td><td>${p.station||'—'}</td>
+    h+=`<tr class="${rc}"><td><strong>${p.ip}</strong></td><td>${p.name}</td><td>${p.id_no||'—'}</td><td>${p.phone||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${p.gender||'—'}</td><td>${p.blood_group||'—'}</td><td>${p.dialysis_access||'—'}</td><td>${p.sessions_per_week||'—'}</td><td>${p.comorbidities||'—'}</td><td>${p.station||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span></td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });

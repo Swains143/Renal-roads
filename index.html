@@ -689,6 +689,22 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   @page{margin:10mm}
 }
 
+/* ── SHA COVER (admin only) ── */
+.sha-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.sha-chip.expired{background:var(--red-pale);color:var(--red)}
+.sha-chip.due{background:var(--amber-pale);color:var(--amber)}
+.sha-chip.active{background:var(--green-pale);color:var(--green-dark)}
+.sha-chip.notset{background:var(--gray-100);color:var(--gray-600)}
+.sha-notified{display:block;font-size:10px;color:var(--green-dark);margin-top:3px;font-weight:600}
+.sha-banner{background:var(--amber-pale);border:1px solid #F5C99A;border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:22px}
+.sha-banner h3{font-size:14px;color:#9A5410;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sha-banner-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0;border-top:1px dashed #F5C99A}
+.sha-banner-row:first-of-type{border-top:none}
+.sha-banner a{color:var(--navy);font-weight:600;cursor:pointer;text-decoration:underline}
+.sha-quick{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.sha-quick button{font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid var(--gray-200);background:var(--white);cursor:pointer;color:var(--navy)}
+.modal .form-group textarea{padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:13px;outline:none;resize:vertical;font-family:inherit}
+.sha-setup{background:var(--red-pale);border:1px solid #E8B4AE;color:var(--red);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;font-size:13px}
 </style>
 </head>
 <body>
@@ -870,6 +886,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
+    <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
     <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
@@ -882,6 +899,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
       <option value="supplies" id="opt-supplies">📦 Supplies</option>
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
+      <option value="sha" id="opt-sha" hidden>🩺 SHA Cover</option>
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
       <option value="report" id="opt-report">📋 Weekly Report</option>
       <option value="monthlyreport" id="opt-monthlyreport">🗓️ Monthly Report</option>
@@ -1127,6 +1145,26 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="modal-footer" style="justify-content:center">
     <button class="btn btn-primary" onclick="staySignedIn()"><i class="ti ti-check"></i> Stay signed in</button>
   </div>
+</div></div>
+
+<!-- SHA COVER MODAL (admin only) -->
+<div class="modal-bg" id="sha-modal"><div class="modal" style="max-width:560px">
+  <h2>SHA cover</h2><div class="modal-sub" id="sha-modal-sub"></div>
+  <div class="form-grid">
+    <div class="form-group"><label>SHA number</label><input id="sha-number" placeholder="e.g. SHA-123456789"></div>
+    <div class="form-group"><label>Cover expiry date *</label><input type="date" id="sha-expiry">
+      <div class="sha-quick"><button type="button" onclick="shaQuickExtend(1)">+1 month</button><button type="button" onclick="shaQuickExtend(3)">+3 months</button><button type="button" onclick="shaQuickExtend(12)">+12 months</button></div>
+    </div>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px">Who pays the premium</div>
+  <div class="form-grid">
+    <div class="form-group"><label>Payer name</label><input id="sha-payer-name" placeholder="Full name"></div>
+    <div class="form-group"><label>Relationship</label><select id="sha-payer-rel"><option value="">Select...</option><option>Self</option><option>Spouse</option><option>Parent</option><option>Child</option><option>Sibling</option><option>Other relative</option><option>Employer</option><option>Well-wisher / Sponsor</option><option>Other</option></select></div>
+  </div>
+  <div class="form-group"><label>Payer phone</label><input id="sha-payer-phone" placeholder="07XX XXX XXX"></div>
+  <div class="form-group"><label>Notes</label><textarea id="sha-notes" rows="2" placeholder="Anything worth remembering about this cover..."></textarea></div>
+  <div class="modal-err" id="sha-error"><i class="ti ti-alert-circle"></i><span id="sha-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('sha-modal')">Cancel</button><button class="btn btn-primary" onclick="saveSha()"><i class="ti ti-check"></i> Save</button></div>
 </div></div>
 
 <script>
@@ -1504,6 +1542,8 @@ function applyRoleTabVisibility(role){
   document.getElementById('tab-users').style.display=role==='admin'?'':'none';
   document.getElementById('opt-requests').hidden=role!=='admin';
   document.getElementById('opt-users').hidden=role!=='admin';
+  document.getElementById('tab-sha').style.display=role==='admin'?'':'none';
+  document.getElementById('opt-sha').hidden=role!=='admin';
   // Viewer: hide patients tab (sensitive data) - only Home & Supplies
   document.getElementById('tab-patients').style.display=role==='viewer'?'none':'';
   document.getElementById('opt-patients').hidden=role==='viewer';
@@ -1601,6 +1641,7 @@ async function doLogin(){
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
+    if(data.role==='admin') shaInit();
     localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
     startRequestNotifyMonitor();
@@ -1681,6 +1722,7 @@ async function restoreSession(){
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
+    if(data.role==='admin') shaInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     // Poll for new viewer comments every 30 seconds
@@ -1698,6 +1740,7 @@ async function render(){
   else if(currentTab==='supplies') await renderSupplies();
   else if(currentTab==='requests') await renderRequests();
   else if(currentTab==='users') await renderUsers();
+  else if(currentTab==='sha' && currentUser && currentUser.role==='admin') await renderSha();
   else if(currentTab==='disinfection') await renderDisinfection();
   else if(currentTab==='report') await renderReport();
   else if(currentTab==='monthlyreport') await renderMonthlyReportTab();
@@ -4506,6 +4549,7 @@ async function renderHome(){
 
   const {data:homePatients}=await db.rpc('rr_patients_list',{p_session:sessionToken});
   const hp=homePatients||[];
+  if(isAdmin) await shaLoad();
 
   let h = `
   <div class="dash-hero">
@@ -4515,6 +4559,8 @@ async function renderHome(){
       <div class="dash-hero-time"><i class="ti ti-calendar"></i>${timeStr}</div>
     </div>
   </div>
+
+  ${isAdmin?shaHomeBanner():''}
 
   ${homePatientCharts(hp)}
 
@@ -6264,6 +6310,237 @@ function hepPrint(){
   w.document.close();
 }
 
+
+// ══════════════════════════════════════════════
+// SHA COVER TRACKING  (admin only)
+// Data lives in rr_sha_cover, reached only through rr_sha_* RPCs that
+// check the caller's session is an admin (see sha_cover_setup.sql).
+// ══════════════════════════════════════════════
+const SHA_REMIND_DAYS = 30;           // remind this many days before expiry
+let shaData = {};                     // patient_id -> record
+let shaPatients = [];                 // cached patient list
+let shaSetupError = null;
+let shaFilter = {search:'', view:'attention'};
+let shaEditingId = null;
+let shaToastShown = false;
+
+function shaIsAdmin(){ return currentUser && currentUser.role==='admin'; }
+
+async function shaLoad(){
+  if(!shaIsAdmin()) return;
+  const [a,b] = await Promise.all([
+    db.rpc('rr_sha_list',{p_session:sessionToken}),
+    db.rpc('rr_patients_list',{p_session:sessionToken})
+  ]);
+  shaSetupError = a.error ? (a.error.message||'error') : null;
+  shaData = {};
+  (a.data||[]).forEach(r=>{ shaData[r.patient_id]=r; });
+  shaPatients = b.data||[];
+}
+
+function shaAddDays(dateStr, n){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d+n));
+  return dt.toISOString().slice(0,10);
+}
+function shaAddMonths(dateStr, n){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const target=new Date(Date.UTC(y,m-1+n,1));
+  const last=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();
+  target.setUTCDate(Math.min(d,last));
+  return target.toISOString().slice(0,10);
+}
+function shaTodayStr(){
+  const n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+
+// state: notset | expired | due (within 30 days) | active
+function shaInfo(p){
+  const r = shaData[p.id];
+  if(!r || !r.expiry_date) return {state:'notset', days:null, rec:r||null, notified:false, pending:false};
+  const days = disDaysUntil(r.expiry_date);
+  const state = days<0 ? 'expired' : days<=SHA_REMIND_DAYS ? 'due' : 'active';
+  const windowStart = shaAddDays(r.expiry_date, -SHA_REMIND_DAYS);
+  const notified = !!(r.last_notified_at && String(r.last_notified_at).slice(0,10) >= windowStart);
+  return {state, days, rec:r, notified, pending:(state==='expired'||state==='due') && !notified};
+}
+function shaTracked(){ // only patients currently on dialysis need cover tracking
+  return shaPatients.filter(p=>p.status==='Active');
+}
+function shaPendingList(){
+  return shaTracked().map(p=>({p, i:shaInfo(p)})).filter(x=>x.i.pending)
+    .sort((a,b)=>a.i.days-b.i.days);
+}
+function shaChip(i){
+  if(i.state==='notset') return '<span class="sha-chip notset"><i class="ti ti-clock-off"></i> Not set</span>';
+  if(i.state==='expired') return `<span class="sha-chip expired"><i class="ti ti-alert-triangle"></i> Expired ${Math.abs(i.days)}d ago</span>`;
+  if(i.state==='due') return `<span class="sha-chip due"><i class="ti ti-alert-circle"></i> Expires in ${i.days}d</span>`;
+  return `<span class="sha-chip active"><i class="ti ti-circle-check"></i> Active · ${i.days}d left</span>`;
+}
+
+function shaUpdateBadge(){
+  const b=document.getElementById('sha-badge'); if(!b) return;
+  const n = shaIsAdmin() ? shaPendingList().length : 0;
+  if(n>0){ b.style.display='inline'; b.textContent=n; } else b.style.display='none';
+}
+
+async function shaInit(){
+  await shaLoad();
+  shaUpdateBadge();
+  const pend = shaPendingList();
+  if(pend.length && !shaToastShown){
+    shaToastShown = true;
+    showToast('SHA cover reminder', `${pend.length} patient${pend.length>1?'s have':' has'} SHA cover expiring within ${SHA_REMIND_DAYS} days or already expired. Open the <b>SHA Cover</b> tab to notify them.`, 'rejected');
+  }
+  setInterval(async()=>{ await shaLoad(); shaUpdateBadge(); }, 10*60*1000);
+}
+
+function shaHomeBanner(){
+  if(shaSetupError) return '';
+  shaUpdateBadge();
+  const pend = shaPendingList();
+  if(!pend.length) return '';
+  const rows = pend.slice(0,6).map(({p,i})=>`<div class="sha-banner-row"><span><strong>${repEsc(p.name)}</strong> <span style="color:var(--gray-600)">(IP ${repEsc(p.ip)})</span></span><span>${i.state==='expired'?`Expired ${Math.abs(i.days)}d ago`:`Expires in ${i.days}d`}</span></div>`).join('');
+  return `<div class="sha-banner">
+    <h3><i class="ti ti-bell-ringing"></i> SHA cover reminder — ${pend.length} patient${pend.length>1?'s':''} to notify</h3>
+    ${rows}
+    ${pend.length>6?`<div style="font-size:12px;margin-top:6px;color:var(--gray-600)">+ ${pend.length-6} more</div>`:''}
+    <div style="margin-top:8px"><a onclick="switchTab('sha')">Open SHA Cover tracker →</a></div>
+  </div>`;
+}
+
+async function renderSha(){
+  showLoading('Loading SHA cover...');
+  await shaLoad();
+  hideLoading();
+  shaUpdateBadge();
+  shaRenderView();
+}
+
+function shaRenderView(){
+  const f = shaFilter;
+  const all = f.view==='all' ? shaPatients : shaTracked();
+  let rows = all.map(p=>({p, i:shaInfo(p)}));
+  const counts = {
+    expired: rows.filter(x=>x.i.state==='expired').length,
+    due: rows.filter(x=>x.i.state==='due').length,
+    active: rows.filter(x=>x.i.state==='active').length,
+    notset: rows.filter(x=>x.i.state==='notset').length
+  };
+  const q = f.search.trim().toLowerCase();
+  if(q) rows = rows.filter(({p,i})=>[p.name,p.ip,p.phone,i.rec&&i.rec.payer_name,i.rec&&i.rec.sha_number].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(f.view==='attention') rows = rows.filter(x=>x.i.state==='expired'||x.i.state==='due'||x.i.state==='notset');
+  else if(f.view==='notset') rows = rows.filter(x=>x.i.state==='notset');
+  else if(f.view==='covered') rows = rows.filter(x=>x.i.state==='active');
+  rows.sort((a,b)=>{
+    const ad=a.i.days===null?1e9:a.i.days, bd=b.i.days===null?1e9:b.i.days;
+    if(ad!==bd) return ad-bd;
+    return ipSortValue(a.p.ip)-ipSortValue(b.p.ip);
+  });
+
+  let h = '';
+  if(shaSetupError) h += `<div class="sha-setup"><strong>SHA tracking isn't set up yet.</strong> Run <code>sha_cover_setup.sql</code> once in the Supabase SQL Editor, then reload. <div style="margin-top:4px;font-size:11px;opacity:.8">${repEsc(shaSetupError)}</div></div>`;
+  h += `<div class="metrics">
+    <div class="metric"><div class="num" style="color:var(--red)">${counts.expired}</div><div class="lbl">Expired</div></div>
+    <div class="metric"><div class="num" style="color:var(--amber)">${counts.due}</div><div class="lbl">Expiring ≤ ${SHA_REMIND_DAYS}d</div></div>
+    <div class="metric"><div class="num" style="color:var(--green)">${counts.active}</div><div class="lbl">Active cover</div></div>
+    <div class="metric"><div class="num" style="color:var(--gray-600)">${counts.notset}</div><div class="lbl">Not set</div></div>
+  </div>
+  <div class="toolbar">
+    <input id="sha-search" placeholder="Search patient, IP, payer, SHA no..." value="${repEsc(f.search).replace(/"/g,'&quot;')}" oninput="shaFilter.search=this.value;shaRenderView()">
+    <select onchange="shaFilter.view=this.value;shaRenderView()">
+      <option value="attention" ${f.view==='attention'?'selected':''}>Needs attention</option>
+      <option value="covered" ${f.view==='covered'?'selected':''}>Active cover only</option>
+      <option value="notset" ${f.view==='notset'?'selected':''}>Not set</option>
+      <option value="active" ${f.view==='active'?'selected':''}>All active patients</option>
+      <option value="all" ${f.view==='all'?'selected':''}>All patients (any status)</option>
+    </select>
+  </div>
+  <div class="table-wrapper"><table>
+    <thead><tr><th>IP No.</th><th>Patient</th><th>SHA No.</th><th>Expiry</th><th>Status</th><th>Premium paid by</th><th>Contact</th><th>Actions</th></tr></thead><tbody>`;
+  if(!rows.length) h += `<tr><td colspan="8"><div class="empty"><i class="ti ti-shield-check"></i>${f.view==='attention'?'Nothing needs attention right now 🎉':'No patients found'}</div></td></tr>`;
+  rows.forEach(({p,i})=>{
+    const r = i.rec||{};
+    const payer = r.payer_name ? `${repEsc(r.payer_name)}${r.payer_relationship?`<div style="font-size:11px;color:var(--gray-600)">${repEsc(r.payer_relationship)}</div>`:''}` : '<span style="color:var(--gray-400)">—</span>';
+    const phone = r.payer_phone || p.next_of_kin_phone || p.phone || '';
+    const canRemind = (i.state==='due'||i.state==='expired');
+    h += `<tr>
+      <td><strong>${repEsc(p.ip)}</strong></td>
+      <td>${repEsc(p.name)}${p.status!=='Active'?`<div style="font-size:11px;color:var(--gray-400)">${repEsc(p.status)}</div>`:''}</td>
+      <td>${r.sha_number?repEsc(r.sha_number):'—'}</td>
+      <td style="white-space:nowrap">${r.expiry_date?disFormatDate(String(r.expiry_date).slice(0,10)):'—'}</td>
+      <td>${shaChip(i)}${i.notified?`<span class="sha-notified"><i class="ti ti-check"></i> Notified ${disFormatDate(String(r.last_notified_at).slice(0,10))}</span>`:''}</td>
+      <td>${payer}</td>
+      <td>${phone?repEsc(phone):'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="openSha('${p.id}')"><i class="ti ti-edit"></i> ${r.expiry_date?'Update':'Set'}</button>
+        ${canRemind&&phone?`<button class="btn btn-sm" title="Open SMS to remind" onclick="shaSms('${p.id}')"><i class="ti ti-message"></i></button>`:''}
+        ${canRemind&&!i.notified?`<button class="btn btn-sm" title="Mark as notified" onclick="shaMarkNotified('${p.id}')"><i class="ti ti-check"></i> Notified</button>`:''}
+      </td></tr>`;
+  });
+  h += '</tbody></table></div>';
+  renderMainPreserveFocus(h);
+}
+
+function openSha(id){
+  const p = shaPatients.find(x=>x.id===id); if(!p) return;
+  const r = shaData[id]||{};
+  shaEditingId = id;
+  document.getElementById('sha-modal-sub').textContent = `${p.name} · IP ${p.ip}`;
+  document.getElementById('sha-number').value = r.sha_number||'';
+  document.getElementById('sha-expiry').value = r.expiry_date?String(r.expiry_date).slice(0,10):'';
+  document.getElementById('sha-payer-name').value = r.payer_name||'';
+  document.getElementById('sha-payer-rel').value = r.payer_relationship||'';
+  document.getElementById('sha-payer-phone').value = r.payer_phone||'';
+  document.getElementById('sha-notes').value = r.notes||'';
+  document.getElementById('sha-error').classList.remove('show');
+  document.getElementById('sha-modal').classList.add('open');
+}
+function shaQuickExtend(months){
+  const el = document.getElementById('sha-expiry');
+  const today = shaTodayStr();
+  // extend from the current expiry if it's still in the future, otherwise from today
+  const base = (el.value && el.value > today) ? el.value : today;
+  el.value = shaAddMonths(base, months);
+}
+async function saveSha(){
+  const err = m=>{ document.getElementById('sha-error-msg').textContent=m; document.getElementById('sha-error').classList.add('show'); };
+  const expiry = document.getElementById('sha-expiry').value;
+  if(!expiry){ err('Please enter the cover expiry date.'); return; }
+  showLoading('Saving...');
+  const {error} = await db.rpc('rr_sha_save',{
+    p_session:sessionToken, p_patient_id:shaEditingId,
+    p_sha_number:document.getElementById('sha-number').value.trim()||null,
+    p_expiry_date:expiry,
+    p_payer_name:document.getElementById('sha-payer-name').value.trim()||null,
+    p_payer_relationship:document.getElementById('sha-payer-rel').value||null,
+    p_payer_phone:document.getElementById('sha-payer-phone').value.trim()||null,
+    p_notes:document.getElementById('sha-notes').value.trim()||null,
+    p_by_user:(currentUser&&currentUser.name)||'Admin'
+  });
+  hideLoading();
+  if(error){ err('Save failed: '+error.message); return; }
+  closeModal('sha-modal');
+  await shaLoad(); shaUpdateBadge();
+  if(currentTab==='sha') shaRenderView();
+}
+async function shaMarkNotified(id){
+  showLoading('Saving...');
+  const {error} = await db.rpc('rr_sha_mark_notified',{p_session:sessionToken,p_patient_id:id,p_by_user:(currentUser&&currentUser.name)||'Admin'});
+  hideLoading();
+  if(error){ alert('Failed: '+error.message); return; }
+  await shaLoad(); shaUpdateBadge(); shaRenderView();
+}
+function shaSms(id){
+  const p = shaPatients.find(x=>x.id===id); if(!p) return;
+  const i = shaInfo(p), r = i.rec||{};
+  const phone = (r.payer_phone || p.next_of_kin_phone || p.phone || '').replace(/[^\d+]/g,'');
+  if(!phone){ alert('No phone number on file.'); return; }
+  const when = i.state==='expired' ? `expired on ${disFormatDate(String(r.expiry_date).slice(0,10))}` : `expires on ${disFormatDate(String(r.expiry_date).slice(0,10))}`;
+  const msg = `Hello${r.payer_name?' '+r.payer_name:''}, this is Renal Roads. The SHA cover for ${p.name} ${when}. Please update the SHA premium so dialysis services are not interrupted. Thank you.`;
+  window.location.href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
+}
 </script>
 
 <!-- Supply Comment Modal -->

@@ -6140,6 +6140,8 @@ render=async function(){
   return _hepOrigRender();
 };
 function hepIso(d){return d.toISOString().slice(0,10);}
+// Today's date in the user's own timezone (Nairobi). toISOString() is UTC, which is still 'yesterday' from midnight to 3am here.
+function hepLocalToday(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 const HEP_MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function hepStepDate(d,gran,n){const r=new Date(d);if(gran==='month')r.setUTCMonth(r.getUTCMonth()+n);else r.setUTCDate(r.getUTCDate()+n);return r;}
 function hepKeyOf(d,gran){return gran==='month'?d.toISOString().slice(0,7):hepIso(d);}
@@ -6157,7 +6159,7 @@ function hepModel(){
   const gran=hepState.mode==='year'?'month':'day';
   const days=hepState.mode==='week'?7:hepState.mode==='month'?30:12;
   const fitDays=hepState.mode==='week'?14:hepState.mode==='month'?30:24;
-  const todayD=new Date();todayD.setUTCHours(0,0,0,0);
+  const todayD=new Date(hepLocalToday()+'T00:00:00Z');
   const end=hepStepDate(todayD,gran,-offset*days);
   const all=hepSeriesFromUsage(rows,fitDays,end,gran), n=all.length, ys=all.map(p=>p.v);
   const mx=(n-1)/2, my=ys.reduce((a,b)=>a+b,0)/n;
@@ -6236,8 +6238,8 @@ async function renderHeparin(){
     mc.innerHTML=`<div class="hep-page"><div class="hep-card">${hubTabs}</div><div class="alert alert-info" style="margin-top:4px"><i class="ti ti-info-circle"></i><div><b>Heparin tracking isn't set up in the database yet.</b><br>The app tried to call <code>rr_heparin_usage_list</code> and got: <i>${hepSetupError}</i>.<br>Ask whoever manages the database to run the setup SQL, then reload this page.</div></div></div>`;
     return;
   }
-  const m=hepModel(), today=hepIso(new Date());
-  const todayUsed=(hepUsage[hepState.hub]||[]).filter(r=>r.usage_date===today).reduce((t,r)=>t+Number(r.qty),0);
+  const m=hepModel(), today=hepLocalToday();
+  const todayUsed=(hepUsage[hepState.hub]||[]).filter(r=>String(r.usage_date).slice(0,10)===today).reduce((t,r)=>t+Number(r.qty),0);
   const r=x=>Math.round(x*10)/10, st=(l,v)=>`<div class="hep-stat"><span>${l}</span><b>${v}</b></div>`;
   mc.innerHTML=`<div class="hep-page">
    <div class="hep-card">${hubTabs}${isAdmin?`<div class="hep-form" style="margin-top:12px"><div><label>Daily limit for ${HEP_HUBS.find(h=>h.key===m.hub).label} (optional, ${m.unit})</label><input type="number" id="hep-daily-limit" value="${m.limit||''}"></div><div><button class="btn" style="width:100%" onclick="hepSaveLimit()"><i class="ti ti-device-floppy"></i> Save limit</button></div></div>`:''}</div>
@@ -6267,12 +6269,12 @@ async function renderHeparin(){
 }
 async function hepSave(){
   const hub=hepState.hub, g=id=>document.getElementById(id).value.trim();
-  const date=g('hep-date'),qty=parseInt(g('hep-qty')),note=g('hep-note'),today=hepIso(new Date());
+  const date=g('hep-date'),qty=parseInt(g('hep-qty')),note=g('hep-note'),today=hepLocalToday();
   const limit=hepLimits[hub]||null;
   if(!qty||qty<1){alert('Enter the quantity used.');return;}
   if(!date||date>today){alert('Choose today or an earlier date.');return;}
   if(limit){
-    const tot=(hepUsage[hub]||[]).filter(r=>r.usage_date===date).reduce((t,r)=>t+Number(r.qty),0)+qty;
+    const tot=(hepUsage[hub]||[]).filter(r=>String(r.usage_date).slice(0,10)===date).reduce((t,r)=>t+Number(r.qty),0)+qty;
     if(tot>limit&&!note){alert(`That brings ${date} to ${tot} ${'vials'}, over the daily limit of ${limit}. Please add a reason in Notes.`);return;}
   }
   showLoading('Saving...');
@@ -6294,7 +6296,7 @@ function hepExport(){
   const m=hepModel();const f=x=>Math.round(x*10)/10;
   dlXLSX([m.gran==='month'?'Month':'Date','Type','Used','Likely low','Likely high'],
     [...m.hist.map(p=>[m.gran==='month'?hepLabelOf(p.date,'month'):p.date,'Actual',p.v,'','']),...m.fc.map(p=>[m.gran==='month'?hepLabelOf(p.date,'month'):p.date,'Forecast',f(p.v),f(p.lo),f(p.hi)])],
-    'heparin_'+m.hub+'_'+m.mode+'ly_'+(m.hist.length?m.hist[0].date+'_to_'+m.hist[m.hist.length-1].date:hepIso(new Date()))+'.xlsx','Heparin usage');
+    'heparin_'+m.hub+'_'+m.mode+'ly_'+(m.hist.length?m.hist[0].date+'_to_'+m.hist[m.hist.length-1].date:hepLocalToday())+'.xlsx','Heparin usage');
 }
 function hepPrint(){
   const m=hepModel();const f=x=>Math.round(x*10)/10,u=m.unit,isMonth=m.gran==='month';
@@ -6302,7 +6304,7 @@ function hepPrint(){
   const row=(p,t)=>`<tr><td>${isMonth?hepLabelOf(p.date,'month'):p.date}</td><td>${t}</td><td>${f(p.v)}</td></tr>`;
   const modeLabel=m.mode==='week'?'Weekly':m.mode==='month'?'Monthly':'Yearly';
   w.document.write(`<html><head><title>Heparin ${m.mode}ly report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ccc;padding:4px 8px;text-align:left}</style></head><body>
-  <h2>Heparin usage – ${modeLabel} report</h2><p>${HEP_HUBS.find(h=>h.key===m.hub).label} · Period: ${m.periodLabel} · Generated ${hepIso(new Date())}</p>
+  <h2>Heparin usage – ${modeLabel} report</h2><p>${HEP_HUBS.find(h=>h.key===m.hub).label} · Period: ${m.periodLabel} · Generated ${hepLocalToday()}</p>
   <p>Total used: <b>${f(m.total)} ${u}</b> · Average/${m.periodNoun}: <b>${f(m.avg)}</b> · Peak: <b>${m.peak.v}</b> (${hepLabelOf(m.peak.date,m.gran)})${m.over===null?'':` · ${m.periodNoun==='month'?'Months':'Days'} over limit: <b>${m.over}</b>`}</p>
   ${hepChartSvg(m)}<p>${hepSummaryText(m)}</p>
   <table><thead><tr><th>${isMonth?'Month':'Date'}</th><th>Type</th><th>Used (${u})</th></tr></thead><tbody>${m.hist.map(p=>row(p,'Actual')).join('')}${m.fc.map(p=>row(p,'Forecast')).join('')}</tbody></table>
@@ -6320,7 +6322,7 @@ const SHA_REMIND_DAYS = 30;           // remind this many days before expiry
 let shaData = {};                     // patient_id -> record
 let shaPatients = [];                 // cached patient list
 let shaSetupError = null;
-let shaFilter = {search:'', view:'attention'};
+let shaFilter = {search:'', view:'active'};
 let shaEditingId = null;
 let shaToastShown = false;
 
@@ -6450,7 +6452,7 @@ function shaRenderView(){
   <div class="toolbar">
     <input id="sha-search" placeholder="Search patient, IP, payer, SHA no..." value="${repEsc(f.search).replace(/"/g,'&quot;')}" oninput="shaFilter.search=this.value;shaRenderView()">
     <select onchange="shaFilter.view=this.value;shaRenderView()">
-      <option value="attention" ${f.view==='attention'?'selected':''}>Needs attention</option>
+      <option value="attention" ${f.view==='attention'?'selected':''}>Needs attention (expired / due / not set)</option>
       <option value="covered" ${f.view==='covered'?'selected':''}>Active cover only</option>
       <option value="notset" ${f.view==='notset'?'selected':''}>Not set</option>
       <option value="active" ${f.view==='active'?'selected':''}>All active patients</option>
@@ -6523,6 +6525,8 @@ async function saveSha(){
   if(error){ err('Save failed: '+error.message); return; }
   closeModal('sha-modal');
   await shaLoad(); shaUpdateBadge();
+  // a saved patient could vanish from a narrow filter, so show everyone after saving
+  if(shaFilter.view==='attention'||shaFilter.view==='notset') shaFilter.view='active';
   if(currentTab==='sha') shaRenderView();
 }
 async function shaMarkNotified(id){

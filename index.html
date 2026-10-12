@@ -6223,7 +6223,7 @@ function hepChartSvg(m){
   const all=[...m.hist,...m.fc],step=m.gran==='month'?1:Math.ceil(N/9);
   all.forEach((p,i)=>{if(i%step===0)g+=`<text x="${X(i)}" y="${H-mb+14}" font-size="10" text-anchor="middle" fill="#5A5A88">${hepLabelShort(p.date,m.gran)}</text>`;});
   const usedLbl=m.gran==='month'?'Monthly used':'Daily used', trendLbl=m.gran==='month'?'Trend (3-mo avg)':'Trend (3 recorded days)';
-  g+=`<g font-size="10" fill="#5A5A88"><rect x="${ml}" y="${H-12}" width="10" height="8" fill="#4A49C4"/><text x="${ml+14}" y="${H-5}">${usedLbl}</text><line x1="${ml+80}" x2="${ml+96}" y1="${H-8}" y2="${H-8}" stroke="#6BBF3E" stroke-width="2.5"/><text x="${ml+100}" y="${H-5}">${trendLbl}</text>${m.fc.length?`<line x1="${ml+200}" x2="${ml+216}" y1="${H-8}" y2="${H-8}" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${ml+220}" y="${H-5}">Predicted (shaded = likely range)</text>`:''}</g>`;
+  g+=`<g font-size="10" fill="#5A5A88"><rect x="${ml}" y="${H-12}" width="10" height="8" fill="#4A49C4"/><text x="${ml+14}" y="${H-5}">${usedLbl}</text><line x1="${ml+80}" x2="${ml+96}" y1="${H-8}" y2="${H-8}" stroke="#6BBF3E" stroke-width="2.5"/><text x="${ml+100}" y="${H-5}">${trendLbl}</text>${m.fc.length?`<line x1="${ml+245}" x2="${ml+261}" y1="${H-8}" y2="${H-8}" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${ml+265}" y="${H-5}">Predicted (shaded = likely range)</text>`:''}</g>`;
   return `<svg class="hep-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif">${g}</svg>`;
 }
 function hepSummaryText(m){

@@ -1120,6 +1120,7 @@ let sessionToken = null;
 let currentTab = 'home';
 let patients = [];
 let supplies = [];
+let archivedSupplies = [], showArchived = false;
 let suppliesUnread = {}; // cached comment-unread counts per supply id, refreshed on full reloads only
 
 // Re-renders #main-content while preserving whichever input was focused
@@ -1320,6 +1321,13 @@ function hideLoading(){document.getElementById('loading-overlay').classList.add(
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yob:YEAR-p.yob;}
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
+// Real activity only: leaves out a reversed movement AND the reversal entry that cancelled it.
+// (Stock level still uses every row, because the pair nets to zero.)
+function liveMovements(s){
+  const ms=s.movements||[];
+  const reversed=new Set(ms.filter(m=>m.reversal_of).map(m=>m.reversal_of));
+  return ms.filter(m=>!m.reversal_of&&!reversed.has(m.id));
+}
 // Shared error surfacing for supply/stock writes. Returns true if the RPC failed
 // (and has already told the user why), so callers can stop instead of pretending it saved.
 function rpcFailed(error, what){
@@ -5028,7 +5036,9 @@ async function renderSupplies(){
   showLoading('Loading supplies...');
   const {data,error:listErr}=await db.rpc('rr_supplies_list',{p_session:sessionToken});
   if(listErr){ hideLoading(); rpcFailed(listErr,'loading the supplies list (what you see may be out of date)'); }
-  supplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const _allSupplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  supplies=_allSupplies.filter(s=>!s.archived_at);
+  archivedSupplies=_allSupplies.filter(s=>s.archived_at);
   const isAdmin=currentUser&&currentUser.role==='admin';
   const isViewer = currentUser && currentUser.role === 'viewer';
   suppliesUnread={};
@@ -5060,6 +5070,7 @@ function renderSuppliesView(){
     ${isAdmin?`<button class="btn btn-primary" onclick="openAddSupply()"><i class="ti ti-plus"></i> Add ${cat.singular}</button>`:''}
     <button class="btn btn-green" onclick="openRequestModal()"><i class="ti ti-send"></i> Request item</button>
     ${isAdmin?'<button class="btn" onclick="exportSupplies()"><i class="ti ti-download"></i> Export</button>':''}
+    ${isAdmin?`<button class="btn" onclick="showArchived=!showArchived;renderSuppliesView()"><i class="ti ti-archive"></i> Archived (${archivedSupplies.filter(s=>(s.category||'supply')===currentSupplyCategory).length})</button><button class="btn" onclick="showAuditLog()"><i class="ti ti-history"></i> Audit log</button>`:''}
   </div>`;
   if(isViewer) h+=`<div class="viewer-banner"><i class="ti ti-eye"></i>You have view-only access. You can leave comments on items and the admin will reply here.</div>`;
   else if(!isAdmin)h+=`<div class="alert alert-info"><i class="ti ti-info-circle"></i><div>You can view stock levels and request items here. Only an admin can update stock or edit ${cat.plural.toLowerCase()}.</div></div>`;
@@ -5081,10 +5092,15 @@ function renderSuppliesView(){
       <td class="${showLow?'stock-low':''}">${stock}${showLow?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
-      ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button></td>`:''}
+      ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> ${(s.movements||[]).length?`<button class="btn btn-sm" title="Archive (keeps the history)" onclick="archiveSupply('${s.id}',true)"><i class="ti ti-archive"></i></button>`:`<button class="btn btn-sm btn-danger" title="Delete (only possible while it has no history)" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button>`}</td>`:''}
       ${(isViewer||isAdmin)?`<td><button class="btn btn-sm supply-comment-btn" style="${unreadCount?'background:#7C3AED;color:#fff;border-color:#7C3AED':''}" onclick="openCommentModal('${s.id}','${s.name.replace(/'/g,"\\'")}')"><i class="ti ti-message-circle"></i>${unreadCount?` ${unreadCount} New`:(isAdmin?' View/Add':' Comment')}</button></td>`:''}</tr>`;
   });
   h+=`</tbody></table></div>`;
+  if(isAdmin&&showArchived){
+    const arch=archivedSupplies.filter(s=>(s.category||'supply')===currentSupplyCategory);
+    h+=`<div class="section-label" style="margin-top:16px">Archived ${cat.plural.toLowerCase()} (${arch.length})</div>`;
+    h+=arch.length?`<div class="table-wrapper"><table><thead><tr><th>Item</th><th>Unit</th><th>Archived</th><th>Log</th><th></th></tr></thead><tbody>${arch.map(s=>`<tr><td><strong>${repEsc(s.name)}</strong></td><td>${repEsc(s.unit)}</td><td>${new Date(s.archived_at).toLocaleDateString()}</td><td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td><td><button class="btn btn-sm" onclick="archiveSupply('${s.id}',false)"><i class="ti ti-arrow-back-up"></i> Restore</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="empty" style="padding:16px">No archived ${cat.plural.toLowerCase()}</div>`;
+  }
   renderMainPreserveFocus(h);
 }
 function switchSupplyCategory(cat){
@@ -5134,6 +5150,39 @@ async function deleteSupply(id){
   hideLoading();
   if(rpcFailed(delErr,'deleting this item'))return;
   await renderSupplies();
+}
+
+async function archiveSupply(id,archive){
+  const s=(archive?supplies:archivedSupplies).find(x=>x.id===id);if(!s)return;
+  if(archive){
+    const st=getStock(s);
+    if(st!==0){alert('Stock must be 0 before an item can be archived (currently '+st+' '+s.unit+').\n\nRecord the remaining stock as OUT first (for example as wastage or returned to supplier).');return;}
+    if(!confirm('Archive "'+s.name+'"? It will be hidden from the list and from requests, but its full history is kept and you can restore it later.'))return;
+  }
+  showLoading(archive?'Archiving...':'Restoring...');
+  const {error}=await db.rpc('rr_supply_archive',{p_session:sessionToken,p_id:id,p_archive:archive});
+  hideLoading();
+  if(rpcFailed(error,archive?'archiving this item':'restoring this item'))return;
+  await renderSupplies();
+}
+async function showAuditLog(){
+  if(!currentUser||currentUser.role!=='admin')return;
+  showLoading('Loading audit log...');
+  const {data,error}=await db.rpc('rr_audit_list',{p_session:sessionToken,p_limit:300});
+  hideLoading();
+  if(rpcFailed(error,'loading the audit log'))return;
+  const rows=data||[];
+  const nameOf=id=>{const s=supplies.find(x=>x.id===id)||archivedSupplies.find(x=>x.id===id);return s?s.name:'—';};
+  const labels={movement_reversed:'Movement reversed',item_archived:'Item archived',item_restored:'Item restored',item_deleted:'Item deleted',request_approved:'Request approved',request_rejected:'Request rejected'};
+  const fmt=d=>Object.entries(d||{}).filter(([,v])=>v!==null&&v!=='').map(([k,v])=>k.replace(/_/g,' ')+': '+v).join(' · ');
+  document.getElementById('mv-title').textContent='Audit log — supplies';
+  document.getElementById('mv-sub').textContent='Latest '+rows.length+' recorded actions';
+  let h=`<div class="table-wrapper"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Item</th><th>Details</th></tr></thead><tbody>`;
+  if(!rows.length)h+=`<tr><td colspan="5"><div class="empty" style="padding:20px">Nothing recorded yet</div></td></tr>`;
+  else rows.forEach(a=>{h+=`<tr><td style="white-space:nowrap">${new Date(a.logged_at).toLocaleString()}</td><td>${repEsc(a.actor||'—')}</td><td>${labels[a.action]||repEsc(a.action)}</td><td>${repEsc(nameOf(a.supply_id))}</td><td style="font-size:12px">${repEsc(fmt(a.detail))}</td></tr>`;});
+  h+=`</tbody></table></div>`;
+  document.getElementById('mv-content').innerHTML=h;
+  document.getElementById('movements-view-modal').classList.add('open');
 }
 function openMovement(supplyId,type){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
@@ -5227,7 +5276,7 @@ async function confirmMovement(){
 
   if(pendingMovement.type==='OUT'&&s.daily_limit){
     const dayKey = isBackdated ? effectiveDate : today;
-    const dayTotal=(s.movements||[]).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===dayKey).reduce((t,m)=>t+m.qty,0)+qty;
+    const dayTotal=liveMovements(s).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===dayKey).reduce((t,m)=>t+m.qty,0)+qty;
     if(dayTotal>s.daily_limit){
       const overBy=dayTotal-s.daily_limit;
       const dayLabel = isBackdated ? `usage on ${effectiveDate}` : "today's usage";
@@ -5275,32 +5324,40 @@ async function confirmMovement(){
   closeModal('movement-modal');pendingMovement=null;await renderSupplies();
 }
 async function showMovements(supplyId){
-  const s=supplies.find(x=>x.id===supplyId);if(!s)return;
+  const s=supplies.find(x=>x.id===supplyId)||archivedSupplies.find(x=>x.id===supplyId);if(!s)return;
   const isAdmin=currentUser&&currentUser.role==='admin';
   showLoading('Loading log...');
   const {data}=await db.rpc('rr_movements_list',{p_session:sessionToken,p_supply_id:supplyId});
   hideLoading();
+  const rows=data||[];
+  const reversedIds=new Set(rows.filter(m=>m.reversal_of).map(m=>m.reversal_of));
   document.getElementById('mv-title').textContent='Movement log — '+s.name;
-  document.getElementById('mv-sub').textContent='Current stock: '+getStock(s)+' '+s.unit+' · Movements: '+(data||[]).length;
+  document.getElementById('mv-sub').textContent='Current stock: '+getStock(s)+' '+s.unit+' · Entries: '+rows.length;
   let h=`<div class="table-wrapper"><table><thead><tr><th>#</th><th>Type</th><th>Qty</th><th>Notes</th><th>By</th><th>Date</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>`;
-  if(!(data||[]).length)h+=`<tr><td colspan="${isAdmin?7:6}"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
-  else(data||[]).forEach((m,i)=>{h+=`<tr><td>${i+1}</td><td><span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span></td><td><strong>${m.qty}</strong> ${s.unit}</td><td>${m.note||'—'}</td><td>${m.by_user||'—'}</td><td>${new Date(m.created_at).toLocaleDateString()}</td>${isAdmin?`<td><button class="btn btn-sm btn-danger" onclick="cancelMovement('${supplyId}','${m.id}')"><i class="ti ti-x"></i> Cancel</button></td>`:''}</tr>`;});
+  if(!rows.length)h+=`<tr><td colspan="${isAdmin?7:6}"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
+  else rows.forEach((m,i)=>{
+    const isRev=!!m.reversal_of, wasRev=reversedIds.has(m.id);
+    const badge=`<span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span>${isRev?' <span class="status-badge s-transferred">Reversal</span>':''}${wasRev?' <span class="status-badge s-deceased">Reversed</span>':''}`;
+    const action=isAdmin?`<td>${(!isRev&&!wasRev)?`<button class="btn btn-sm btn-danger" onclick="reverseMovement('${s.id}','${m.id}')"><i class="ti ti-arrow-back-up"></i> Reverse</button>`:''}</td>`:'';
+    h+=`<tr style="${(isRev||wasRev)?'color:var(--gray-400)':''}"><td>${i+1}</td><td>${badge}</td><td><strong>${m.qty}</strong> ${repEsc(s.unit)}</td><td>${repEsc(m.note||'—')}</td><td>${repEsc(m.by_user||'—')}</td><td title="${new Date(m.created_at).toLocaleString()}">${new Date(m.created_at).toLocaleDateString()}</td>${action}</tr>`;
+  });
   h+=`</tbody></table></div>`;
-  if(isAdmin)h+=`<div class="alert alert-info" style="margin-top:12px"><i class="ti ti-info-circle"></i><div>Cancelling a movement reverses its effect on the stock level and removes it from this log.</div></div>`;
+  if(isAdmin)h+=`<div class="alert alert-info" style="margin-top:12px"><i class="ti ti-info-circle"></i><div>Reversing a movement adds an equal and opposite entry, so the stock level is corrected and the original stays in this log. A reason is required.</div></div>`;
   document.getElementById('mv-content').innerHTML=h;
   document.getElementById('movements-view-modal').classList.add('open');
 }
-async function cancelMovement(supplyId,movementId){
-  if(!currentUser||currentUser.role!=='admin'){alert('Only an admin can cancel a movement.');return;}
-  if(!confirm('Cancel this movement? This will reverse its effect on the stock level.'))return;
-  showLoading('Cancelling...');
-  const {error:cmErr}=await db.rpc('rr_movement_delete',{p_session:sessionToken,p_id:movementId});
+async function reverseMovement(supplyId,movementId){
+  if(!currentUser||currentUser.role!=='admin'){alert('Only an admin can reverse a movement.');return;}
+  const reason=prompt('Why is this movement being reversed? (required)');
+  if(reason===null)return;
+  if(!reason.trim()){alert('A reason is required to reverse a movement.');return;}
+  showLoading('Reversing...');
+  const {error}=await db.rpc('rr_movement_reverse',{p_session:sessionToken,p_id:movementId,p_reason:reason.trim(),p_by_user:currentUser.name||'Admin'});
   hideLoading();
-  if(rpcFailed(cmErr,'cancelling this movement'))return;
+  if(rpcFailed(error,'reversing this movement'))return;
   await renderSupplies();
   await showMovements(supplyId);
 }
-
 // REQUESTS
 function openRequestModal(){
   document.getElementById('r-item').innerHTML=supplies.map(s=>`<option value="${s.id}">${(s.category==='medication'?'💊 ':'📦 ')}${s.name} (${getStock(s)} ${s.unit})</option>`).join('');
@@ -5330,7 +5387,13 @@ async function renderRequests(){
       pending.forEach(r=>{h+=`<div class="request-card pending"><div><div style="font-weight:700;margin-bottom:3px">${r.supplies?r.supplies.name:'Unknown'}</div><div style="font-size:12px;color:var(--gray-600)">Qty: <strong>${r.qty}</strong> ${r.supplies?r.supplies.unit:''} &nbsp;·&nbsp; By: ${r.requested_by||'Unknown'} &nbsp;·&nbsp; ${r.notes||'No notes'}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${new Date(r.created_at).toLocaleString()}</div></div><div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-sm btn-green" onclick="approveRequest('${r.id}','${r.supply_id}',${r.qty},'${r.requested_by||''}')"><i class="ti ti-check"></i> Approve</button><button class="btn btn-sm btn-danger" onclick="rejectRequest('${r.id}')"><i class="ti ti-x"></i> Reject</button></div></div>`;});
     }
     if(done.length){h+=`<div class="section-label" style="margin-top:16px">Resolved (${done.length})</div>`;
-      done.forEach(r=>{h+=`<div class="request-card ${r.status}"><div><div style="font-weight:700">${r.supplies?r.supplies.name:'Unknown'}</div><div style="font-size:12px;color:var(--gray-600)">Qty: ${r.qty} · By: ${r.requested_by||'Unknown'} · ${new Date(r.created_at).toLocaleString()}</div></div><span style="font-size:12px;padding:4px 12px;border-radius:20px;font-weight:700;background:${r.status==='approved'?'var(--green-pale)':'#FCEBEB'};color:${r.status==='approved'?'#2E6B10':'#791F1F'}">${r.status}</span></div>`;});
+      done.forEach(r=>{
+        const ok=r.status==='approved', partial=ok&&r.dispensed_qty!=null&&r.dispensed_qty<r.qty;
+        const label=partial?'partially approved':r.status;
+        const col=partial?['var(--amber-pale)','#7A4510']:ok?['var(--green-pale)','#2E6B10']:['#FCEBEB','#791F1F'];
+        const detail=[ok&&r.dispensed_qty!=null?'Dispensed: '+r.dispensed_qty:'',r.resolved_by?(ok?'Approved':'Rejected')+' by '+repEsc(r.resolved_by):'',r.resolved_at?new Date(r.resolved_at).toLocaleString():'',r.resolved_note?'Note: '+repEsc(r.resolved_note):''].filter(Boolean).join(' · ');
+        h+=`<div class="request-card ${r.status}"><div><div style="font-weight:700">${r.supplies?r.supplies.name:'Unknown'}</div><div style="font-size:12px;color:var(--gray-600)">Qty: ${r.qty} · By: ${r.requested_by||'Unknown'} · ${new Date(r.created_at).toLocaleString()}</div>${detail?`<div style="font-size:11px;color:var(--gray-600);margin-top:2px">${detail}</div>`:''}</div><span style="font-size:12px;padding:4px 12px;border-radius:20px;font-weight:700;background:${col[0]};color:${col[1]}">${label}</span></div>`;
+      });
     }
   }
   document.getElementById('main-content').innerHTML=h;
@@ -5386,9 +5449,13 @@ async function confirmApprove() {
   await updateBadge();
 }
 async function rejectRequest(id){
+  const reason=prompt('Reason for rejecting this request (optional):');
+  if(reason===null)return;
   showLoading('Rejecting...');
-  await db.rpc('rr_request_reject',{p_session:sessionToken,p_id:id});
-  hideLoading();await renderRequests();await updateBadge();
+  const {error:rjErr}=await db.rpc('rr_request_reject',{p_session:sessionToken,p_id:id,p_reason:reason.trim()||null});
+  hideLoading();
+  if(rpcFailed(rjErr,'rejecting this request'))return;
+  await renderRequests();await updateBadge();
 }
 
 // USERS
@@ -5613,7 +5680,7 @@ function buildMonthlyPivotSupplies(items){
   const monthKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   const monthLabel=d=>d.toLocaleString('default',{month:'short',year:'numeric'});
   let minDate=null;
-  items.forEach(s=>(s.movements||[]).forEach(m=>{
+  items.forEach(s=>liveMovements(s).forEach(m=>{
     const d=new Date(m.created_at);
     if(!minDate||d<minDate)minDate=d;
   }));
@@ -5655,7 +5722,7 @@ function buildMonthlyPivotSupplies(items){
 
   const dataRows=items.map(s=>{
     const byMonth={};
-    (s.movements||[]).forEach(m=>{
+    liveMovements(s).forEach(m=>{
       const key=monthKey(new Date(m.created_at));
       if(!byMonth[key])byMonth[key]={in:0,out:0};
       if(m.type==='IN')byMonth[key].in+=m.qty; else byMonth[key].out+=m.qty;
@@ -5684,7 +5751,7 @@ function buildDailyUsageAlerts(items){
   const rows=[];
   items.filter(s=>s.daily_limit).forEach(s=>{
     const byDay={};
-    (s.movements||[]).filter(m=>m.type==='OUT').forEach(m=>{
+    liveMovements(s).filter(m=>m.type==='OUT').forEach(m=>{
       const key=new Date(m.created_at).toISOString().slice(0,10);
       if(!byDay[key])byDay[key]={total:0,notes:[]};
       byDay[key].total+=m.qty;

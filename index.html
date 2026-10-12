@@ -1007,6 +1007,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="form-grid">
     <div class="form-group"><label>Quantity *</label><input id="m-qty" type="number" min="1" value="1" oninput="updateNetSummary()"></div>
     <div class="form-group"><label>Recorded by</label><input id="m-by" placeholder="Your name"></div>
+    <div class="form-group full" id="m-brand-group" style="display:none"><label id="m-brand-label">Brand (optional)</label><input id="m-brand" list="m-brand-list" placeholder="e.g. Fresenius, Nipro"><datalist id="m-brand-list"></datalist><select id="m-brand-select" style="display:none"></select></div>
     <div class="form-group full"><label>Notes</label><input id="m-notes" placeholder="Reason or details"></div>
   </div>
   <div id="m-backdate-section" style="display:none;margin-top:8px">
@@ -1042,6 +1043,10 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group full">
       <label>Item</label>
       <input id="ap-item-name" readonly style="background:var(--gray-100);color:var(--gray-600)">
+    </div>
+    <div class="form-group full" id="ap-brand-group" style="display:none">
+      <label>Brand to dispense from *</label>
+      <select id="ap-brand"></select>
     </div>
     <div class="form-group">
       <label>Requested qty</label>
@@ -1326,7 +1331,23 @@ function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty
 function liveMovements(s){
   const ms=s.movements||[];
   const reversed=new Set(ms.filter(m=>m.reversal_of).map(m=>m.reversal_of));
-  return ms.filter(m=>!m.reversal_of&&!reversed.has(m.id));
+  return ms.filter(m=>!m.reversal_of&&!m.kind&&!reversed.has(m.id));
+}
+// ---- Brands: one item, stock tracked per brand (brand '' = stock recorded without a brand) ----
+function attrEsc(x){return repEsc(x).replace(/"/g,'&quot;');}
+function brandBuckets(s){
+  const by=new Map();
+  (s.movements||[]).forEach(m=>{const k=m.brand||'';by.set(k,(by.get(k)||0)+(m.type==='IN'?m.qty:-m.qty));});
+  return [...by.entries()].map(([brand,qty])=>({brand,qty})).sort((a,b)=>((a.brand===''?1:0)-(b.brand===''?1:0))||a.brand.localeCompare(b.brand));
+}
+function itemBrands(s){return [...new Set((s.movements||[]).map(m=>m.brand).filter(Boolean))].sort();}
+function hasBrands(s){return (s.movements||[]).some(m=>m.brand);}
+function brandAvail(s,brand){const b=brandBuckets(s).find(x=>x.brand===(brand||''));return b?b.qty:0;}
+function brandBreakdownHtml(s,isAdmin){
+  const parts=brandBuckets(s).filter(b=>b.qty!==0).map(b=>repEsc(b.brand||'No brand')+' '+b.qty);
+  let h=parts.join(' · ');
+  if(isAdmin&&brandAvail(s,'')>0)h+=` <a href="#" style="color:var(--navy);text-decoration:underline" onclick="assignBrand('${s.id}');return false">assign brand</a>`;
+  return h;
 }
 // Shared error surfacing for supply/stock writes. Returns true if the RPC failed
 // (and has already told the user why), so callers can stop instead of pretending it saved.
@@ -5089,7 +5110,7 @@ function renderSuppliesView(){
     const showLow=isLow&&(isAdmin||isViewer);
     const unreadCount=unreadBySupply[s.id]||0;
     h+=`<tr style="${unreadCount?'background:#FAF5FF':''}"><td><strong>${s.name}</strong>${unreadCount?` <span style="background:#7C3AED;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;margin-left:4px;vertical-align:middle">${unreadCount} new</span>`:''}</td><td>${s.unit}</td>
-      <td class="${showLow?'stock-low':''}">${stock}${showLow?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}</td>
+      <td class="${showLow?'stock-low':''}">${stock}${showLow?' <i class="ti ti-alert-triangle" style="font-size:11px"></i>':''}${hasBrands(s)?`<div style="font-size:11px;font-weight:400;color:var(--gray-600)">${brandBreakdownHtml(s,isAdmin)}</div>`:''}</td>
       ${isAdmin?`<td>${s.threshold}</td>`:''}
       <td><button class="btn btn-sm" onclick="showMovements('${s.id}')"><i class="ti ti-list"></i> ${(s.movements||[]).length}</button></td>
       ${isAdmin?`<td><button class="btn btn-sm btn-green" onclick="openMovement('${s.id}','IN')"><i class="ti ti-plus"></i> IN</button></td><td><button class="btn btn-sm btn-danger" onclick="openMovement('${s.id}','OUT')"><i class="ti ti-minus"></i> OUT</button></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEditSupply('${s.id}')"><i class="ti ti-edit"></i></button> ${(s.movements||[]).length?`<button class="btn btn-sm" title="Archive (keeps the history)" onclick="archiveSupply('${s.id}',true)"><i class="ti ti-archive"></i></button>`:`<button class="btn btn-sm btn-danger" title="Delete (only possible while it has no history)" onclick="deleteSupply('${s.id}')"><i class="ti ti-trash"></i></button>`}</td>`:''}
@@ -5165,6 +5186,25 @@ async function archiveSupply(id,archive){
   if(rpcFailed(error,archive?'archiving this item':'restoring this item'))return;
   await renderSupplies();
 }
+async function assignBrand(supplyId){
+  if(!currentUser||currentUser.role!=='admin')return;
+  const s=supplies.find(x=>x.id===supplyId);if(!s)return;
+  const avail=brandAvail(s,'');
+  if(avail<=0){alert('There is no stock without a brand to assign.');return;}
+  const known=itemBrands(s);
+  const brand=prompt('Which brand is the existing stock of "'+s.name+'"?'+(known.length?'\nExisting brands: '+known.join(', '):'')+'\n\n'+avail+' '+s.unit+' currently has no brand.');
+  if(brand===null)return;
+  if(!brand.trim()){alert('Enter a brand name.');return;}
+  const q=prompt('How many '+s.unit+' are '+brand.trim()+'? (up to '+avail+')',String(avail));
+  if(q===null)return;
+  const qty=parseInt(q);
+  if(!qty||qty<1||qty>avail){alert('Enter a quantity between 1 and '+avail+'.');return;}
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_stock_assign_brand',{p_session:sessionToken,p_supply_id:supplyId,p_brand:brand.trim(),p_qty:qty,p_by_user:currentUser.name||'Admin'});
+  hideLoading();
+  if(rpcFailed(error,'assigning this brand'))return;
+  await renderSupplies();
+}
 async function showAuditLog(){
   if(!currentUser||currentUser.role!=='admin')return;
   showLoading('Loading audit log...');
@@ -5173,7 +5213,7 @@ async function showAuditLog(){
   if(rpcFailed(error,'loading the audit log'))return;
   const rows=data||[];
   const nameOf=id=>{const s=supplies.find(x=>x.id===id)||archivedSupplies.find(x=>x.id===id);return s?s.name:'—';};
-  const labels={movement_reversed:'Movement reversed',item_archived:'Item archived',item_restored:'Item restored',item_deleted:'Item deleted',request_approved:'Request approved',request_rejected:'Request rejected'};
+  const labels={movement_reversed:'Movement reversed',item_archived:'Item archived',item_restored:'Item restored',brand_assigned:'Brand assigned',item_deleted:'Item deleted',request_approved:'Request approved',request_rejected:'Request rejected'};
   const fmt=d=>Object.entries(d||{}).filter(([,v])=>v!==null&&v!=='').map(([k,v])=>k.replace(/_/g,' ')+': '+v).join(' · ');
   document.getElementById('mv-title').textContent='Audit log — supplies';
   document.getElementById('mv-sub').textContent='Latest '+rows.length+' recorded actions';
@@ -5199,6 +5239,17 @@ function openMovement(supplyId,type){
     : 'This was used/dispensed earlier and I forgot to record it';
   document.getElementById('m-received-date-label').textContent = type==='IN' ? 'Date actually received *' : 'Date it was actually used *';
   document.getElementById('m-usage-breakdown-section').style.display = type==='IN' ? 'block' : 'none';
+  const bg=document.getElementById('m-brand-group'),bin=document.getElementById('m-brand'),bsel=document.getElementById('m-brand-select'),bdl=document.getElementById('m-brand-list');
+  bin.value='';
+  if(type==='IN'){
+    bg.style.display='block';bin.style.display='';bsel.style.display='none';
+    document.getElementById('m-brand-label').textContent='Brand (optional)';
+    bdl.innerHTML=itemBrands(s).map(b=>`<option value="${attrEsc(b)}">`).join('');
+  } else if(hasBrands(s)){
+    bg.style.display='block';bin.style.display='none';bsel.style.display='';
+    document.getElementById('m-brand-label').textContent='Brand to take from *';
+    bsel.innerHTML=brandBuckets(s).filter(b=>b.qty>0).map(b=>`<option value="${attrEsc(b.brand)}">${repEsc(b.brand||'No brand')} — ${b.qty} available</option>`).join('')||'<option value="">No stock available</option>';
+  } else { bg.style.display='none';bsel.innerHTML=''; }
   document.getElementById('movement-modal').classList.add('open');
 }
 function toggleBackdated(){
@@ -5252,7 +5303,11 @@ async function confirmMovement(){
   const qty=parseInt(document.getElementById('m-qty').value);
   if(!qty||qty<=0){alert('Enter a valid quantity.');return;}
   const s=supplies.find(x=>x.id===pendingMovement.supplyId);if(!s)return;
-  if(pendingMovement.type==='OUT'&&qty>getStock(s)){alert('Insufficient stock. Available: '+getStock(s)+' '+s.unit);return;}
+  const brand=pendingMovement.type==='IN'?document.getElementById('m-brand').value.trim():(document.getElementById('m-brand-group').style.display!=='none'?document.getElementById('m-brand-select').value:'');
+  if(pendingMovement.type==='OUT'){
+    const avail=hasBrands(s)?brandAvail(s,brand):getStock(s);
+    if(qty>avail){alert('Insufficient stock'+(hasBrands(s)?' of '+(brand||'items with no brand'):'')+'. Available: '+avail+' '+s.unit);return;}
+  }
   const notesVal=document.getElementById('m-notes').value.trim();
   const today=new Date().toISOString().slice(0,10);
 
@@ -5292,6 +5347,7 @@ async function confirmMovement(){
     // Backdated entries need the upgraded function (see the SQL update) and will report a clear error until then.
     const params={p_session:sessionToken,p_supply_id:pendingMovement.supplyId,p_type:type,p_qty:q,p_note:note,p_by_user:byUser};
     if(when) params.p_occurred_at=when;
+    if(brand) params.p_brand=brand;
     const {error}=await db.rpc('rr_movement_add',params);
     return error;
   };
@@ -5333,16 +5389,17 @@ async function showMovements(supplyId){
   const reversedIds=new Set(rows.filter(m=>m.reversal_of).map(m=>m.reversal_of));
   document.getElementById('mv-title').textContent='Movement log — '+s.name;
   document.getElementById('mv-sub').textContent='Current stock: '+getStock(s)+' '+s.unit+' · Entries: '+rows.length;
-  let h=`<div class="table-wrapper"><table><thead><tr><th>#</th><th>Type</th><th>Qty</th><th>Notes</th><th>By</th><th>Date</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>`;
-  if(!rows.length)h+=`<tr><td colspan="${isAdmin?7:6}"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
+  let h=`<div class="table-wrapper"><table><thead><tr><th>#</th><th>Type</th><th>Qty</th><th>Brand</th><th>Notes</th><th>By</th><th>Date</th>${isAdmin?'<th></th>':''}</tr></thead><tbody>`;
+  if(!rows.length)h+=`<tr><td colspan="${isAdmin?8:7}"><div class="empty" style="padding:20px">No movements yet</div></td></tr>`;
   else rows.forEach((m,i)=>{
     const isRev=!!m.reversal_of, wasRev=reversedIds.has(m.id);
-    const badge=`<span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span>${isRev?' <span class="status-badge s-transferred">Reversal</span>':''}${wasRev?' <span class="status-badge s-deceased">Reversed</span>':''}`;
-    const action=isAdmin?`<td>${(!isRev&&!wasRev)?`<button class="btn btn-sm btn-danger" onclick="reverseMovement('${s.id}','${m.id}')"><i class="ti ti-arrow-back-up"></i> Reverse</button>`:''}</td>`:'';
-    h+=`<tr style="${(isRev||wasRev)?'color:var(--gray-400)':''}"><td>${i+1}</td><td>${badge}</td><td><strong>${m.qty}</strong> ${repEsc(s.unit)}</td><td>${repEsc(m.note||'—')}</td><td>${repEsc(m.by_user||'—')}</td><td title="${new Date(m.created_at).toLocaleString()}">${new Date(m.created_at).toLocaleDateString()}</td>${action}</tr>`;
+    const badge=`<span class="status-badge ${m.type==='IN'?'s-in':'s-out'}">${m.type}</span>${isRev?' <span class="status-badge s-transferred">Reversal</span>':''}${wasRev?' <span class="status-badge s-deceased">Reversed</span>':''}${m.kind?' <span class="status-badge s-transplant">Brand change</span>':''}`;
+    const action=isAdmin?`<td>${(!isRev&&!wasRev&&!m.kind)?`<button class="btn btn-sm btn-danger" onclick="reverseMovement('${s.id}','${m.id}')"><i class="ti ti-arrow-back-up"></i> Reverse</button>`:''}</td>`:'';
+    h+=`<tr style="${(isRev||wasRev)?'color:var(--gray-400)':''}"><td>${i+1}</td><td>${badge}</td><td><strong>${m.qty}</strong> ${repEsc(s.unit)}</td><td>${repEsc(m.brand||'—')}</td><td>${repEsc(m.note||'—')}</td><td>${repEsc(m.by_user||'—')}</td><td title="${new Date(m.created_at).toLocaleString()}">${new Date(m.created_at).toLocaleDateString()}</td>${action}</tr>`;
   });
   h+=`</tbody></table></div>`;
   if(isAdmin)h+=`<div class="alert alert-info" style="margin-top:12px"><i class="ti ti-info-circle"></i><div>Reversing a movement adds an equal and opposite entry, so the stock level is corrected and the original stays in this log. A reason is required.</div></div>`;
+  if(isAdmin&&supplies.find(x=>x.id===s.id)&&brandAvail(s,'')>0)h+=`<div style="margin-top:10px"><button class="btn" onclick="closeModal('movements-view-modal');assignBrand('${s.id}')"><i class="ti ti-tag"></i> Assign a brand to the ${brandAvail(s,'')} ${repEsc(s.unit)} with no brand</button></div>`;
   document.getElementById('mv-content').innerHTML=h;
   document.getElementById('movements-view-modal').classList.add('open');
 }
@@ -5391,7 +5448,7 @@ async function renderRequests(){
         const ok=r.status==='approved', partial=ok&&r.dispensed_qty!=null&&r.dispensed_qty<r.qty;
         const label=partial?'partially approved':r.status;
         const col=partial?['var(--amber-pale)','#7A4510']:ok?['var(--green-pale)','#2E6B10']:['#FCEBEB','#791F1F'];
-        const detail=[ok&&r.dispensed_qty!=null?'Dispensed: '+r.dispensed_qty:'',r.resolved_by?(ok?'Approved':'Rejected')+' by '+repEsc(r.resolved_by):'',r.resolved_at?new Date(r.resolved_at).toLocaleString():'',r.resolved_note?'Note: '+repEsc(r.resolved_note):''].filter(Boolean).join(' · ');
+        const detail=[ok&&r.dispensed_qty!=null?'Dispensed: '+r.dispensed_qty+(r.dispensed_brand?' ('+repEsc(r.dispensed_brand)+')':''):'',r.resolved_by?(ok?'Approved':'Rejected')+' by '+repEsc(r.resolved_by):'',r.resolved_at?new Date(r.resolved_at).toLocaleString():'',r.resolved_note?'Note: '+repEsc(r.resolved_note):''].filter(Boolean).join(' · ');
         h+=`<div class="request-card ${r.status}"><div><div style="font-weight:700">${r.supplies?r.supplies.name:'Unknown'}</div><div style="font-size:12px;color:var(--gray-600)">Qty: ${r.qty} · By: ${r.requested_by||'Unknown'} · ${new Date(r.created_at).toLocaleString()}</div>${detail?`<div style="font-size:11px;color:var(--gray-600);margin-top:2px">${detail}</div>`:''}</div><span style="font-size:12px;padding:4px 12px;border-radius:20px;font-weight:700;background:${col[0]};color:${col[1]}">${label}</span></div>`;
       });
     }
@@ -5417,6 +5474,11 @@ function approveRequest(id, supplyId, qty, by) {
     'Current stock: ' + currentStock + (unit ? ' ' + unit : '') +
     (currentStock < qty ? ' — ⚠ Insufficient stock for full request' : '');
   document.getElementById('ap-error').classList.remove('show');
+  const apG=document.getElementById('ap-brand-group'),apS=document.getElementById('ap-brand');
+  if(s&&hasBrands(s)){
+    apS.innerHTML=brandBuckets(s).filter(b=>b.qty>0).map(b=>`<option value="${attrEsc(b.brand)}">${repEsc(b.brand||'No brand')} — ${b.qty} available</option>`).join('')||'<option value="">No stock available</option>';
+    apG.style.display='block';
+  } else { apS.innerHTML='';apG.style.display='none'; }
   document.getElementById('approve-modal-sub').textContent =
     'Requested by: ' + (by || 'Nurse') + ' · Adjust quantity if needed before dispensing';
   document.getElementById('approve-modal').classList.add('open');
@@ -5432,7 +5494,11 @@ async function confirmApprove() {
   };
   if (!dispenseQty || dispenseQty <= 0) return showErr('Enter a valid quantity to dispense.');
   const s = supplies.find(x => x.id === pendingApproval.supplyId);
-  if (s && dispenseQty > getStock(s)) return showErr('Insufficient stock. Available: ' + getStock(s) + ' ' + s.unit);
+  const brandSel = (s && hasBrands(s)) ? document.getElementById('ap-brand').value : '';
+  if (s) {
+    const avail = hasBrands(s) ? brandAvail(s, brandSel) : getStock(s);
+    if (dispenseQty > avail) return showErr('Insufficient stock' + (hasBrands(s) ? ' of ' + (brandSel || 'items with no brand') : '') + '. Available: ' + avail + ' ' + s.unit);
+  }
 
   showLoading('Approving...');
   const noteText = note
@@ -5440,7 +5506,9 @@ async function confirmApprove() {
     : 'Approved request from ' + (pendingApproval.by || 'staff') +
       (dispenseQty !== pendingApproval.qty ? ' (requested ' + pendingApproval.qty + ', dispensed ' + dispenseQty + ')' : '');
 
-  const {error:apErr}=await db.rpc('rr_request_approve', {p_session:sessionToken, p_id:pendingApproval.id, p_dispense_qty:dispenseQty, p_note:noteText});
+  const apParams={p_session:sessionToken, p_id:pendingApproval.id, p_dispense_qty:dispenseQty, p_note:noteText};
+  if(brandSel) apParams.p_brand=brandSel;
+  const {error:apErr}=await db.rpc('rr_request_approve', apParams);
   hideLoading();
   if(rpcFailed(apErr,'this approval'))return;
   closeModal('approve-modal');
@@ -5643,7 +5711,7 @@ function getFilteredPatients(){
 }
 function getFilteredSupplies(){
   const f=supplyFilter;
-  return supplies.filter(s=>(s.category||'supply')===currentSupplyCategory && (!f.search||s.name.toLowerCase().includes(f.search.toLowerCase())));
+  return supplies.filter(s=>(s.category||'supply')===currentSupplyCategory && (!f.search||s.name.toLowerCase().includes(f.search.toLowerCase())||itemBrands(s).some(b=>b.toLowerCase().includes(f.search.toLowerCase()))));
 }
 function exportPatients(){
   const rows=getFilteredPatients();
@@ -5771,8 +5839,8 @@ function exportSupplies(){
   const alertRows=buildDailyUsageAlerts(rows);
   dlXLSXMulti([
     {name:isMed?'Medications':'Supplies',
-     headers:['Item','Unit','Stock','Threshold','Low Stock'],
-     rows:rows.map(s=>[s.name,s.unit,getStock(s),s.threshold,getStock(s)<=s.threshold?'YES':'NO'])},
+     headers:['Item','Unit','Stock','By Brand','Threshold','Low Stock'],
+     rows:rows.map(s=>[s.name,s.unit,getStock(s),hasBrands(s)?brandBuckets(s).filter(b=>b.qty!==0).map(b=>(b.brand||'No brand')+': '+b.qty).join('; '):'',s.threshold,getStock(s)<=s.threshold?'YES':'NO'])},
     buildMonthlyPivotSupplies(rows),
     {name:'Usage Alerts',
      headers:['Item','Date','Expected/Day','Total Used','Over By','Reason(s)'],

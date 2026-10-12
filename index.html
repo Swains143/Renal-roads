@@ -1010,6 +1010,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="form-group full" id="m-brand-group" style="display:none"><label id="m-brand-label">Brand (optional)</label><input id="m-brand" list="m-brand-list" placeholder="e.g. Fresenius, Nipro"><datalist id="m-brand-list"></datalist><select id="m-brand-select" style="display:none"></select></div>
     <div class="form-group full"><label>Notes</label><input id="m-notes" placeholder="Reason or details"></div>
   </div>
+  <div id="m-multi-link" style="display:none;margin-top:4px"><button type="button" class="btn btn-sm" onclick="openMulti(pendingMovement.supplyId,pendingMovement.type)"><i class="ti ti-list-details"></i> Record several brands at once</button></div>
   <div id="m-backdate-section" style="display:none;margin-top:8px">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer">
       <input type="checkbox" id="m-backdated" onchange="toggleBackdated()"> <span id="m-backdated-label">This stock was received earlier and I forgot to record it</span>
@@ -1025,6 +1026,20 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     </div>
   </div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('movement-modal')">Cancel</button><button class="btn btn-primary" onclick="confirmMovement()"><i class="ti ti-check"></i> Save</button></div>
+</div></div>
+
+<!-- Several brands at once -->
+<div class="modal-bg" id="multi-modal"><div class="modal" style="width:560px">
+  <h2 id="multi-title">Several brands</h2><div class="modal-sub" id="multi-sub"></div>
+  <div id="multi-rows"></div>
+  <button type="button" class="rep-add-row" id="multi-add" onclick="addMultiRow()"><i class="ti ti-plus"></i> Add another brand</button>
+  <div class="form-grid" style="margin-top:10px">
+    <div class="form-group"><label>Recorded by</label><input id="multi-by" placeholder="Your name"></div>
+    <div class="form-group"><label id="multi-date-label">Date</label><input id="multi-date" type="date"></div>
+    <div class="form-group full"><label>Notes</label><input id="multi-notes" placeholder="Reason or details"></div>
+  </div>
+  <div class="qty-note" id="multi-total"></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('multi-modal')">Cancel</button><button class="btn btn-primary" onclick="confirmMulti()"><i class="ti ti-check"></i> Save all</button></div>
 </div></div>
 
 <!-- Movements View -->
@@ -1344,8 +1359,7 @@ function itemBrands(s){return [...new Set((s.movements||[]).map(m=>m.brand).filt
 function hasBrands(s){return (s.movements||[]).some(m=>m.brand);}
 function brandAvail(s,brand){const b=brandBuckets(s).find(x=>x.brand===(brand||''));return b?b.qty:0;}
 function brandBreakdownHtml(s,isAdmin){
-  const parts=brandBuckets(s).filter(b=>b.qty!==0).map(b=>repEsc(b.brand||'No brand')+' '+b.qty);
-  let h=parts.join(' · ');
+  let h=brandBuckets(s).filter(b=>b.qty!==0).map(b=>`<span style="display:inline-block;background:var(--gray-100);border-radius:10px;padding:1px 8px;margin:3px 4px 0 0;font-size:11px;color:var(--gray-800)">${repEsc(b.brand||'No brand')} <b>${b.qty}</b></span>`).join('');
   if(isAdmin&&brandAvail(s,'')>0)h+=` <a href="#" style="color:var(--navy);text-decoration:underline" onclick="assignBrand('${s.id}');return false">assign brand</a>`;
   return h;
 }
@@ -5186,6 +5200,98 @@ async function archiveSupply(id,archive){
   if(rpcFailed(error,archive?'archiving this item':'restoring this item'))return;
   await renderSupplies();
 }
+let multiState=null;
+function openMulti(supplyId,type){
+  const s=supplies.find(x=>x.id===supplyId);if(!s)return;
+  const rows=type==='IN'?[{brand:'',qty:''},{brand:'',qty:''}]:brandBuckets(s).filter(b=>b.qty>0).map(b=>({brand:b.brand,qty:''}));
+  if(!rows.length){alert('There is no stock to take out.');return;}
+  closeModal('movement-modal');
+  multiState={supplyId,type,rows};
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('multi-title').textContent=(type==='IN'?'Stock IN':'Stock OUT')+' — several brands — '+s.name;
+  document.getElementById('multi-sub').textContent=type==='IN'?'Enter each brand received and its quantity.':'Enter how many to take from each brand. Leave a brand blank to skip it.';
+  document.getElementById('multi-add').style.display=type==='IN'?'':'none';
+  document.getElementById('multi-by').value=currentUser?currentUser.name:'';
+  document.getElementById('multi-date').value=today;document.getElementById('multi-date').max=today;
+  document.getElementById('multi-date-label').textContent=type==='IN'?'Date received':'Date used';
+  document.getElementById('multi-notes').value='';
+  renderMultiRows();
+  document.getElementById('multi-modal').classList.add('open');
+}
+function renderMultiRows(){
+  const s=supplies.find(x=>x.id===multiState.supplyId);if(!s)return;
+  const isIn=multiState.type==='IN';
+  document.getElementById('multi-rows').innerHTML=multiState.rows.map((r,i)=>{
+    const brandCell=isIn
+      ?`<input list="multi-brand-list" placeholder="Brand name" value="${attrEsc(r.brand)}" oninput="multiState.rows[${i}].brand=this.value">`
+      :`<div style="padding:9px 0;font-weight:600">${repEsc(r.brand||'No brand')} <span style="font-weight:400;color:var(--gray-600);font-size:12px">(${brandAvail(s,r.brand)} available)</span></div>`;
+    return `<div style="display:grid;grid-template-columns:1fr 110px${isIn?' 36px':''};gap:8px;align-items:end;margin-bottom:8px">${brandCell}<input type="number" min="1" placeholder="Qty" value="${r.qty}" oninput="multiState.rows[${i}].qty=this.value;updateMultiTotal()">${isIn?`<button type="button" class="btn btn-sm" title="Remove" onclick="removeMultiRow(${i})"><i class="ti ti-x"></i></button>`:''}</div>`;
+  }).join('')+`<datalist id="multi-brand-list">${itemBrands(s).map(b=>`<option value="${attrEsc(b)}">`).join('')}</datalist>`;
+  updateMultiTotal();
+}
+function addMultiRow(){multiState.rows.push({brand:'',qty:''});renderMultiRows();}
+function removeMultiRow(i){if(multiState.rows.length>1){multiState.rows.splice(i,1);renderMultiRows();}}
+function updateMultiTotal(){
+  const s=supplies.find(x=>x.id===multiState.supplyId);
+  const t=multiState.rows.reduce((a,r)=>a+(parseInt(r.qty)||0),0);
+  document.getElementById('multi-total').textContent='Total: '+t+(s?' '+s.unit:'');
+}
+async function confirmMulti(){
+  if(!multiState)return;
+  const s=supplies.find(x=>x.id===multiState.supplyId);if(!s)return;
+  const type=multiState.type, today=new Date().toISOString().slice(0,10);
+  const date=document.getElementById('multi-date').value||today;
+  if(date>today){alert('That date cannot be in the future.');return;}
+  const notes=document.getElementById('multi-notes').value.trim();
+  const byUser=document.getElementById('multi-by').value.trim()||'Nurse';
+  const work=[];
+  for(let i=0;i<multiState.rows.length;i++){
+    const brand=(multiState.rows[i].brand||'').trim(), qtyRaw=multiState.rows[i].qty, qty=parseInt(qtyRaw);
+    if(type==='IN'){
+      if(!brand&&!qtyRaw)continue;
+      if(!brand){alert('Enter a brand name for every row that has a quantity.');return;}
+      if(!qty||qty<1){alert('Enter a quantity for '+brand+'.');return;}
+    } else {
+      if(!qtyRaw)continue;
+      if(!qty||qty<1){alert('Enter a valid quantity for '+(brand||'No brand')+'.');return;}
+      if(qty>brandAvail(s,brand)){alert('Only '+brandAvail(s,brand)+' '+s.unit+' of '+(brand||'items with no brand')+' available.');return;}
+    }
+    work.push({i,brand,qty});
+  }
+  if(!work.length){alert('Enter at least one brand and quantity.');return;}
+  const names=work.map(w=>w.brand.toLowerCase());
+  if(type==='IN'&&new Set(names).size!==names.length){alert('The same brand is listed twice. Combine them into one row.');return;}
+  if(type==='OUT'&&s.daily_limit){
+    const total=work.reduce((a,w)=>a+w.qty,0);
+    const dayTotal=liveMovements(s).filter(m=>m.type==='OUT'&&new Date(m.created_at).toISOString().slice(0,10)===date).reduce((a,m)=>a+m.qty,0)+total;
+    if(dayTotal>s.daily_limit){
+      if(!notes){alert('This takes '+date+' to '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'. Please enter a reason in Notes before saving.');return;}
+      if(!confirm('Usage for '+date+' will total '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'.\n\nReason: "'+notes+'"\n\nSave these movements?'))return;
+    }
+  }
+  const note=date===today?notes:(notes?notes+' — ':'')+'Backdated entry: '+(type==='IN'?'received ':'used ')+date+', recorded '+today;
+  showLoading('Saving...');
+  const saved=[];let failure=null;
+  for(const w of work){
+    const params={p_session:sessionToken,p_supply_id:s.id,p_type:type,p_qty:w.qty,p_note:note,p_by_user:byUser};
+    if(w.brand)params.p_brand=w.brand;
+    if(date!==today)params.p_occurred_at=date;
+    const {error}=await db.rpc('rr_movement_add',params);
+    if(error){failure=error;break;}
+    saved.push(w.i);
+  }
+  hideLoading();
+  if(failure){
+    if(saved.length){
+      multiState.rows=multiState.rows.filter((_,i)=>!saved.includes(i));
+      if(!multiState.rows.length)multiState.rows=[{brand:'',qty:''}];
+      renderMultiRows();await renderSupplies();
+    }
+    rpcFailed(failure,saved.length?'some of these brands ('+saved.length+' of '+work.length+' saved — the rest are still in the form)':'these brand entries');
+    return;
+  }
+  closeModal('multi-modal');multiState=null;await renderSupplies();
+}
 async function assignBrand(supplyId){
   if(!currentUser||currentUser.role!=='admin')return;
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
@@ -5250,6 +5356,7 @@ function openMovement(supplyId,type){
     document.getElementById('m-brand-label').textContent='Brand to take from *';
     bsel.innerHTML=brandBuckets(s).filter(b=>b.qty>0).map(b=>`<option value="${attrEsc(b.brand)}">${repEsc(b.brand||'No brand')} — ${b.qty} available</option>`).join('')||'<option value="">No stock available</option>';
   } else { bg.style.display='none';bsel.innerHTML=''; }
+  document.getElementById('m-multi-link').style.display=(type==='IN'||brandBuckets(s).filter(b=>b.qty>0).length>1)?'block':'none';
   document.getElementById('movement-modal').classList.add('open');
 }
 function toggleBackdated(){

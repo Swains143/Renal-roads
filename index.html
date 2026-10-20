@@ -1183,6 +1183,15 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="modal-footer"><button class="btn" onclick="closeModal('hep-edit-modal')">Cancel</button><button class="btn btn-primary" onclick="hepEditSave()"><i class="ti ti-check"></i> Save correction</button></div>
 </div></div>
 
+<!-- PROCUREMENT ORDER / RECEIVE QUANTITY MODAL (admin) -->
+<div class="modal-bg" id="proc-qty-modal"><div class="modal" style="max-width:440px">
+  <h2 id="proc-qty-title">Mark as ordered</h2><div class="modal-sub" id="proc-qty-sub"></div>
+  <div class="form-group"><label id="proc-qty-label">Quantity ordered *</label><input type="number" id="proc-qty-input" min="0" step="any"><div id="proc-qty-hint" style="font-size:11px;color:var(--gray-600);margin-top:4px"></div></div>
+  <div class="form-group"><label>Note <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><textarea id="proc-qty-note" rows="2" placeholder="e.g. supplier, price, why the quantity changed, damaged items..."></textarea></div>
+  <div class="modal-err" id="proc-qty-error"><i class="ti ti-alert-circle"></i><span id="proc-qty-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('proc-qty-modal')">Cancel</button><button class="btn btn-primary" onclick="procQtySave()"><i class="ti ti-check"></i> Save</button></div>
+</div></div>
+
 <!-- PROCUREMENT REQUEST MODAL -->
 <div class="modal-bg" id="proc-modal"><div class="modal" style="max-width:520px">
   <h2>Request restock</h2><div class="modal-sub">Tell admin what needs to be bought.</div>
@@ -6725,8 +6734,8 @@ function procRender(){
     let act='';
     if(isAdmin){
       if(r.status==='pending') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','approved')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm" onclick="procSetStatus('${r.id}','declined',true)"><i class="ti ti-x"></i> Decline</button> `;
-      if(r.status==='approved') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','ordered')"><i class="ti ti-truck-delivery"></i> Ordered</button> <button class="btn btn-sm" onclick="procSetStatus('${r.id}','declined',true)"><i class="ti ti-x"></i></button> `;
-      if(r.status==='ordered') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','received')"><i class="ti ti-package-import"></i> Received</button> `;
+      if(r.status==='approved') act+=`<button class="btn btn-sm" onclick="procQtyOpen('${r.id}','ordered')"><i class="ti ti-truck-delivery"></i> Ordered</button> <button class="btn btn-sm" onclick="procSetStatus('${r.id}','declined',true)"><i class="ti ti-x"></i></button> `;
+      if(r.status==='ordered') act+=`<button class="btn btn-sm" onclick="procQtyOpen('${r.id}','received')"><i class="ti ti-package-import"></i> Received</button> `;
       act+=`<button class="btn btn-sm" title="Delete" onclick="procDelete('${r.id}')"><i class="ti ti-trash"></i></button>`;
     } else if(mine&&r.status==='pending'){
       act+=`<button class="btn btn-sm" onclick="procDelete('${r.id}')"><i class="ti ti-trash"></i> Cancel</button>`;
@@ -6734,7 +6743,7 @@ function procRender(){
     h+=`<tr>
       <td style="white-space:nowrap">${disFormatDate(String(r.requested_at).slice(0,10))}</td>
       <td><strong>${repEsc(r.item)}</strong>${r.urgency==='urgent'?' <span class="sha-chip urgent">Urgent</span>':''}${r.brand?`<div style="font-size:11px;color:var(--gray-600)">Brand: ${repEsc(r.brand)}</div>`:''}</td>
-      <td style="white-space:nowrap"><strong>${repEsc(r.qty)}</strong> ${repEsc(r.unit)}</td>
+      <td style="white-space:nowrap">${procQtyHtml(r)}</td>
       <td>${repEsc(r.requested_by)}</td>
       <td><span class="sha-chip ${PROC_CHIP[r.status]||'notset'}">${PROC_LABEL[r.status]||repEsc(r.status)}</span>${r.updated_by&&r.status!=='pending'?`<div style="font-size:10px;color:var(--gray-400);margin-top:3px">by ${repEsc(r.updated_by)}</div>`:''}</td>
       <td style="max-width:240px;font-size:12px">${r.note?repEsc(r.note):''}${r.admin_note?`<div style="color:var(--navy);margin-top:3px"><b>Admin:</b> ${repEsc(r.admin_note)}</div>`:''}</td>
@@ -6771,7 +6780,7 @@ async function procSetStatus(id,status,askNote){
   let note=null;
   if(askNote){note=prompt('Reason for declining (optional):');if(note===null) return;}
   showLoading('Saving...');
-  const {error}=await db.rpc('rr_proc_set_status',{p_session:sessionToken,p_id:id,p_status:status,p_admin_note:note,p_by_user:(currentUser&&currentUser.name)||'Admin'});
+  const {error}=await db.rpc('rr_proc_set_status',{p_session:sessionToken,p_id:id,p_status:status,p_admin_note:note,p_by_user:(currentUser&&currentUser.name)||'Admin',p_qty:null});
   hideLoading();
   if(error){alert('Failed: '+error.message);return;}
   await renderProcurement();
@@ -6787,12 +6796,55 @@ async function procDelete(id){
 function procExport(){
   const rows=procData.filter(r=>['pending','approved','ordered'].includes(r.status));
   if(!rows.length){alert('No open requests to export.');return;}
-  const aoa=[['Date','Item','Brand','Quantity','Unit','Urgency','Status','Requested by','Notes','Admin note']];
-  rows.forEach(r=>aoa.push([String(r.requested_at).slice(0,10),r.item,r.brand||'',Number(r.qty),r.unit,r.urgency==='urgent'?'Urgent':'Routine',PROC_LABEL[r.status]||r.status,r.requested_by,r.note||'',r.admin_note||'']));
+  const aoa=[['Date','Item','Brand','Qty requested','Qty ordered','Unit','Urgency','Status','Requested by','Notes','Admin note']];
+  rows.forEach(r=>aoa.push([String(r.requested_at).slice(0,10),r.item,r.brand||'',Number(r.qty),r.ordered_qty==null?'':Number(r.ordered_qty),r.unit,r.urgency==='urgent'?'Urgent':'Routine',PROC_LABEL[r.status]||r.status,r.requested_by,r.note||'',r.admin_note||'']));
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:11},{wch:30},{wch:18},{wch:10},{wch:10},{wch:9},{wch:10},{wch:18},{wch:36},{wch:30}];
+  ws['!cols']=[{wch:11},{wch:30},{wch:18},{wch:13},{wch:12},{wch:10},{wch:9},{wch:10},{wch:18},{wch:36},{wch:30}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Procurement');
   XLSX.writeFile(wb,'Procurement_'+shaTodayStr()+'.xlsx');
+}
+
+// Requested / ordered / received quantities, with differences flagged
+function procNum(n){return Math.round(Number(n)*100)/100;}
+function procQtyHtml(r){
+  const u=repEsc(r.unit);
+  let h=`<div><span style="color:var(--gray-600);font-size:11px">Requested</span> <strong>${procNum(r.qty)}</strong> ${u}</div>`;
+  if(r.ordered_qty!=null){
+    const diff=procNum(r.ordered_qty-r.qty);
+    h+=`<div><span style="color:var(--gray-600);font-size:11px">Ordered</span> <strong>${procNum(r.ordered_qty)}</strong> ${u}${diff!==0?` <span style="font-size:10px;font-weight:700;color:${diff>0?'var(--amber)':'var(--red)'}">(${diff>0?'+':''}${diff} vs requested)</span>`:''}</div>`;
+  }
+  if(r.received_qty!=null){
+    const ref=r.ordered_qty!=null?r.ordered_qty:r.qty, diff=procNum(r.received_qty-ref);
+    h+=`<div><span style="color:var(--gray-600);font-size:11px">Received</span> <strong>${procNum(r.received_qty)}</strong> ${u} ${diff===0?'<span style="font-size:10px;font-weight:700;color:var(--green-dark)">✓ complete</span>':diff<0?`<span style="font-size:10px;font-weight:700;color:var(--red)">short by ${Math.abs(diff)}</span>`:`<span style="font-size:10px;font-weight:700;color:var(--amber)">over by ${diff}</span>`}</div>`;
+  }
+  return h;
+}
+let procQtyId=null, procQtyMode=null;
+function procQtyOpen(id,mode){
+  const r=procData.find(x=>x.id===id); if(!r) return;
+  procQtyId=id; procQtyMode=mode;
+  const u=r.unit;
+  document.getElementById('proc-qty-title').textContent=mode==='ordered'?'Mark as ordered':'Record delivery';
+  document.getElementById('proc-qty-sub').textContent=`${r.item}${r.brand?' ('+r.brand+')':''} · requested ${procNum(r.qty)} ${u}`;
+  document.getElementById('proc-qty-label').textContent=mode==='ordered'?`Quantity ordered (${u}) *`:`Quantity received (${u}) *`;
+  document.getElementById('proc-qty-hint').textContent=mode==='ordered'
+    ?'Change this if you are ordering more or less than was requested.'
+    :`Ordered: ${procNum(r.ordered_qty!=null?r.ordered_qty:r.qty)} ${u}. Enter what actually arrived.`;
+  document.getElementById('proc-qty-input').value=mode==='ordered'?procNum(r.qty):procNum(r.ordered_qty!=null?r.ordered_qty:r.qty);
+  document.getElementById('proc-qty-note').value='';
+  document.getElementById('proc-qty-error').classList.remove('show');
+  document.getElementById('proc-qty-modal').classList.add('open');
+}
+async function procQtySave(){
+  const err=m=>{document.getElementById('proc-qty-error-msg').textContent=m;document.getElementById('proc-qty-error').classList.add('show');};
+  const qty=parseFloat(document.getElementById('proc-qty-input').value);
+  if(isNaN(qty)||qty<0||(procQtyMode==='ordered'&&qty<=0)){err(procQtyMode==='ordered'?'Enter a quantity greater than 0.':'Enter the quantity received (0 or more).');return;}
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_proc_set_status',{p_session:sessionToken,p_id:procQtyId,p_status:procQtyMode,p_admin_note:document.getElementById('proc-qty-note').value.trim()||null,p_by_user:(currentUser&&currentUser.name)||'Admin',p_qty:qty});
+  hideLoading();
+  if(error){err('Save failed: '+error.message);return;}
+  closeModal('proc-qty-modal');
+  await renderProcurement();
 }
 </script>
 

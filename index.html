@@ -705,6 +705,8 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .sha-quick button{font-size:11px;padding:3px 9px;border-radius:14px;border:1px solid var(--gray-200);background:var(--white);cursor:pointer;color:var(--navy)}
 .modal .form-group textarea{padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:13px;outline:none;resize:vertical;font-family:inherit}
 .sha-setup{background:var(--red-pale);border:1px solid #E8B4AE;color:var(--red);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;font-size:13px}
+.sha-chip.ordered{background:#E3EAFB;color:#2F46A8}
+.sha-chip.urgent{background:var(--red);color:#fff}
 </style>
 </head>
 <body>
@@ -884,6 +886,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
     <div class="tab active" onclick="switchTab('home')" id="tab-home"><i class="ti ti-home" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Home</div>
     <div class="tab" onclick="switchTab('patients')" id="tab-patients"><i class="ti ti-users" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patients</div>
     <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('procurement')" id="tab-procurement"><i class="ti ti-shopping-cart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Procurement<span class="badge" id="proc-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
@@ -897,6 +900,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
       <option value="home" id="opt-home">🏠 Home</option>
       <option value="patients" id="opt-patients">👥 Patients</option>
       <option value="supplies" id="opt-supplies">📦 Supplies</option>
+      <option value="procurement" id="opt-procurement">🛒 Procurement</option>
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
       <option value="sha" id="opt-sha" hidden>🩺 SHA Cover</option>
@@ -1165,6 +1169,33 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   <div class="form-group"><label>Notes</label><textarea id="sha-notes" rows="2" placeholder="Anything worth remembering about this cover..."></textarea></div>
   <div class="modal-err" id="sha-error"><i class="ti ti-alert-circle"></i><span id="sha-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('sha-modal')">Cancel</button><button class="btn btn-primary" onclick="saveSha()"><i class="ti ti-check"></i> Save</button></div>
+</div></div>
+
+<!-- HEPARIN ENTRY EDIT MODAL (admin only) -->
+<div class="modal-bg" id="hep-edit-modal"><div class="modal" style="max-width:460px">
+  <h2>Correct heparin entry</h2><div class="modal-sub" id="hep-edit-sub"></div>
+  <div class="form-grid">
+    <div class="form-group"><label>Date</label><input type="date" id="hep-edit-date"></div>
+    <div class="form-group"><label>Quantity used (vials)</label><input type="number" id="hep-edit-qty" min="1"></div>
+  </div>
+  <div class="form-group"><label>Notes / reason for correction</label><textarea id="hep-edit-note" rows="2"></textarea></div>
+  <div class="modal-err" id="hep-edit-error"><i class="ti ti-alert-circle"></i><span id="hep-edit-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('hep-edit-modal')">Cancel</button><button class="btn btn-primary" onclick="hepEditSave()"><i class="ti ti-check"></i> Save correction</button></div>
+</div></div>
+
+<!-- PROCUREMENT REQUEST MODAL -->
+<div class="modal-bg" id="proc-modal"><div class="modal" style="max-width:520px">
+  <h2>Request restock</h2><div class="modal-sub">Tell admin what needs to be bought.</div>
+  <div class="form-group"><label>Item *</label><input id="proc-item" list="proc-item-list" placeholder="e.g. Dialysis bloodlines, Gloves, Normal saline" autocomplete="off"><datalist id="proc-item-list"></datalist></div>
+  <div class="form-group"><label>Brand <span style="font-weight:400;color:var(--gray-400)">(only if a specific brand is needed)</span></label><input id="proc-brand" placeholder="Leave blank if any brand is fine"></div>
+  <div class="form-grid">
+    <div class="form-group"><label>Quantity *</label><input type="number" id="proc-qty" min="1" step="any" placeholder="e.g. 20"></div>
+    <div class="form-group"><label>Unit *</label><input id="proc-unit" list="proc-unit-list" placeholder="e.g. boxes" autocomplete="off"><datalist id="proc-unit-list"><option>pieces</option><option>boxes</option><option>packs</option><option>cartons</option><option>bottles</option><option>vials</option><option>ampoules</option><option>bags</option><option>rolls</option><option>pairs</option><option>sets</option><option>litres</option><option>sachets</option><option>tablets</option></datalist></div>
+  </div>
+  <div class="form-group"><label>Urgency</label><select id="proc-urgency"><option value="routine">Routine</option><option value="urgent">Urgent — running out</option></select></div>
+  <div class="form-group"><label>Notes <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><textarea id="proc-note" rows="2" placeholder="Current stock left, reason, size/specification..."></textarea></div>
+  <div class="modal-err" id="proc-error"><i class="ti ti-alert-circle"></i><span id="proc-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('proc-modal')">Cancel</button><button class="btn btn-primary" onclick="procSubmit()"><i class="ti ti-send"></i> Send request</button></div>
 </div></div>
 
 <script>
@@ -1544,6 +1575,8 @@ function applyRoleTabVisibility(role){
   document.getElementById('opt-users').hidden=role!=='admin';
   document.getElementById('tab-sha').style.display=role==='admin'?'':'none';
   document.getElementById('opt-sha').hidden=role!=='admin';
+  document.getElementById('tab-procurement').style.display=role==='viewer'?'none':'';
+  document.getElementById('opt-procurement').hidden=role==='viewer';
   // Viewer: hide patients tab (sensitive data) - only Home & Supplies
   document.getElementById('tab-patients').style.display=role==='viewer'?'none':'';
   document.getElementById('opt-patients').hidden=role==='viewer';
@@ -1642,6 +1675,7 @@ async function doLogin(){
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin') shaInit();
+    if(data.role==='admin') procInit();
     localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
     startRequestNotifyMonitor();
@@ -1723,6 +1757,7 @@ async function restoreSession(){
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin') shaInit();
+    if(data.role==='admin') procInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     // Poll for new viewer comments every 30 seconds
@@ -1741,6 +1776,7 @@ async function render(){
   else if(currentTab==='requests') await renderRequests();
   else if(currentTab==='users') await renderUsers();
   else if(currentTab==='sha' && currentUser && currentUser.role==='admin') await renderSha();
+  else if(currentTab==='procurement' && currentUser && currentUser.role!=='viewer') await renderProcurement();
   else if(currentTab==='disinfection') await renderDisinfection();
   else if(currentTab==='report') await renderReport();
   else if(currentTab==='monthlyreport') await renderMonthlyReportTab();
@@ -6150,7 +6186,7 @@ function hepLabelShort(key,gran){return gran==='month'?HEP_MONTH_NAMES[parseInt(
 function hepSeriesFromUsage(rows,count,end,gran){
   const by={};(rows||[]).forEach(r=>{const k=gran==='month'?r.usage_date.slice(0,7):r.usage_date; by[k]=(by[k]||0)+Number(r.qty);});
   const out=[];
-  for(let i=count-1;i>=0;i--){const d=hepStepDate(end,gran,-i);const k=hepKeyOf(d,gran);out.push({date:k,v:by[k]||0});}
+  for(let i=count-1;i>=0;i--){const d=hepStepDate(end,gran,-i);const k=hepKeyOf(d,gran);out.push({date:k,v:by[k]||0,has:Object.prototype.hasOwnProperty.call(by,k)});}
   return out;
 }
 function hepModel(){
@@ -6167,12 +6203,23 @@ function hepModel(){
   const b=sxx?sxy/sxx:0, a=my-b*mx;
   const sd=Math.sqrt(ys.reduce((t,y,i)=>t+(y-(a+b*i))**2,0)/Math.max(1,n-2));
   const maWindow=gran==='month'?3:7;
-  const ma=ys.map((_,i)=>{const w=ys.slice(Math.max(0,i-(maWindow-1)),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
+  const ma=ys.map((_,i)=>{
+    if(gran==='month'){const w=ys.slice(Math.max(0,i-(maWindow-1)),i+1);return w.reduce((x,y)=>x+y,0)/w.length;}
+    const ent=[];for(let j=i;j>=0&&ent.length<3;j--){if(all[j].has)ent.push(ys[j]);}
+    return ent.length?ent.reduce((x,y)=>x+y,0)/ent.length:0;
+  });
   const hist=all.slice(-days).map((p,i)=>({...p,ma:ma[n-days+i]}));
   const lastKeyDate=gran==='month'?new Date(all[n-1].date+'-01T00:00:00Z'):new Date(all[n-1].date+'T00:00:00Z');
   let fc=[];
   if(offset===0){
+    if(gran==='day'){
+      const rec=all.filter(p=>p.has).slice(-7).map(p=>p.v);
+      const mu=rec.length?rec.reduce((x,y)=>x+y,0)/rec.length:0;
+      const sg=rec.length>1?Math.sqrt(rec.reduce((t,y)=>t+(y-mu)**2,0)/(rec.length-1)):0;
+      for(let h=1;h<=days;h++){const d=hepStepDate(lastKeyDate,gran,h);fc.push({date:hepKeyOf(d,gran),v:mu,lo:Math.max(0,mu-sg),hi:mu+sg});}
+    } else {
     for(let h=1;h<=days;h++){const d=hepStepDate(lastKeyDate,gran,h);const v=Math.max(0,a+b*(n-1+h));fc.push({date:hepKeyOf(d,gran),v,lo:Math.max(0,v-sd),hi:v+sd});}
+    }
   }
   const total=hist.reduce((t,p)=>t+p.v,0), avg=total/days;
   const peak=hist.reduce((p,c)=>c.v>p.v?c:p,hist[0]);
@@ -6189,7 +6236,7 @@ function hepChartSvg(m){
   const X=i=>ml+i*bw+bw/2, Y=v=>mt+ph-(v/ymax)*ph, k=m.hist.length;
   let g='';
   for(let t=0;t<=4;t++){const v=ymax*t/4,y=Y(v);g+=`<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="#D8D8EE" stroke-width="1"/><text x="${ml-6}" y="${y+4}" font-size="10" text-anchor="end" fill="#5A5A88">${Math.round(v*10)/10}</text>`;}
-  m.hist.forEach((p,i)=>{g+=`<rect x="${ml+i*bw+bw*0.15}" y="${Y(p.v)}" width="${bw*0.7}" height="${ph+mt-Y(p.v)}" fill="${m.limit&&p.v>m.limit?'#E67E22':'#4A49C4'}" opacity="0.85"><title>${hepLabelOf(p.date,m.gran)}: ${p.v}</title></rect>`;});
+  m.hist.forEach((p,i)=>{g+=`<rect x="${ml+i*bw+bw*0.15}" y="${Y(p.v)}" width="${bw*0.7}" height="${ph+mt-Y(p.v)}" fill="${m.limit&&p.v>m.limit?'#E67E22':'#4A49C4'}" opacity="0.85"><title>${hepLabelOf(p.date,m.gran)}: ${p.v}</title></rect>${p.v>0?`<text x="${X(i)}" y="${Y(p.v)-4}" font-size="10" font-weight="700" text-anchor="middle" fill="#2D2D6B">${Math.round(p.v*10)/10}</text>`:''}`;});
   g+=`<polyline fill="none" stroke="#6BBF3E" stroke-width="2.5" points="${m.hist.map((p,i)=>X(i)+','+Y(p.ma)).join(' ')}"/>`;
   if(m.fc.length){
     const up=m.fc.map((p,i)=>X(k+i)+','+Y(p.hi)).join(' '), dn=m.fc.map((p,i)=>X(k+i)+','+Y(p.lo)).reverse().join(' ');
@@ -6199,14 +6246,14 @@ function hepChartSvg(m){
   if(m.fc.length)g+=`<line x1="${ml+k*bw}" x2="${ml+k*bw}" y1="${mt}" y2="${mt+ph}" stroke="#9898BB" stroke-dasharray="2 3"/><text x="${ml+k*bw+4}" y="${mt+10}" font-size="10" fill="#5A5A88">Forecast →</text>`;
   const all=[...m.hist,...m.fc],step=m.gran==='month'?1:Math.ceil(N/9);
   all.forEach((p,i)=>{if(i%step===0)g+=`<text x="${X(i)}" y="${H-mb+14}" font-size="10" text-anchor="middle" fill="#5A5A88">${hepLabelShort(p.date,m.gran)}</text>`;});
-  const usedLbl=m.gran==='month'?'Monthly used':'Daily used', trendLbl=m.gran==='month'?'Trend (3-mo avg)':'Trend (7-day avg)';
-  g+=`<g font-size="10" fill="#5A5A88"><rect x="${ml}" y="${H-12}" width="10" height="8" fill="#4A49C4"/><text x="${ml+14}" y="${H-5}">${usedLbl}</text><line x1="${ml+80}" x2="${ml+96}" y1="${H-8}" y2="${H-8}" stroke="#6BBF3E" stroke-width="2.5"/><text x="${ml+100}" y="${H-5}">${trendLbl}</text>${m.fc.length?`<line x1="${ml+200}" x2="${ml+216}" y1="${H-8}" y2="${H-8}" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${ml+220}" y="${H-5}">Predicted (shaded = likely range)</text>`:''}</g>`;
+  const usedLbl=m.gran==='month'?'Monthly used':'Daily used', trendLbl=m.gran==='month'?'Trend (3-mo avg)':'Trend (3 recorded days)';
+  g+=`<g font-size="10" fill="#5A5A88"><rect x="${ml}" y="${H-12}" width="10" height="8" fill="#4A49C4"/><text x="${ml+14}" y="${H-5}">${usedLbl}</text><line x1="${ml+80}" x2="${ml+96}" y1="${H-8}" y2="${H-8}" stroke="#6BBF3E" stroke-width="2.5"/><text x="${ml+100}" y="${H-5}">${trendLbl}</text>${m.fc.length?`<line x1="${ml+245}" x2="${ml+261}" y1="${H-8}" y2="${H-8}" stroke="#E67E22" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${ml+265}" y="${H-5}">Predicted (shaded = likely range)</text>`:''}</g>`;
   return `<svg class="hep-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif">${g}</svg>`;
 }
 function hepSummaryText(m){
   const u=m.unit, r=x=>Math.round(x*10)/10, p=m.mode==='week'?'7 days':m.mode==='month'?'30 days':'12 months';
   if(!m.fc.length)return `Usage was <b>${m.trend.toLowerCase()}</b> over this period. Total used: <b>${r(m.total)} ${u}</b>.`;
-  return `Usage is <b>${m.trend.toLowerCase()}</b>. At this trend about <b>${r(m.proj)} ${u}</b> will be used over the next ${p}.`;
+  return `Usage is <b>${m.trend.toLowerCase()}</b>. Based on recent recorded days, about <b>${r(m.proj)} ${u}</b> will be used over the next ${p}.`;
 }
 function hepTableHtml(m){
   const f=x=>Math.round(x*10)/10;
@@ -6231,6 +6278,7 @@ async function hepLoadHub(hub){
 async function renderHeparin(){
   showLoading('Loading heparin data...');
   await hepLoadHub(hepState.hub);
+  await hepLoadEntries(hepState.hub);
   hideLoading();
   const mc=document.getElementById('main-content'), isAdmin=currentUser&&currentUser.role==='admin', viewer=currentUser&&currentUser.role==='viewer';
   const hubTabs=`<div class="hep-hubtabs">${HEP_HUBS.map(h=>`<button class="btn ${hepState.hub===h.key?'active':''}" onclick="hepState.hub='${h.key}';hepState.offset=0;renderHeparin()">${h.label}</button>`).join('')}</div>`;
@@ -6263,9 +6311,9 @@ async function renderHeparin(){
      <div style="margin:12px 0" class="hep-grid">${st('Total used ('+m.days+' '+m.periodNoun+'s)',r(m.total)+' '+m.unit)}${st('Average / '+m.periodNoun,r(m.avg))}${st('Peak '+m.periodNoun,m.peak.v+' <small style="font-size:11px">'+hepLabelShort(m.peak.date,m.gran)+'</small>')}${m.over===null?'':st(m.periodNoun==='month'?'Months over limit':'Days over limit',m.over)}${m.fc.length?st('Forecast next '+m.days+' '+m.periodNoun+'s',r(m.proj)+' '+m.unit):''}</div>
      ${hepChartSvg(m)}
      <div style="font-size:13px;margin-top:10px;color:var(--gray-800)">${hepSummaryText(m)}</div>
-     ${m.fc.length?`<div style="font-size:11px;color:var(--gray-400);margin-top:6px">Forecast is a straight-line trend fitted to the last ${m.mode==='week'?14:30} days; treat it as an estimate.</div>`:''}
+     ${m.fc.length?`<div style="font-size:11px;color:var(--gray-400);margin-top:6px">${m.gran==='day'?'Forecast is the average of the last 7 days that have an entry (days with nothing recorded are ignored); treat it as an estimate.':'Forecast is a straight-line trend fitted to the last 24 months; treat it as an estimate.'}</div>`:''}
      ${hepTableHtml(m)}
-     </div></div>`;
+     </div>${hepEntriesCard()}</div>`;
 }
 async function hepSave(){
   const hub=hepState.hub, g=id=>document.getElementById(id).value.trim();
@@ -6544,6 +6592,207 @@ function shaSms(id){
   const when = i.state==='expired' ? `expired on ${disFormatDate(String(r.expiry_date).slice(0,10))}` : `expires on ${disFormatDate(String(r.expiry_date).slice(0,10))}`;
   const msg = `Hello${r.payer_name?' '+r.payer_name:''}, this is Renal Roads. The SHA cover for ${p.name} ${when}. Please update the SHA premium so dialysis services are not interrupted. Thank you.`;
   window.location.href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
+}
+
+// ── Heparin: admins can correct or delete wrongly recorded entries ──
+let hepEntries={}, hepEntriesPk='id', hepEntriesErr=null, hepEditId=null;
+async function hepLoadEntries(hub){
+  hepEntriesErr=null;
+  if(!(currentUser&&currentUser.role==='admin')) return;
+  const {data,error}=await db.rpc('rr_heparin_entries_list',{p_session:sessionToken,p_hub:hub});
+  if(error){hepEntriesErr=error.message;hepEntries[hub]=[];return;}
+  hepEntriesPk=(data&&data.pk)||'id';
+  hepEntries[hub]=(data&&data.rows)||[];
+}
+function hepEntriesCard(){
+  if(!(currentUser&&currentUser.role==='admin')) return '';
+  if(hepEntriesErr) return `<div class="hep-card"><h2>Recorded entries</h2><div style="font-size:12px;color:var(--red)">Editing isn't set up yet. Run <code>heparin_edit_setup.sql</code> once in the Supabase SQL Editor, then reload.<br><span style="opacity:.8">${repEsc(hepEntriesErr)}</span></div></div>`;
+  const rows=(hepEntries[hepState.hub]||[]).slice(0,40);
+  const body=rows.length?rows.map(r=>{
+    const id=String(r[hepEntriesPk]);
+    return `<tr><td style="white-space:nowrap">${repEsc(String(r.usage_date).slice(0,10))}</td><td><b>${repEsc(r.qty)}</b></td><td>${repEsc(r.note||'')}</td><td>${repEsc(r.by_user||r.created_by||'')}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="hepEditOpen('${id.replace(/'/g,'')}')"><i class="ti ti-edit"></i> Edit</button> <button class="btn btn-sm" onclick="hepDelete('${id.replace(/'/g,'')}')"><i class="ti ti-trash"></i></button></td></tr>`;
+  }).join(''):'<tr><td colspan="5" style="color:var(--gray-400);text-align:center;padding:14px">No entries recorded yet</td></tr>';
+  return `<div class="hep-card"><h2>Recorded entries — fix mistakes</h2><div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Latest 40 entries for this hub. Use Edit to correct the date, quantity or note, or the bin to remove an entry made by mistake.</div><div class="table-wrapper"><table><thead><tr><th>Date</th><th>Vials</th><th>Notes</th><th>Recorded by</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function hepEditOpen(id){
+  const r=(hepEntries[hepState.hub]||[]).find(x=>String(x[hepEntriesPk])===id); if(!r) return;
+  hepEditId=id;
+  document.getElementById('hep-edit-sub').textContent=`${HEP_HUBS.find(h=>h.key===hepState.hub).label} · recorded ${String(r.usage_date).slice(0,10)} · ${r.qty} vials`;
+  document.getElementById('hep-edit-date').value=String(r.usage_date).slice(0,10);
+  document.getElementById('hep-edit-date').max=hepLocalToday();
+  document.getElementById('hep-edit-qty').value=r.qty;
+  document.getElementById('hep-edit-note').value=r.note||'';
+  document.getElementById('hep-edit-error').classList.remove('show');
+  document.getElementById('hep-edit-modal').classList.add('open');
+}
+async function hepEditSave(){
+  const err=m=>{document.getElementById('hep-edit-error-msg').textContent=m;document.getElementById('hep-edit-error').classList.add('show');};
+  const date=document.getElementById('hep-edit-date').value, qty=parseInt(document.getElementById('hep-edit-qty').value), note=document.getElementById('hep-edit-note').value.trim();
+  if(!date||date>hepLocalToday()){err('Choose today or an earlier date.');return;}
+  if(!qty||qty<1){err('Enter the quantity used.');return;}
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_heparin_entry_update',{p_session:sessionToken,p_id:hepEditId,p_date:date,p_qty:qty,p_note:note,p_by_user:(currentUser&&currentUser.name)||'Admin'});
+  hideLoading();
+  if(error){err('Save failed: '+error.message);return;}
+  closeModal('hep-edit-modal');
+  await renderHeparin();
+}
+async function hepDelete(id){
+  const r=(hepEntries[hepState.hub]||[]).find(x=>String(x[hepEntriesPk])===id); if(!r) return;
+  if(!confirm(`Delete the entry of ${r.qty} vials on ${String(r.usage_date).slice(0,10)}? This cannot be undone.`)) return;
+  showLoading('Deleting...');
+  const {error}=await db.rpc('rr_heparin_entry_delete',{p_session:sessionToken,p_id:id});
+  hideLoading();
+  if(error){alert('Delete failed: '+error.message);return;}
+  await renderHeparin();
+}
+
+// ══════════════════════════════════════════════
+// PROCUREMENT (restock requests)
+// Nurses/doctors raise requests; admins approve, order, receive or decline.
+// Backend: rr_procurement + rr_proc_* RPCs (see procurement_setup.sql).
+// ══════════════════════════════════════════════
+let procData=[], procErr=null, procFilter={status:'open',search:''}, procToastShown=false;
+const PROC_LABEL={pending:'Pending',approved:'Approved',ordered:'Ordered',received:'Received',declined:'Declined'};
+const PROC_CHIP={pending:'due',approved:'active',ordered:'ordered',received:'notset',declined:'expired'};
+
+async function procLoad(){
+  const {data,error}=await db.rpc('rr_proc_list',{p_session:sessionToken});
+  procErr=error?(error.message||'error'):null;
+  procData=error?[]:(data||[]);
+}
+function procPendingCount(){return procData.filter(r=>r.status==='pending').length;}
+function procUpdateBadge(){
+  const b=document.getElementById('proc-badge'); if(!b) return;
+  const n=(currentUser&&currentUser.role==='admin')?procPendingCount():0;
+  if(n>0){b.style.display='inline';b.textContent=n;}else b.style.display='none';
+}
+async function procInit(){
+  await procLoad(); procUpdateBadge();
+  const n=procPendingCount();
+  if(n&&!procToastShown){procToastShown=true;showToast('Procurement requests',`${n} restock request${n>1?'s are':' is'} waiting for your approval. Open the <b>Procurement</b> tab.`,'rejected');}
+  setInterval(async()=>{await procLoad();procUpdateBadge();},5*60*1000);
+}
+async function renderProcurement(){
+  showLoading('Loading procurement...');
+  await procLoad();
+  hideLoading();
+  procUpdateBadge();
+  procRender();
+}
+function procRender(){
+  const isAdmin=currentUser&&currentUser.role==='admin';
+  const f=procFilter;
+  let rows=procData.slice();
+  const counts={pending:0,approved:0,ordered:0,received:0,declined:0};
+  rows.forEach(r=>{if(counts[r.status]!==undefined)counts[r.status]++;});
+  if(f.status==='open') rows=rows.filter(r=>['pending','approved','ordered'].includes(r.status));
+  else if(f.status!=='all') rows=rows.filter(r=>r.status===f.status);
+  const q=f.search.trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.item,r.brand,r.requested_by,r.note].some(v=>String(v||'').toLowerCase().includes(q)));
+  rows.sort((a,b)=>{ // urgent pending first, then newest
+    const pa=(a.status==='pending'?0:1)+(a.urgency==='urgent'?-1:0), pb=(b.status==='pending'?0:1)+(b.urgency==='urgent'?-1:0);
+    if(pa!==pb) return pa-pb;
+    return String(b.requested_at).localeCompare(String(a.requested_at));
+  });
+  let h='';
+  if(procErr) h+=`<div class="sha-setup"><strong>Procurement isn't set up yet.</strong> Run <code>procurement_setup.sql</code> once in the Supabase SQL Editor, then reload.<div style="margin-top:4px;font-size:11px;opacity:.8">${repEsc(procErr)}</div></div>`;
+  h+=`<div class="metrics">
+    <div class="metric"><div class="num" style="color:var(--amber)">${counts.pending}</div><div class="lbl">Pending</div></div>
+    <div class="metric"><div class="num" style="color:var(--green)">${counts.approved}</div><div class="lbl">Approved</div></div>
+    <div class="metric"><div class="num" style="color:#2F46A8">${counts.ordered}</div><div class="lbl">Ordered</div></div>
+    <div class="metric"><div class="num" style="color:var(--gray-600)">${counts.received}</div><div class="lbl">Received</div></div>
+  </div>
+  <div class="toolbar">
+    <input id="proc-search" placeholder="Search item, brand, requester..." value="${repEsc(f.search).replace(/"/g,'&quot;')}" oninput="procFilter.search=this.value;procRender()">
+    <select onchange="procFilter.status=this.value;procRender()">
+      <option value="open" ${f.status==='open'?'selected':''}>Open (pending / approved / ordered)</option>
+      <option value="pending" ${f.status==='pending'?'selected':''}>Pending</option>
+      <option value="approved" ${f.status==='approved'?'selected':''}>Approved</option>
+      <option value="ordered" ${f.status==='ordered'?'selected':''}>Ordered</option>
+      <option value="received" ${f.status==='received'?'selected':''}>Received</option>
+      <option value="declined" ${f.status==='declined'?'selected':''}>Declined</option>
+      <option value="all" ${f.status==='all'?'selected':''}>All</option>
+    </select>
+    ${isAdmin?'<button class="btn" onclick="procExport()"><i class="ti ti-file-spreadsheet"></i> Shopping list</button>':''}
+    <button class="btn btn-primary" onclick="procOpenNew()"><i class="ti ti-plus"></i> Request restock</button>
+  </div>
+  <div class="table-wrapper"><table>
+    <thead><tr><th>Date</th><th>Item</th><th>Quantity</th><th>Requested by</th><th>Status</th><th>Notes</th><th>Actions</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="7"><div class="empty"><i class="ti ti-shopping-cart"></i>${f.status==='open'?'No open restock requests':'Nothing found'}</div></td></tr>`;
+  rows.forEach(r=>{
+    const mine=r.requested_by===(currentUser&&currentUser.name);
+    let act='';
+    if(isAdmin){
+      if(r.status==='pending') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','approved')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm" onclick="procSetStatus('${r.id}','declined',true)"><i class="ti ti-x"></i> Decline</button> `;
+      if(r.status==='approved') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','ordered')"><i class="ti ti-truck-delivery"></i> Ordered</button> <button class="btn btn-sm" onclick="procSetStatus('${r.id}','declined',true)"><i class="ti ti-x"></i></button> `;
+      if(r.status==='ordered') act+=`<button class="btn btn-sm" onclick="procSetStatus('${r.id}','received')"><i class="ti ti-package-import"></i> Received</button> `;
+      act+=`<button class="btn btn-sm" title="Delete" onclick="procDelete('${r.id}')"><i class="ti ti-trash"></i></button>`;
+    } else if(mine&&r.status==='pending'){
+      act+=`<button class="btn btn-sm" onclick="procDelete('${r.id}')"><i class="ti ti-trash"></i> Cancel</button>`;
+    }
+    h+=`<tr>
+      <td style="white-space:nowrap">${disFormatDate(String(r.requested_at).slice(0,10))}</td>
+      <td><strong>${repEsc(r.item)}</strong>${r.urgency==='urgent'?' <span class="sha-chip urgent">Urgent</span>':''}${r.brand?`<div style="font-size:11px;color:var(--gray-600)">Brand: ${repEsc(r.brand)}</div>`:''}</td>
+      <td style="white-space:nowrap"><strong>${repEsc(r.qty)}</strong> ${repEsc(r.unit)}</td>
+      <td>${repEsc(r.requested_by)}</td>
+      <td><span class="sha-chip ${PROC_CHIP[r.status]||'notset'}">${PROC_LABEL[r.status]||repEsc(r.status)}</span>${r.updated_by&&r.status!=='pending'?`<div style="font-size:10px;color:var(--gray-400);margin-top:3px">by ${repEsc(r.updated_by)}</div>`:''}</td>
+      <td style="max-width:240px;font-size:12px">${r.note?repEsc(r.note):''}${r.admin_note?`<div style="color:var(--navy);margin-top:3px"><b>Admin:</b> ${repEsc(r.admin_note)}</div>`:''}</td>
+      <td style="white-space:nowrap">${act}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  renderMainPreserveFocus(h);
+}
+function procOpenNew(){
+  const names=[...new Set((supplies||[]).map(x=>x.name).filter(Boolean))].sort();
+  document.getElementById('proc-item-list').innerHTML=names.map(n=>`<option value="${repEsc(n).replace(/"/g,'&quot;')}">`).join('');
+  ['proc-item','proc-brand','proc-qty','proc-unit','proc-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('proc-urgency').value='routine';
+  document.getElementById('proc-error').classList.remove('show');
+  document.getElementById('proc-modal').classList.add('open');
+}
+async function procSubmit(){
+  const err=m=>{document.getElementById('proc-error-msg').textContent=m;document.getElementById('proc-error').classList.add('show');};
+  const item=document.getElementById('proc-item').value.trim(), unit=document.getElementById('proc-unit').value.trim();
+  const qty=parseFloat(document.getElementById('proc-qty').value);
+  if(!item){err('Enter the item you need.');return;}
+  if(!qty||qty<=0){err('Enter a quantity greater than 0.');return;}
+  if(!unit){err('Enter the unit (e.g. boxes, pieces, litres).');return;}
+  showLoading('Sending request...');
+  const {error}=await db.rpc('rr_proc_create',{p_session:sessionToken,p_item:item,p_brand:document.getElementById('proc-brand').value.trim()||null,p_qty:qty,p_unit:unit,p_urgency:document.getElementById('proc-urgency').value,p_note:document.getElementById('proc-note').value.trim()||null,p_by_user:(currentUser&&currentUser.name)||'Unknown'});
+  hideLoading();
+  if(error){err('Could not send: '+error.message);return;}
+  closeModal('proc-modal');
+  procFilter.status='open';
+  await renderProcurement();
+  showToast('Request sent',`${repEsc(item)} — ${qty} ${repEsc(unit)} has been sent to admin.`);
+}
+async function procSetStatus(id,status,askNote){
+  let note=null;
+  if(askNote){note=prompt('Reason for declining (optional):');if(note===null) return;}
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_proc_set_status',{p_session:sessionToken,p_id:id,p_status:status,p_admin_note:note,p_by_user:(currentUser&&currentUser.name)||'Admin'});
+  hideLoading();
+  if(error){alert('Failed: '+error.message);return;}
+  await renderProcurement();
+}
+async function procDelete(id){
+  if(!confirm('Remove this restock request?')) return;
+  showLoading('Removing...');
+  const {error}=await db.rpc('rr_proc_delete',{p_session:sessionToken,p_id:id,p_by_user:(currentUser&&currentUser.name)||''});
+  hideLoading();
+  if(error){alert('Failed: '+error.message);return;}
+  await renderProcurement();
+}
+function procExport(){
+  const rows=procData.filter(r=>['pending','approved','ordered'].includes(r.status));
+  if(!rows.length){alert('No open requests to export.');return;}
+  const aoa=[['Date','Item','Brand','Quantity','Unit','Urgency','Status','Requested by','Notes','Admin note']];
+  rows.forEach(r=>aoa.push([String(r.requested_at).slice(0,10),r.item,r.brand||'',Number(r.qty),r.unit,r.urgency==='urgent'?'Urgent':'Routine',PROC_LABEL[r.status]||r.status,r.requested_by,r.note||'',r.admin_note||'']));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:11},{wch:30},{wch:18},{wch:10},{wch:10},{wch:9},{wch:10},{wch:18},{wch:36},{wch:30}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Procurement');
+  XLSX.writeFile(wb,'Procurement_'+shaTodayStr()+'.xlsx');
 }
 </script>
 

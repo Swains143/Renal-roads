@@ -811,6 +811,11 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .pending-panel .table-wrapper{background:var(--white)}
 .pending-panel select{padding:5px 8px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:12px}
 </style>
+<style>
+/* Alert dots/badges sit right beside the tab label (they were pushed to the far edge, or 14px away) */
+.tabs .tab .badge,.tabs .tab #supply-comment-dot,.tabs .tab #disinfection-alert-dot{margin-left:-8px!important}
+.tabs.collapsed .tab .badge,.tabs.collapsed .tab #supply-comment-dot,.tabs.collapsed .tab #disinfection-alert-dot{position:absolute;top:5px;right:6px;margin:0!important;font-size:9px!important}
+</style>
 </head>
 <body>
 
@@ -1000,7 +1005,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
     <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('procurement')" id="tab-procurement"><i class="ti ti-shopping-cart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Procurement<span class="badge" id="proc-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
-    <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access</div>
+    <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
@@ -1402,15 +1407,17 @@ function jsArg(x){return attrEsc(String(x==null?'':x).replace(/\\/g,'\\\\').repl
 // One canonical spelling per brand: "primapore" typed later reuses the existing "Primapore".
 function canonBrand(s,b){b=String(b||'').trim().replace(/\s+/g,' ');const hit=itemBrands(s).find(x=>x.toLowerCase()===b.toLowerCase());return hit||b;}
 let suppliesRawCache=null; // {t,data}: last raw rr_supplies_list result, reused by the weekly report for a short while
-let commentDotTimer=null, disPollTimer=null, shaPollTimer=null, procPollTimer=null;
+let commentDotTimer=null, disPollTimer=null, shaPollTimer=null, procPollTimer=null, pendingUsersTimer=null;
 function startSessionPollers(role){
   stopSessionPollers();
   if(role==='admin'||role==='viewer') commentDotTimer=setInterval(updateCommentDot, 30000);
   disPollTimer=setInterval(async()=>{await loadDisData();updateDisinfectionAlertDot();}, 60000);
+  if(currentUser&&currentUser.hidden){ updateUsersPendingBadge(); pendingUsersTimer=setInterval(updateUsersPendingBadge, 60000); }
 }
 function stopSessionPollers(){
-  [commentDotTimer,disPollTimer,shaPollTimer,procPollTimer].forEach(t=>{ if(t) clearInterval(t); });
-  commentDotTimer=disPollTimer=shaPollTimer=procPollTimer=null;
+  [commentDotTimer,disPollTimer,shaPollTimer,procPollTimer,pendingUsersTimer].forEach(t=>{ if(t) clearInterval(t); });
+  commentDotTimer=disPollTimer=shaPollTimer=procPollTimer=pendingUsersTimer=null;
+  setUsersPendingBadge(0);
 }
 const SB_URL = 'https://vagsqfyedfxfvzzcgoqt.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhZ3NxZnllZGZ4ZnZ6emNnb3F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyOTkzNjQsImV4cCI6MjA5Nzg3NTM2NH0.gc98UvxrcjoIHhjCt8a5Gj2AuksOkvdiyYap8J_Vf8Y';
@@ -6004,6 +6011,7 @@ async function renderUsers(){
   if(isHiddenAdmin){
     const [pr,er]=await Promise.all([db.rpc('rr_signup_list',{p_session:sessionToken}),db.rpc('rr_list_user_emails',{p_session:sessionToken})]);
     pendingReqs=pr.data||[];(er.data||[]).forEach(r=>{emailMap[r.id]=r.email;});
+    setUsersPendingBadge(pendingReqs.length);
   }
   hideLoading();const users=(data||[]).filter(u=>!u.hidden);
   const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Staff</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
@@ -6073,6 +6081,15 @@ async function saveResetPassword(){
 }
 
 // ===== SELF SIGN-UP, APPROVAL, EMAIL PASSWORD RESET =====
+function setUsersPendingBadge(n){
+  const b=document.getElementById('users-pending-badge'); if(!b) return;
+  if(n>0){b.textContent=n;b.style.display='inline';}else{b.style.display='none';}
+}
+async function updateUsersPendingBadge(){
+  if(!currentUser||!currentUser.hidden||!sessionToken) return;
+  const {data,error}=await db.rpc('rr_signup_list',{p_session:sessionToken});
+  if(!error) setUsersPendingBadge((data||[]).length);
+}
 const AUTH_MSGS={
   invalid_name:'Please enter your full name (2-80 characters).',
   invalid_username:'Username must be 3-30 characters: letters, numbers, dot, underscore or hyphen.',

@@ -801,6 +801,16 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   .side-indicator,.tabs,.tabs .tab i.ti{transition:none}
 }
 </style>
+<style>
+.login-links{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}
+.login-links a{color:var(--navy);text-decoration:none;font-weight:600}
+.login-links a:hover{text-decoration:underline}
+.modal-ok{background:var(--green-pale);color:#2E6B10;border:1px solid #C9E5B4;border-radius:var(--radius);padding:12px 14px;font-size:13px;display:flex;gap:8px;align-items:flex-start}
+.pending-panel{background:var(--amber-pale);border:1px solid #F5C98A;border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:18px}
+.pending-panel h3{font-size:15px;color:#7A4510;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.pending-panel .table-wrapper{background:var(--white)}
+.pending-panel select{padding:5px 8px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:12px}
+</style>
 </head>
 <body>
 
@@ -953,6 +963,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
       </div>
       <button class="btn-login" id="login-btn" onclick="doLogin()"><span id="login-btn-label"><i class="ti ti-login"></i>Sign in</span><svg class="btn-check" viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></button>
       <div class="login-error" id="login-error"><i class="ti ti-alert-circle"></i><span id="login-error-msg"></span></div>
+      <div class="login-links"><a href="#" onclick="openForgot();return false">Forgot password?</a><a href="#" onclick="openSignup();return false">Request access</a></div>
       <div class="login-footer">Secured system &nbsp;·&nbsp; <strong>Renal Roads by Benacare</strong></div>
     </div>
   </div>
@@ -1218,6 +1229,56 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
     <div class="form-group full"><label>Notes</label><input id="r-notes" placeholder="Additional info"></div>
   </div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('request-modal')">Cancel</button><button class="btn btn-primary" onclick="submitRequest()"><i class="ti ti-send"></i> Submit</button></div>
+</div></div>
+
+<!-- Sign-up / forgot / reset / set-email modals -->
+<div class="modal-bg" id="signup-modal"><div class="modal">
+  <h2>Request access</h2><div class="modal-sub">An administrator reviews every request and assigns your role before you can sign in.</div>
+  <div id="signup-form">
+    <div class="form-grid">
+      <div class="form-group full"><label>Full name *</label><input id="su-name" autocomplete="name" maxlength="80"></div>
+      <div class="form-group full"><label>Username *</label><input id="su-username" autocomplete="username" maxlength="30" placeholder="3-30 letters, numbers, . _ -"></div>
+      <div class="form-group full"><label>Email * <span style="font-weight:400;color:var(--gray-400)">(used if you forget your password)</span></label><input id="su-email" type="email" autocomplete="email"></div>
+      <div class="form-group full"><label>Password *</label><input id="su-password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+      <div class="form-group full"><label>Confirm password *</label><input id="su-password2" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="modal-err" id="signup-error"><i class="ti ti-alert-circle"></i><span id="signup-error-msg"></span></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('signup-modal')">Cancel</button><button class="btn btn-primary" id="signup-btn" onclick="submitSignup()"><i class="ti ti-send"></i> Submit request</button></div>
+  </div>
+  <div id="signup-done" style="display:none">
+    <div class="modal-ok"><i class="ti ti-circle-check"></i><div>Request sent. You will be able to sign in once an administrator approves it.</div></div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('signup-modal')">Close</button></div>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="forgot-modal"><div class="modal">
+  <h2>Forgot password</h2><div class="modal-sub">Enter the email address on your account and we will send you a reset link.</div>
+  <div id="forgot-form">
+    <div class="form-grid"><div class="form-group full"><label>Email *</label><input id="fp-email" type="email" autocomplete="email" onkeydown="if(event.key==='Enter')submitForgot()"></div></div>
+    <div class="modal-err" id="forgot-error"><i class="ti ti-alert-circle"></i><span id="forgot-error-msg"></span></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('forgot-modal')">Cancel</button><button class="btn btn-primary" id="forgot-btn" onclick="submitForgot()"><i class="ti ti-mail"></i> Send reset link</button></div>
+  </div>
+  <div id="forgot-done" style="display:none">
+    <div class="modal-ok"><i class="ti ti-circle-check"></i><div>If an active account uses that email, a reset link is on its way. It expires in 30 minutes. If you have no email on your account, ask the administrator to reset your password.</div></div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('forgot-modal')">Close</button></div>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="reset-modal"><div class="modal">
+  <h2>Choose a new password</h2><div class="modal-sub">This link works once.</div>
+  <div class="form-grid">
+    <div class="form-group full"><label>New password *</label><input id="rs-password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+    <div class="form-group full"><label>Confirm password *</label><input id="rs-password2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitReset()"></div>
+  </div>
+  <div class="modal-err" id="reset-error"><i class="ti ti-alert-circle"></i><span id="reset-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeResetModal()">Cancel</button><button class="btn btn-primary" id="reset-btn" onclick="submitReset()"><i class="ti ti-key"></i> Save password</button></div>
+</div></div>
+
+<div class="modal-bg" id="setemail-modal"><div class="modal">
+  <h2>User email</h2><div class="modal-sub">Email for <strong id="se-user-name"></strong>, used for password reset. Leave empty to remove.</div>
+  <div class="form-grid"><div class="form-group full"><label>Email</label><input id="se-email" type="email"></div></div>
+  <div class="modal-err" id="setemail-error"><i class="ti ti-alert-circle"></i><span id="setemail-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="closeModal('setemail-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUserEmail()"><i class="ti ti-check"></i> Save</button></div>
 </div></div>
 
 <!-- User Modal -->
@@ -5938,8 +5999,14 @@ async function updateCommentDot() {
 async function renderUsers(){
   showLoading('Loading users...');
   const {data}=await db.rpc('rr_list_users',{p_session:sessionToken});
-  hideLoading();const users=(data||[]).filter(u=>!u.hidden);
   const isHiddenAdmin = !!(currentUser && currentUser.hidden);
+  let pendingReqs=[],emailMap={};
+  if(isHiddenAdmin){
+    const [pr,er]=await Promise.all([db.rpc('rr_signup_list',{p_session:sessionToken}),db.rpc('rr_list_user_emails',{p_session:sessionToken})]);
+    pendingReqs=pr.data||[];(er.data||[]).forEach(r=>{emailMap[r.id]=r.email;});
+  }
+  hideLoading();const users=(data||[]).filter(u=>!u.hidden);
+  const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Staff</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${users.length}</div><div class="lbl">Total</div></div>
@@ -5948,14 +6015,14 @@ async function renderUsers(){
     <div class="metric"><div class="num" style="color:var(--navy)">${users.filter(u=>u.role==='admin').length}</div><div class="lbl">Admins</div></div>
   </div>
   <div class="toolbar">${isHiddenAdmin?`<button class="btn btn-primary" onclick="openAddUser()"><i class="ti ti-user-plus"></i> Register new user</button>`:''}</div>
-  <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+  ${pendingPanel}<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th>${isHiddenAdmin?'<th>Email</th>':''}<th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   users.forEach(u=>{
     const isSelf=u.id===currentUser.id;
     h+=`<tr><td>${repEsc(u.name)}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}</td>
-      <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(u.username)}</code></td>
+      <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(u.username)}</code></td>${isHiddenAdmin?`<td>${emailMap[u.id]?repEsc(emailMap[u.id]):'<span style="color:var(--gray-400)">none</span>'}</td>`:''}
       <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':u.role==='doctor'?'role-doctor':'role-staff'}">${u.role}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
-      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} <button class="btn btn-sm" onclick="openResetPassword('${u.id}','${jsArg(u.name)}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
+      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} ${isHiddenAdmin?`<button class="btn btn-sm" onclick="openSetEmail('${u.id}','${jsArg(u.name)}','${jsArg(emailMap[u.id]||'')}')"><i class="ti ti-mail"></i> Email</button> `:''}<button class="btn btn-sm" onclick="openResetPassword('${u.id}','${jsArg(u.name)}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
   h+=`</tbody></table></div><div class="alert alert-info" style="margin-top:16px"><i class="ti ti-info-circle"></i><div>Only admins can manage users. Deactivated users cannot sign in.</div></div>`;
   document.getElementById('main-content').innerHTML=h;
@@ -6003,6 +6070,123 @@ async function saveResetPassword(){
   if(error)return showErr(error.message);
   closeModal('reset-password-modal');
   await renderUsers();
+}
+
+// ===== SELF SIGN-UP, APPROVAL, EMAIL PASSWORD RESET =====
+const AUTH_MSGS={
+  invalid_name:'Please enter your full name (2-80 characters).',
+  invalid_username:'Username must be 3-30 characters: letters, numbers, dot, underscore or hyphen.',
+  invalid_email:'Please enter a valid email address.',
+  weak_password:'Password must be at least 8 characters.',
+  username_taken:'That username is already taken or already has a pending request.',
+  email_taken:'That email is already registered or already has a pending request.',
+  too_many_requests:'Too many pending requests right now. Please contact the administrator.',
+  invalid_or_expired:'This reset link is invalid or has expired. Request a new one.',
+  forbidden:'You do not have permission to do that.',
+  not_found:'That request was already handled.',
+  invalid_role:'Please choose a valid role.'
+};
+function authMsg(err){const m=(err&&err.message)||'';for(const k in AUTH_MSGS){if(m.includes(k))return AUTH_MSGS[k];}
+  if(/failed to fetch|network|load failed/i.test(m))return 'Could not reach the server. Check your connection and try again.';
+  return 'Something went wrong. Please try again.';}
+function setErr(prefix,msg){document.getElementById(prefix+'-error-msg').textContent=msg;document.getElementById(prefix+'-error').classList.add('show');}
+function clearErr(prefix){document.getElementById(prefix+'-error').classList.remove('show');}
+
+function openSignup(){
+  ['su-name','su-username','su-email','su-password','su-password2'].forEach(k=>document.getElementById(k).value='');
+  clearErr('signup');document.getElementById('signup-form').style.display='';document.getElementById('signup-done').style.display='none';
+  document.getElementById('signup-modal').classList.add('open');
+}
+async function submitSignup(){
+  clearErr('signup');
+  const name=document.getElementById('su-name').value.trim(),un=document.getElementById('su-username').value.trim().toLowerCase(),
+        em=document.getElementById('su-email').value.trim().toLowerCase(),pw=document.getElementById('su-password').value,pw2=document.getElementById('su-password2').value;
+  if(!name||!un||!em||!pw)return setErr('signup','All fields are required.');
+  if(pw.length<8)return setErr('signup','Password must be at least 8 characters.');
+  if(pw!==pw2)return setErr('signup','Passwords do not match.');
+  const btn=document.getElementById('signup-btn');btn.disabled=true;
+  const {error}=await db.rpc('rr_signup_request',{p_name:name,p_username:un,p_email:em,p_password:pw});
+  btn.disabled=false;
+  if(error)return setErr('signup',authMsg(error));
+  document.getElementById('signup-form').style.display='none';document.getElementById('signup-done').style.display='';
+}
+
+function openForgot(){
+  document.getElementById('fp-email').value='';clearErr('forgot');
+  document.getElementById('forgot-form').style.display='';document.getElementById('forgot-done').style.display='none';
+  document.getElementById('forgot-modal').classList.add('open');
+}
+async function submitForgot(){
+  clearErr('forgot');
+  const em=document.getElementById('fp-email').value.trim().toLowerCase();
+  if(!em||!em.includes('@'))return setErr('forgot','Please enter a valid email address.');
+  const btn=document.getElementById('forgot-btn');btn.disabled=true;
+  const {error}=await db.functions.invoke('rr-forgot-password',{body:{email:em}});
+  btn.disabled=false;
+  if(error)return setErr('forgot','Could not send the reset email right now. Please try again, or ask the administrator to reset your password.');
+  document.getElementById('forgot-form').style.display='none';document.getElementById('forgot-done').style.display='';
+}
+
+let resetToken=null;
+function checkResetLink(){
+  const m=/[#&]reset=([0-9a-f]{64})/.exec(location.hash||'');
+  if(!m)return;
+  resetToken=m[1];
+  history.replaceState(null,'',location.pathname+location.search); // keep the token out of the address bar and history
+  ['rs-password','rs-password2'].forEach(k=>document.getElementById(k).value='');clearErr('reset');
+  document.getElementById('reset-modal').classList.add('open');
+}
+function closeResetModal(){resetToken=null;closeModal('reset-modal');}
+async function submitReset(){
+  clearErr('reset');
+  const pw=document.getElementById('rs-password').value,pw2=document.getElementById('rs-password2').value;
+  if(pw.length<8)return setErr('reset','Password must be at least 8 characters.');
+  if(pw!==pw2)return setErr('reset','Passwords do not match.');
+  const btn=document.getElementById('reset-btn');btn.disabled=true;
+  const {error}=await db.rpc('rr_reset_complete',{p_token:resetToken,p_password:pw});
+  btn.disabled=false;
+  if(error)return setErr('reset',authMsg(error));
+  resetToken=null;closeModal('reset-modal');
+  const errEl=document.getElementById('login-error');
+  document.getElementById('login-error-msg').textContent='Password updated. Please sign in with your new password.';
+  errEl.classList.add('show');
+}
+window.addEventListener('load',checkResetLink);
+
+// Hidden admin: approve / reject requests, edit emails
+async function approveSignup(id){
+  if(!currentUser||!currentUser.hidden)return;
+  const role=document.getElementById('sr-role-'+id).value;
+  if(!role){alert('Please choose a role before approving.');return;}
+  showLoading('Approving...');
+  const {error}=await db.rpc('rr_signup_approve',{p_session:sessionToken,p_id:id,p_role:role});
+  hideLoading();
+  if(error){alert(authMsg(error)+(/duplicate|23505/i.test(error.message||'')?' (The username or email was taken in the meantime.)':''));}
+  await renderUsers();
+}
+async function rejectSignup(id){
+  if(!currentUser||!currentUser.hidden)return;
+  const reason=prompt('Reason for rejecting (optional):','');
+  if(reason===null)return;
+  showLoading('Rejecting...');
+  const {error}=await db.rpc('rr_signup_reject',{p_session:sessionToken,p_id:id,p_reason:reason});
+  hideLoading();
+  if(error)alert(authMsg(error));
+  await renderUsers();
+}
+let setEmailUserId=null;
+function openSetEmail(id,name,email){
+  if(!currentUser||!currentUser.hidden)return;
+  setEmailUserId=id;document.getElementById('se-user-name').textContent=name;document.getElementById('se-email').value=email||'';
+  clearErr('setemail');document.getElementById('setemail-modal').classList.add('open');
+}
+async function saveUserEmail(){
+  if(!currentUser||!currentUser.hidden)return;
+  clearErr('setemail');
+  const em=document.getElementById('se-email').value.trim().toLowerCase();
+  const {error}=await db.rpc('rr_set_email',{p_session:sessionToken,p_id:setEmailUserId,p_email:em});
+  if(error)return setErr('setemail',error.code==='23505'?'That email is already used by another user.':authMsg(error));
+  closeModal('setemail-modal');await renderUsers();
 }
 
 // EXPORT (always as real Excel .xlsx files, via SheetJS)

@@ -898,6 +898,20 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 @keyframes orbPulse{0%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(45deg) scale(1.18)}}
 @media(prefers-reduced-motion:reduce){.orb-ring,.orb-core{animation:none}.login-card .login-card-logo,.login-card .mascot-3d-stage,.login-card .lc-views{transition:none}}
 </style>
+<style>
+/* ══ Weekly Report sub-tabs ══ */
+.side-sub{display:none;position:relative;margin:0 var(--si) 4px;padding:2px 0 2px 0}
+.side-sub::before{content:"";position:absolute;left:28px;top:4px;bottom:6px;width:1px;background:rgba(255,255,255,.18)}
+#tab-report.active+.side-sub,.side-sub.force-open{display:block;animation:subIn .22s ease both}
+@keyframes subIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.side-sub-item{position:relative;padding:7px 12px 7px 44px;margin:1px 0;border-radius:10px;font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.side-sub-item::before{content:"";position:absolute;left:25px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:#13124B;border:1.5px solid rgba(255,255,255,.35);transition:background .15s,border-color .15s}
+.side-sub-item:hover{background:rgba(255,255,255,.1);color:#fff}
+.side-sub-item.active{color:#fff;font-weight:700}
+.side-sub-item.active::before{background:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(143,214,90,.7)}
+.side-sub-item.side-hidden{display:none!important}
+.tabs.collapsed .side-sub{display:none!important}
+</style>
 </head>
 <body>
 
@@ -1121,6 +1135,11 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   </div>
   <div class="side-group"><div class="side-label">Reports</div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
+    <div class="side-sub" id="side-sub-report">
+      <div class="side-sub-item" data-kind="clinical" onclick="sideOpenReportKind('clinical')">Clinical Report</div>
+      <div class="side-sub-item" data-kind="operational" onclick="sideOpenReportKind('operational')">Operational Report</div>
+      <div class="side-sub-item" data-kind="doctor" onclick="sideOpenReportKind('doctor')">Doctor's Report</div>
+    </div>
     <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
   </div>
   <div class="side-group"><div class="side-label">Others</div>
@@ -1905,7 +1924,7 @@ function switchTab(t){
   // Freshly entering either report tab (not just re-clicking the one
   // already open) resets which report form shows: Weekly Report always
   // starts on Clinical Report, Monthly Report always shows the monthly form.
-  if(t!==currentTab && t==='report') repKind='clinical';
+  if(t!==currentTab && t==='report') repKind=window.__repKindOverride||'clinical';
   if(t!==currentTab && t==='monthlyreport') repKind='monthly';
   currentTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.id==='tab-'+t));
@@ -7435,6 +7454,32 @@ function moveSideIndicator(instant){
   setTimeout(()=>moveSideIndicator(true),50);
 })();
 
+// ── Weekly Report sub-tabs in the sidebar ──
+function sideOpenReportKind(kind){
+  if(typeof closeSidebar==='function') closeSidebar();
+  const canDoc=!!(currentUser&&['admin','doctor','viewer'].includes(currentUser.role));
+  if(kind==='doctor'&&!canDoc) return;
+  if(currentTab==='report'){ if(repKind!==kind) repSetKind(kind); return; }
+  window.__repKindOverride=kind;
+  try{ switchTab('report'); } finally { window.__repKindOverride=null; }
+}
+function sideSyncReportSub(){
+  const box=document.getElementById('side-sub-report'); if(!box) return;
+  const canDoc=!!(currentUser&&['admin','doctor','viewer'].includes(currentUser.role));
+  box.querySelectorAll('.side-sub-item').forEach(it=>{
+    it.classList.toggle('active',currentTab==='report'&&it.dataset.kind===repKind);
+    if(it.dataset.kind==='doctor') it.style.display=canDoc?'':'none';
+  });
+}
+(function(){
+  const tab=document.getElementById('tab-report'); if(!tab) return;
+  new MutationObserver(sideSyncReportSub).observe(tab,{attributes:true,attributeFilter:['class']});
+  const tbr=document.getElementById('tbr'); if(tbr) new MutationObserver(sideSyncReportSub).observe(tbr,{childList:true,characterData:true,subtree:true});
+  const orig=window.repSetKind;
+  if(typeof orig==='function') window.repSetKind=function(){const r=orig.apply(this,arguments);sideSyncReportSub();return r;};
+  sideSyncReportSub();
+})();
+
 // ── Sidebar: profile card, menu search, group visibility ──
 function sideRefreshGroups(){
   document.querySelectorAll('#app-sidebar .side-group').forEach(g=>{
@@ -7448,13 +7493,26 @@ function sideFilter(q){
     const label=t.textContent.replace(/\d+\s*$/,'').trim().toLowerCase();
     t.classList.toggle('side-hidden',!!q&&!label.includes(q));
   });
+  const subBox=document.getElementById('side-sub-report');
+  if(subBox){
+    let any=false;
+    subBox.querySelectorAll('.side-sub-item').forEach(it=>{
+      const m=!q||it.textContent.toLowerCase().includes(q);
+      it.classList.toggle('side-hidden',!!q&&!m);
+      if(q&&m&&getComputedStyle(it).display!=='none') any=true;
+    });
+    subBox.classList.toggle('force-open',!!q&&any);
+    const par=document.getElementById('tab-report');
+    if(par&&q&&any) par.classList.remove('side-hidden');
+  }
   sideRefreshGroups();
 }
 function sideSearchKey(e){
   const inp=e.target;
   if(e.key==='Escape'){inp.value='';sideFilter('');inp.blur();}
   if(e.key==='Enter'){
-    const first=[...document.querySelectorAll('#app-sidebar .tab')].find(t=>getComputedStyle(t).display!=='none');
+    const subs=[...document.querySelectorAll('#app-sidebar .side-sub.force-open .side-sub-item')].filter(t=>getComputedStyle(t).display!=='none');
+    const first=subs[0]||[...document.querySelectorAll('#app-sidebar .tab')].find(t=>getComputedStyle(t).display!=='none');
     if(first){first.click();inp.value='';sideFilter('');inp.blur();}
   }
 }

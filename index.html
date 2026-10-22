@@ -939,19 +939,25 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .death-chip.none{background:#F1F1F5;color:#6B6B80;border:1px dashed #C9C9D6}
 </style>
 <style>
-.home-charts{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.6fr);gap:8px;margin-bottom:6px}
+.home-charts-wrap{container-type:inline-size;container-name:homecharts}
+.home-charts{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,2.2fr);gap:8px;margin-bottom:6px}
 .home-charts>.hep-card{min-width:0;padding:6px 8px}
 .home-donut-card{display:flex;align-items:center;gap:8px}
-.home-donut{width:220px;height:220px;flex-shrink:0}
-.home-donut-legend{display:flex;flex-direction:column;gap:2px}
-@media(max-width:680px){
+.home-donut{width:100%;max-width:220px;height:auto;flex:0 1 220px}
+.home-donut-legend{display:flex;flex-direction:column;gap:2px;min-width:0}
+.home-bars-wide{display:block;width:100%;height:auto}
+.home-bars-narrow{display:none;width:100%;max-width:440px;height:auto;margin:0 auto}
+/* Stack when the chart area itself is narrow (phones, tablets with the menu open) */
+@container homecharts (max-width:900px){
   .home-charts{grid-template-columns:1fr}
-  .home-donut-card{flex-direction:column;gap:10px;padding:12px 10px!important}
-  .home-donut{width:min(220px,70vw);height:auto;flex-shrink:1}
+  .home-donut-card{flex-direction:column;gap:10px;padding:12px 10px}
+  .home-donut{flex:0 0 auto;width:min(220px,70cqw)}
   .home-donut-legend{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px 14px}
   .home-donut-legend div{font-size:12px!important}
-  .home-bars-card{padding:10px!important}
+  .home-bars-card{padding:10px}
   .home-bars-card>div{font-size:11px!important;gap:6px 10px!important}
+  .home-bars-wide{display:none}
+  .home-bars-narrow{display:block}
 }
 </style>
 </head>
@@ -4907,7 +4913,6 @@ function docExportPrint(){
 // HOME DASHBOARD: patients by station & status charts
 // =====================================================================
 const HOME_STATUSES_BASE=[{k:'Active',c:'#4E9429',m:p=>p.status==='Active'},{k:'Discharged',c:'#3C3489',m:p=>p.status==='Discharged'},{k:'Transferred',c:'#E67E22',m:p=>p.status==='Transferred'},{k:'Transplant',c:'#0F6656',m:p=>p.status==='Transplant'}];
-try{ window.matchMedia('(max-width:680px)').addEventListener('change',()=>{ if(typeof currentTab!=='undefined'&&currentTab==='home'&&currentUser) renderHome(); }); }catch(e){}
 let deathPlacesLoaded=false;   // true once rr_patient_death_list has answered without error
 let HOME_STATUSES=[];          // rebuilt for each dashboard paint by homeStatusList()
 // Deceased is split by place of death once that data is loaded; the "not recorded"
@@ -4943,9 +4948,8 @@ function homeDonutSvg(parts){
   g+=`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="38" font-weight="700" fill="var(--navy)">${total}</text><text x="${cx}" y="${cy+26}" text-anchor="middle" font-size="16" fill="var(--gray-600)">patients</text>`;
   return `<svg class="home-donut" viewBox="0 0 260 260">${g}</svg>`;
 }
-function homeStatusBarsSvg(stations){
+function homeStatusBarsSvg(stations,narrow){
   const max=Math.max(1,...stations.flatMap(s=>HOME_STATUSES.map(st=>s.counts[st.k]||0)));
-  const narrow=window.matchMedia('(max-width:680px)').matches;
   // Desktop: wide canvas that the card scales down a little. Phone: canvas ~ card width so text stays legible.
   const W=narrow?320:560, rowH=narrow?13:8, gap=narrow?8:3, ml=narrow?118:78, mr=narrow?22:24, barMax=W-ml-mr;
   const fsH=narrow?10:7, fsL=narrow?8.5:5.5, fsV=narrow?9:6, bh=narrow?6:4;
@@ -4963,7 +4967,7 @@ function homeStatusBarsSvg(stations){
     });
     y+=gap;
   });
-  return `<svg viewBox="0 0 ${W} ${y}" style="width:100%;height:auto">${g}</svg>`;
+  return `<svg class="${narrow?'home-bars-narrow':'home-bars-wide'}" viewBox="0 0 ${W} ${y}">${g}</svg>`;
 }
 function homePatientCharts(patients){
   HOME_STATUSES=homeStatusList(patients);
@@ -4978,16 +4982,16 @@ function homePatientCharts(patients){
   const donutParts=stations.map((s,i)=>({k:s.label,v:s.total,c:HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]}));
   const legend=stations.map((s,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray-800)"><span style="width:10px;height:10px;border-radius:3px;background:${HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]};display:inline-block"></span>${repEsc(s.label)}: <b>${s.total}</b></div>`).join('');
   const statusLegend=HOME_STATUSES.map(st=>`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-600)"><span style="width:9px;height:9px;border-radius:3px;background:${st.c};display:inline-block"></span>${st.k}</div>`).join('');
-  return `<div class="home-charts">
+  return `<div class="home-charts-wrap"><div class="home-charts">
     <div class="hep-card home-donut-card">
       ${homeDonutSvg(donutParts)}
       <div class="home-donut-legend">${legend}</div>
     </div>
     <div class="hep-card home-bars-card">
-      ${homeStatusBarsSvg(stations)}
+      ${homeStatusBarsSvg(stations,false)}${homeStatusBarsSvg(stations,true)}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">${statusLegend}</div>
     </div>
-  </div>`;
+  </div></div>`;
 }
 
 async function renderHome(){

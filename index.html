@@ -7516,6 +7516,7 @@ function sideOpenReport(kind,fac){
     if(currentTab!=='report') set(prev);
   }
 }
+let sideLastFac=null;   // facility that was active at the previous sync, so we auto-open only when you MOVE into a facility
 function sideSyncReports(){
   let activeFac=null;
   document.querySelectorAll('#app-sidebar .side-sub-item').forEach(it=>{
@@ -7530,8 +7531,9 @@ function sideSyncReports(){
   ['truck','kigumo'].forEach(f=>{
     const h=document.getElementById('tab-fac-'+f); if(!h) return;
     h.classList.toggle('active',activeFac===f);
-    if(activeFac===f&&!h.classList.contains('is-open')) h.classList.add('is-open');   // only when it changes, or the observer would loop forever
+    if(activeFac===f&&activeFac!==sideLastFac&&!h.classList.contains('is-open')) h.classList.add('is-open');   // auto-open on entering; never re-open after you close it
   });
+  sideLastFac=activeFac;
   const d=document.getElementById('tab-doctorreport');
   if(d){ d.style.display=sideCanDoctor()?'':'none'; d.classList.toggle('active',currentTab==='report'&&repKind==='doctor'); }
 }

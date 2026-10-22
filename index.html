@@ -902,7 +902,10 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 /* ══ Weekly Report sub-tabs ══ */
 .side-sub{display:none;position:relative;margin:0 var(--si) 4px;padding:2px 0 2px 0}
 .side-sub::before{content:"";position:absolute;left:28px;top:4px;bottom:6px;width:1px;background:rgba(255,255,255,.18)}
-#tab-report.active+.side-sub,.side-sub.force-open{display:block;animation:subIn .22s ease both}
+.side-fac.is-open+.side-sub,.side-sub.force-open{display:block;animation:subIn .22s ease both}
+.side-chev{margin-left:auto;font-size:14px!important;width:auto!important;opacity:.7;transition:transform .2s ease!important}
+.side-fac.is-open .side-chev{transform:rotate(180deg)}
+.tabs.collapsed .side-chev{display:none}
 @keyframes subIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .side-sub-item{position:relative;padding:7px 12px 7px 44px;margin:1px 0;border-radius:10px;font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
 .side-sub-item::before{content:"";position:absolute;left:25px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:#13124B;border:1.5px solid rgba(255,255,255,.35);transition:background .15s,border-color .15s}
@@ -1133,17 +1136,24 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
     <div class="tab" onclick="switchTab('procurement')" id="tab-procurement"><i class="ti ti-shopping-cart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Procurement<span class="badge" id="proc-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
   </div>
-  <div class="side-group"><div class="side-label">Reports</div>
-    <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
-    <div class="side-sub" id="side-sub-report">
-      <div class="side-sub-item" data-kind="clinical" onclick="sideOpenReportKind('clinical')">Clinical Report</div>
-      <div class="side-sub-item" data-kind="operational" onclick="sideOpenReportKind('operational')">Operational Report</div>
-      <div class="side-sub-item" data-kind="doctor" onclick="sideOpenReportKind('doctor')">Doctor's Report</div>
+  <div class="side-group"><div class="side-label">Facilities &amp; Reports</div>
+    <div class="tab side-fac" id="tab-fac-truck" onclick="sideToggleFacility('truck')"><i class="ti ti-truck" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Mobile Truck<i class="ti ti-chevron-down side-chev"></i></div>
+    <div class="side-sub" id="side-sub-truck">
+      <div class="side-sub-item" data-fac="truck" data-kind="clinical" onclick="sideOpenReport('clinical','truck')">Clinical Report</div>
+      <div class="side-sub-item" data-fac="truck" data-kind="operational" onclick="sideOpenReport('operational','truck')">Operational Report</div>
+      <div class="side-sub-item" data-fac="truck" data-kind="monthly" onclick="sideOpenReport('monthly','truck')">Monthly Report</div>
+      <div class="side-sub-item" data-fac="truck" data-kind="heparin" onclick="sideOpenReport('heparin','truck')">Heparin</div>
     </div>
-    <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
+    <div class="tab side-fac" id="tab-fac-kigumo" onclick="sideToggleFacility('kigumo')"><i class="ti ti-building-hospital" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Kigumo<i class="ti ti-chevron-down side-chev"></i></div>
+    <div class="side-sub" id="side-sub-kigumo">
+      <div class="side-sub-item" data-fac="kigumo" data-kind="clinical" onclick="sideOpenReport('clinical','kigumo')">Clinical Report</div>
+      <div class="side-sub-item" data-fac="kigumo" data-kind="operational" onclick="sideOpenReport('operational','kigumo')">Operational Report</div>
+      <div class="side-sub-item" data-fac="kigumo" data-kind="monthly" onclick="sideOpenReport('monthly','kigumo')">Monthly Report</div>
+      <div class="side-sub-item" data-fac="kigumo" data-kind="heparin" onclick="sideOpenReport('heparin','kigumo')">Heparin</div>
+    </div>
+    <div class="tab" id="tab-doctorreport" onclick="sideOpenReportKind('doctor')"><i class="ti ti-stethoscope" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Doctor's Report</div>
   </div>
   <div class="side-group"><div class="side-label">Others</div>
-    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
@@ -6754,12 +6764,19 @@ async function hepLoadHub(hub){
   hepSetupError=null;
   hepUsage[hub]=data||[];
 }
+function hepSetHub(k){
+  if(hepState.hub===k) return;
+  hepState.hub=k; hepState.offset=0;
+  renderHeparin();
+  if(typeof sideSyncReports==='function') sideSyncReports();
+}
 async function renderHeparin(){
   showLoading('Loading heparin data...');
   await Promise.all([hepLoadHub(hepState.hub), hepLoadEntries(hepState.hub)]);
   hideLoading();
   const mc=document.getElementById('main-content'), isAdmin=currentUser&&currentUser.role==='admin', viewer=currentUser&&currentUser.role==='viewer';
-  const hubTabs=`<div class="hep-hubtabs">${HEP_HUBS.map(h=>`<button class="btn ${hepState.hub===h.key?'active':''}" onclick="hepState.hub='${h.key}';hepState.offset=0;renderHeparin()">${h.label}</button>`).join('')}</div>`;
+  const hubLabel=(HEP_HUBS.find(h=>h.key===hepState.hub)||{}).label||'';
+  const hubTabs=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px"><div><h2 style="margin:0 0 2px;font-size:17px;font-family:'Lora',serif;color:var(--navy)">Heparin usage</h2><div style="font-size:12px;color:var(--gray-400)">${hubLabel} · daily usage log, trend &amp; forecast</div></div><div class="rep-toggle" id="hep-facility-toggle">${HEP_HUBS.map(h=>`<button type="button" class="${hepState.hub===h.key?'active':''}" onclick="hepSetHub('${h.key}')">${h.key==='truck'?'Truck':'Kigumo'}</button>`).join('')}</div></div>`;
   if(hepSetupError){
     mc.innerHTML=`<div class="hep-page"><div class="hep-card">${hubTabs}</div><div class="alert alert-info" style="margin-top:4px"><i class="ti ti-info-circle"></i><div><b>Heparin tracking isn't set up in the database yet.</b><br>The app tried to call <code>rr_heparin_usage_list</code> and got: <i>${hepSetupError}</i>.<br>Ask whoever manages the database to run the setup SQL, then reload this page.</div></div></div>`;
     return;
@@ -7454,30 +7471,79 @@ function moveSideIndicator(instant){
   setTimeout(()=>moveSideIndicator(true),50);
 })();
 
-// ── Weekly Report sub-tabs in the sidebar ──
-function sideOpenReportKind(kind){
+// ── Reports in the sidebar: facility first (Mobile Truck / Kigumo), Doctor's Report on its own ──
+function sideCanDoctor(){return !!(currentUser&&['admin','doctor','viewer'].includes(currentUser.role));}
+function sideToggleFacility(f){
+  const sb=document.getElementById('app-sidebar');
+  if(sb&&sb.classList.contains('collapsed')&&window.innerWidth>680&&typeof toggleSidebarCollapse==='function') toggleSidebarCollapse();
+  const h=document.getElementById('tab-fac-'+f); if(!h) return;
+  h.classList.toggle('is-open');
+  setTimeout(()=>{if(typeof moveSideIndicator==='function')moveSideIndicator(true);},30);
+}
+function sideOpenReportKind(kind){ // Doctor's Report (no facility)
   if(typeof closeSidebar==='function') closeSidebar();
-  const canDoc=!!(currentUser&&['admin','doctor','viewer'].includes(currentUser.role));
-  if(kind==='doctor'&&!canDoc) return;
+  if(kind==='doctor'&&!sideCanDoctor()) return;
   if(currentTab==='report'){ if(repKind!==kind) repSetKind(kind); return; }
   window.__repKindOverride=kind;
   try{ switchTab('report'); } finally { window.__repKindOverride=null; }
 }
-function sideSyncReportSub(){
-  const box=document.getElementById('side-sub-report'); if(!box) return;
-  const canDoc=!!(currentUser&&['admin','doctor','viewer'].includes(currentUser.role));
-  box.querySelectorAll('.side-sub-item').forEach(it=>{
-    it.classList.toggle('active',currentTab==='report'&&it.dataset.kind===repKind);
-    if(it.dataset.kind==='doctor') it.style.display=canDoc?'':'none';
+function sideOpenReport(kind,fac){
+  if(typeof closeSidebar==='function') closeSidebar();
+  if(kind==='heparin'){
+    if(currentTab==='heparin'){ if(hepState.hub!==fac) hepSetHub(fac); return; }
+    const prev=hepState.hub; hepState.hub=fac; hepState.offset=0; switchTab('heparin');
+    if(currentTab!=='heparin') hepState.hub=prev;
+    return;
+  }
+  if(kind==='monthly'){
+    if(currentTab==='monthlyreport'){ if(moFacility!==fac) moSetFacility(fac); return; }
+    const prev=moFacility; moFacility=fac; switchTab('monthlyreport');
+    if(currentTab!=='monthlyreport') moFacility=prev;            // leaving was cancelled (unsaved changes)
+    return;
+  }
+  const isClin=kind==='clinical';
+  const get=()=>isClin?repFacility:opFacility, set=v=>{ if(isClin) repFacility=v; else opFacility=v; };
+  if(currentTab==='report'&&repKind===kind){
+    if(get()!==fac){ isClin?repSetFacility(fac):opSetFacility(fac); }
+    return;
+  }
+  const prev=get(); set(fac);
+  if(currentTab==='report'){ repSetKind(kind); if(repKind!==kind) set(prev); }   // declined -> restore
+  else{
+    window.__repKindOverride=kind;
+    try{ switchTab('report'); } finally { window.__repKindOverride=null; }
+    if(currentTab!=='report') set(prev);
+  }
+}
+function sideSyncReports(){
+  let activeFac=null;
+  document.querySelectorAll('#app-sidebar .side-sub-item').forEach(it=>{
+    const k=it.dataset.kind,f=it.dataset.fac;
+    const on=k==='heparin'?(currentTab==='heparin'&&hepState.hub===f)
+            :k==='clinical'?(currentTab==='report'&&repKind==='clinical'&&repFacility===f)
+            :k==='operational'?(currentTab==='report'&&repKind==='operational'&&opFacility===f)
+            :(currentTab==='monthlyreport'&&moFacility===f);
+    it.classList.toggle('active',on);
+    if(on) activeFac=f;
   });
+  ['truck','kigumo'].forEach(f=>{
+    const h=document.getElementById('tab-fac-'+f); if(!h) return;
+    h.classList.toggle('active',activeFac===f);
+    if(activeFac===f&&!h.classList.contains('is-open')) h.classList.add('is-open');   // only when it changes, or the observer would loop forever
+  });
+  const d=document.getElementById('tab-doctorreport');
+  if(d){ d.style.display=sideCanDoctor()?'':'none'; d.classList.toggle('active',currentTab==='report'&&repKind==='doctor'); }
 }
 (function(){
-  const tab=document.getElementById('tab-report'); if(!tab) return;
-  new MutationObserver(sideSyncReportSub).observe(tab,{attributes:true,attributeFilter:['class']});
-  const tbr=document.getElementById('tbr'); if(tbr) new MutationObserver(sideSyncReportSub).observe(tbr,{childList:true,characterData:true,subtree:true});
-  const orig=window.repSetKind;
-  if(typeof orig==='function') window.repSetKind=function(){const r=orig.apply(this,arguments);sideSyncReportSub();return r;};
-  sideSyncReportSub();
+  const sb=document.getElementById('app-sidebar'); if(!sb) return;
+  const mo=new MutationObserver(sideSyncReports);
+  sb.querySelectorAll('.tab').forEach(t=>mo.observe(t,{attributes:true,attributeFilter:['class']}));
+  const tbr=document.getElementById('tbr'); if(tbr) new MutationObserver(sideSyncReports).observe(tbr,{childList:true,characterData:true,subtree:true});
+  ['repSetKind','repSetFacility','opSetFacility','moSetFacility'].forEach(n=>{
+    const orig=window[n]; if(typeof orig!=='function') return;
+    window[n]=function(){const r=orig.apply(this,arguments);sideSyncReports();return r;};
+  });
+  sideSyncReports();
 })();
 
 // ── Sidebar: profile card, menu search, group visibility ──
@@ -7493,18 +7559,18 @@ function sideFilter(q){
     const label=t.textContent.replace(/\d+\s*$/,'').trim().toLowerCase();
     t.classList.toggle('side-hidden',!!q&&!label.includes(q));
   });
-  const subBox=document.getElementById('side-sub-report');
-  if(subBox){
+  document.querySelectorAll('#app-sidebar .side-sub').forEach(box=>{
+    const hdr=box.previousElementSibling;
+    const facName=((hdr&&hdr.textContent)||'').toLowerCase();
     let any=false;
-    subBox.querySelectorAll('.side-sub-item').forEach(it=>{
-      const m=!q||it.textContent.toLowerCase().includes(q);
+    box.querySelectorAll('.side-sub-item').forEach(it=>{
+      const m=!q||(it.textContent+' '+facName).toLowerCase().includes(q);
       it.classList.toggle('side-hidden',!!q&&!m);
-      if(q&&m&&getComputedStyle(it).display!=='none') any=true;
+      if(q&&m) any=true;
     });
-    subBox.classList.toggle('force-open',!!q&&any);
-    const par=document.getElementById('tab-report');
-    if(par&&q&&any) par.classList.remove('side-hidden');
-  }
+    box.classList.toggle('force-open',!!q&&any);
+    if(hdr&&q&&any) hdr.classList.remove('side-hidden');
+  });
   sideRefreshGroups();
 }
 function sideSearchKey(e){

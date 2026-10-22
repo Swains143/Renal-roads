@@ -1242,7 +1242,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
       <label>Place of death *</label>
       <select id="f-death-place">
         <option value="">Select where the patient died</option>
-        <option value="facility">At the facility</option>
+        <option value="facility">In our facility</option>
         <option value="outside">Outside the facility</option>
       </select>
     </div>
@@ -4899,7 +4899,7 @@ function homeStatusList(pts){
   const list=HOME_STATUSES_BASE.slice();
   const dead=(pts||[]).filter(p=>p.status==='Deceased');
   if(!deathPlacesLoaded||deathSetupError){ list.push({k:'Deceased',c:'#C0392B',m:p=>p.status==='Deceased'}); return list; }
-  list.push({k:'Died at facility',c:'#C0392B',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility'});
+  list.push({k:'Died in our facility',c:'#C0392B',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility'});
   list.push({k:'Died outside',c:'#E67E22',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside'});
   if(dead.some(p=>deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'))
     list.push({k:'Death place not recorded',c:'#9898BB',m:p=>p.status==='Deceased'&&deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'});
@@ -5082,12 +5082,12 @@ function renderPatientsView(){
     <div class="metric"><div class="num" style="color:#534AB7">${discharged}</div><div class="lbl">Discharged</div></div>
     <div class="metric"><div class="num" style="color:var(--amber)">${transferred}</div><div class="lbl">Transferred</div></div>
     <div class="metric"><div class="num" style="color:#0F6656">${transplant}</div><div class="lbl">Transplant</div></div>
-    <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div><div class="lbl" style="text-transform:none;letter-spacing:0;font-size:11px;font-weight:600;margin-top:3px">${deadFac} at facility · ${deadOut} outside${deadNone?` · ${deadNone} not recorded`:''}</div></div>
+    <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div><div class="lbl" style="text-transform:none;letter-spacing:0;font-size:11px;font-weight:600;margin-top:3px">${deadFac} in our facility · ${deadOut} outside${deadNone?` · ${deadNone} not recorded`:''}</div></div>
   </div>
   <div class="toolbar">
     <input id="patient-search" placeholder="Search name, IP, ID, phone..." value="${attrEsc(f.search)}" oninput="patientFilter.search=this.value;renderPatientsView()">
     ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Transplant','Deceased']})}
-    ${filterDropdownHTML('death',{label:'Place of death',options:['At facility','Outside facility','Not recorded']})}
+    ${filterDropdownHTML('death',{label:'Place of death',options:['In our facility','Outside facility','Not recorded']})}
     ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
     ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
     ${(f.search||f.status.length||f.gender.length||f.station.length||f.death.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[],death:[]};renderPatientsView()"><i class="ti ti-x"></i> Clear filters</button>':''}
@@ -5162,7 +5162,7 @@ async function savePatient(){
   if(!ip||!name||!yob)return showErr('IP number, full name, and year of birth are required.');
   if(!station)return showErr('Please select a station.');
   const deathPlace=document.getElementById('f-death-place').value;
-  if(status==='Deceased'&&!deathPlace&&!deathSetupError)return showErr('Please choose where the patient died: at the facility or outside the facility.');
+  if(status==='Deceased'&&!deathPlace&&!deathSetupError)return showErr('Please choose where the patient died: in our facility or outside the facility.');
   if(yob<1900||yob>YEAR)return showErr('Enter a valid year of birth.');
   const existing=patients.find(p=>p.ip===ip&&p.id!==editingPatientId);
   if(existing)return showErr('IP "'+ip+'" is already assigned to '+existing.name+'.');
@@ -5200,7 +5200,7 @@ async function savePatient(){
   closeModal('patient-modal');await renderPatients();
   if(deathErr&&status==='Deceased') alert('The patient was saved, but the place of death could not be stored ('+(deathErr.message||'error')+'). Ask the administrator to run renal_roads_death_place.sql in Supabase.');
 }
-function deathLabel(id){const v=deathPlaces[id];return v==='facility'?'At the facility':v==='outside'?'Outside the facility':'Place not recorded';}
+function deathLabel(id){const v=deathPlaces[id];return v==='facility'?'In our facility':v==='outside'?'Outside the facility':'Place not recorded';}
 function deathChip(id){const v=deathPlaces[id];const cls=v==='facility'?'at':v==='outside'?'out':'none';return `<span class="death-chip ${cls}">${deathLabel(id)}</span>`;}
 async function deletePatient(id){
   if(!confirm('Permanently delete this patient record?'))return;
@@ -6450,7 +6450,7 @@ function getFilteredPatients(){
     if(f.death.length){
       if(p.status!=='Deceased')return false;
       const pl=deathPlaces[p.id]||'unrecorded';
-      const want=f.death.map(v=>v==='At facility'?'facility':v==='Outside facility'?'outside':'unrecorded');
+      const want=f.death.map(v=>v==='In our facility'?'facility':v==='Outside facility'?'outside':'unrecorded');
       if(!want.includes(pl))return false;
     }
     return true;

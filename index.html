@@ -814,11 +814,11 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 <style>
 /* Alert dots/badges sit right beside the tab label (they were pushed to the far edge, or 14px away) */
 .tabs .tab .badge,.tabs .tab #supply-comment-dot,.tabs .tab #disinfection-alert-dot{margin-left:-8px!important}
-.tabs.collapsed .tab .badge,.tabs.collapsed .tab #supply-comment-dot,.tabs.collapsed .tab #disinfection-alert-dot{position:absolute;top:5px;right:6px;margin:0!important;font-size:9px!important}
+@media(min-width:681px){.tabs.collapsed .tab .badge,.tabs.collapsed .tab #supply-comment-dot,.tabs.collapsed .tab #disinfection-alert-dot{position:absolute;top:5px;right:6px;margin:0!important;font-size:9px!important}}
 </style>
 <style>
 /* ══ FLOATING SIDEBAR PANEL (navy + green) ══ */
-.tabs{--si:10px;background:linear-gradient(180deg,#1B1A63 0%,#13124B 100%);border:1px solid rgba(255,255,255,.08);padding:14px 0 12px;box-shadow:0 18px 40px rgba(10,10,60,.35)}
+.tabs{--si:10px;background:linear-gradient(180deg,#1B1A63 0%,#13124B 100%);border:1px solid rgba(255,255,255,.08);padding:14px 0 0;box-shadow:0 18px 40px rgba(10,10,60,.35)}
 .tabs.scrolled{box-shadow:0 18px 40px rgba(10,10,60,.35)}
 @media(min-width:681px){
   .tabs{position:sticky;top:72px;margin:12px 0 12px 12px;height:calc(100vh - 84px);width:240px;border-radius:22px}
@@ -850,7 +850,8 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .tab.side-hidden{display:none!important}
 .side-indicator{left:var(--si);right:var(--si);border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.28)}
 /* sign out at the bottom */
-.side-foot{margin-top:auto;padding:10px var(--si) 0;border-top:1px solid rgba(255,255,255,.08);margin-left:14px;margin-right:14px;padding-left:0;padding-right:0}
+.side-foot{margin-top:auto;padding:10px 14px 12px;position:relative}
+.side-foot::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:rgba(255,255,255,.08)}
 .side-logout{width:100%;display:flex;align-items:center;gap:12px;background:transparent;border:none;color:rgba(255,255,255,.8);font-size:13px;padding:10px 12px;border-radius:12px;cursor:pointer;font-family:inherit}
 .side-logout i{font-size:17px;width:18px;text-align:center}
 .side-logout:hover{background:rgba(226,75,74,.18);color:#fff}
@@ -860,7 +861,8 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   .tabs.collapsed .side-who,.tabs.collapsed .side-search{display:none}
   .tabs.collapsed .side-profile{flex:none}
   .tabs.collapsed .side-label{font-size:0;height:1px;padding:0;margin:10px 16px 8px;background:rgba(255,255,255,.12)}
-  .tabs.collapsed .side-foot{margin-left:10px;margin-right:10px}
+  .tabs.collapsed .side-foot{padding-left:10px;padding-right:10px}
+  .tabs.collapsed .side-foot::before{left:10px;right:10px}
   .tabs.collapsed .side-logout{justify-content:center;padding:10px 0;gap:0}
   .tabs.collapsed .side-logout span{display:none}
 }
@@ -905,7 +907,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .side-fac.is-open+.side-sub,.side-sub.force-open{display:block;animation:subIn .22s ease both}
 .side-chev{margin-left:auto;font-size:14px!important;width:auto!important;opacity:.7;transition:transform .2s ease!important}
 .side-fac.is-open .side-chev{transform:rotate(180deg)}
-.tabs.collapsed .side-chev{display:none}
+@media(min-width:681px){.tabs.collapsed .side-chev{display:none}}
 @keyframes subIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .side-sub-item{position:relative;padding:7px 12px 7px 44px;margin:1px 0;border-radius:10px;font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
 .side-sub-item::before{content:"";position:absolute;left:25px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:#13124B;border:1.5px solid rgba(255,255,255,.35);transition:background .15s,border-color .15s}
@@ -913,7 +915,22 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .side-sub-item.active{color:#fff;font-weight:700}
 .side-sub-item.active::before{background:var(--green);border-color:var(--green);box-shadow:0 0 8px rgba(143,214,90,.7)}
 .side-sub-item.side-hidden{display:none!important}
-.tabs.collapsed .side-sub{display:none!important}
+@media(min-width:681px){.tabs.collapsed .side-sub{display:none!important}}
+</style>
+<style>
+.side-foot{position:sticky;bottom:0;z-index:3;background:#13124B}
+@media(max-width:680px){
+  .tabs{overscroll-behavior:contain}
+  .side-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .tabs .tab{padding:14px 14px}
+  .side-sub-item{padding:13px 12px 13px 44px;font-size:13px}
+  .side-logout{padding:14px 12px}
+  #app-sidebar .side-search input{font-size:16px!important;padding:12px 12px 12px 34px!important}
+  .side-overlay.show{touch-action:none}
+}
+</style>
+<style>
+.rep-fac-pill{display:inline-flex;align-items:center;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;padding:8px 16px;border-radius:999px;letter-spacing:.01em;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -2737,17 +2754,6 @@ function repEsc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g
 async function renderReport(){
   const h = `
   <div class="rep-kind-page">
-    <div class="rep-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
-      <div>
-        <h2 style="margin-bottom:2px">Weekly Reports</h2>
-        <div class="rep-hint" style="margin-bottom:0">Choose the report you want to fill in or review</div>
-      </div>
-      <div class="rep-toggle" id="rep-kind-toggle">
-        <button type="button" class="${repKind==='clinical'?'active':''}" onclick="repSetKind('clinical')">Clinical Report</button>
-        <button type="button" class="${repKind==='operational'?'active':''}" onclick="repSetKind('operational')">Operational Report</button>
-        ${(currentUser && ['admin','doctor','viewer'].includes(currentUser.role)) ? `<button type="button" class="${repKind==='doctor'?'active':''}" onclick="repSetKind('doctor')">Doctor's Report</button>` : ''}
-      </div>
-    </div>
     <div id="rep-kind-body"></div>
   </div>`;
   document.getElementById('main-content').innerHTML = h;
@@ -2789,10 +2795,7 @@ async function renderClinicalReport(){
         <h2 style="margin-bottom:2px">Weekly Clinical Report</h2>
         <div class="rep-hint" style="margin-bottom:0">Mobile Truck &amp; Kigumo Dialysis Hub — weekly operational summary</div>
       </div>
-      <div class="rep-toggle" id="rep-facility-toggle">
-        <button type="button" class="${repFacility==='truck'?'active':''}" onclick="repSetFacility('truck')">Truck</button>
-        <button type="button" class="${repFacility==='kigumo'?'active':''}" onclick="repSetFacility('kigumo')">Kigumo</button>
-      </div>
+      <span class="rep-fac-pill" id="rep-fac-badge">${repFacility==='truck'?'Mobile Truck':'Kigumo'}</span>
     </div>
 
     <div class="rep-card">
@@ -2979,6 +2982,7 @@ function repSetFacility(facility){
   if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
   repDirty = false;
   repFacility = facility;
+  { const fb=document.getElementById('rep-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
   const page = document.querySelector('.rep-page');
   if(page) page.className = 'rep-page facility-' + facility;
   document.querySelectorAll('#rep-facility-toggle button').forEach(b=>b.classList.remove('active'));
@@ -3598,10 +3602,7 @@ async function renderMonthlyReport(){
         <h2 style="margin-bottom:2px">Monthly Renal Unit Clinical Report</h2>
         <div class="rep-hint" style="margin-bottom:0">Mobile Truck &amp; Kigumo Dialysis Hub — monthly totals</div>
       </div>
-      <div class="rep-toggle" id="mo-facility-toggle">
-        <button type="button" class="${moFacility==='truck'?'active':''}" onclick="moSetFacility('truck')">Truck</button>
-        <button type="button" class="${moFacility==='kigumo'?'active':''}" onclick="moSetFacility('kigumo')">Kigumo</button>
-      </div>
+      <span class="rep-fac-pill" id="mo-fac-badge">${moFacility==='truck'?'Mobile Truck':'Kigumo'}</span>
     </div>
 
     <div class="rep-card">
@@ -3681,6 +3682,7 @@ function moSetFacility(facility){
   if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
   repDirty = false;
   moFacility = facility;
+  { const fb=document.getElementById('mo-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
   document.querySelectorAll('#mo-facility-toggle button').forEach(b=>b.classList.remove('active'));
   const activeBtn = document.querySelector(`#mo-facility-toggle button[onclick="moSetFacility('${facility}')"]`);
   if(activeBtn) activeBtn.classList.add('active');
@@ -3906,10 +3908,7 @@ async function renderOperationalReport(){
         <h2 style="margin-bottom:2px">Weekly Operational Report — Renal Unit</h2>
         <div class="rep-hint" style="margin-bottom:0">Staffing, supplies, equipment &amp; infrastructure summary</div>
       </div>
-      <div class="rep-toggle" id="op-facility-toggle">
-        <button type="button" class="${opFacility==='truck'?'active':''}" onclick="opSetFacility('truck')">Mobile Truck</button>
-        <button type="button" class="${opFacility==='kigumo'?'active':''}" onclick="opSetFacility('kigumo')">Kigumo</button>
-      </div>
+      <span class="rep-fac-pill" id="op-fac-badge">${opFacility==='truck'?'Mobile Truck':'Kigumo'}</span>
     </div>
 
     <div class="rep-card">
@@ -4022,6 +4021,7 @@ function opSetFacility(facility){
   if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
   repDirty = false;
   opFacility = facility;
+  { const fb=document.getElementById('op-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
   document.querySelectorAll('#op-facility-toggle button').forEach(b=>b.classList.remove('active'));
   const activeBtn = document.querySelector(`#op-facility-toggle button[onclick="opSetFacility('${facility}')"]`);
   if(activeBtn) activeBtn.classList.add('active');
@@ -6776,7 +6776,7 @@ async function renderHeparin(){
   hideLoading();
   const mc=document.getElementById('main-content'), isAdmin=currentUser&&currentUser.role==='admin', viewer=currentUser&&currentUser.role==='viewer';
   const hubLabel=(HEP_HUBS.find(h=>h.key===hepState.hub)||{}).label||'';
-  const hubTabs=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px"><div><h2 style="margin:0 0 2px;font-size:17px;font-family:'Lora',serif;color:var(--navy)">Heparin usage</h2><div style="font-size:12px;color:var(--gray-400)">${hubLabel} · daily usage log, trend &amp; forecast</div></div><div class="rep-toggle" id="hep-facility-toggle">${HEP_HUBS.map(h=>`<button type="button" class="${hepState.hub===h.key?'active':''}" onclick="hepSetHub('${h.key}')">${h.key==='truck'?'Truck':'Kigumo'}</button>`).join('')}</div></div>`;
+  const hubTabs=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px"><div><h2 style="margin:0 0 2px;font-size:17px;font-family:'Lora',serif;color:var(--navy)">Heparin usage</h2><div style="font-size:12px;color:var(--gray-400)">${hubLabel} · daily usage log, trend &amp; forecast</div></div><span class="rep-fac-pill">${hubLabel}</span></div>`;
   if(hepSetupError){
     mc.innerHTML=`<div class="hep-page"><div class="hep-card">${hubTabs}</div><div class="alert alert-info" style="margin-top:4px"><i class="ti ti-info-circle"></i><div><b>Heparin tracking isn't set up in the database yet.</b><br>The app tried to call <code>rr_heparin_usage_list</code> and got: <i>${hepSetupError}</i>.<br>Ask whoever manages the database to run the setup SQL, then reload this page.</div></div></div>`;
     return;
@@ -7430,6 +7430,7 @@ function toggleSidebar(){
   const sb=document.getElementById('app-sidebar'), ov=document.querySelector('.side-overlay');
   const open=!sb.classList.contains('open');
   sb.classList.toggle('open',open); ov.classList.toggle('show',open);
+  if(open) setTimeout(()=>{const a=sb.querySelector('.tab.active'); if(a&&a.scrollIntoView) a.scrollIntoView({block:'nearest'});},60);
 }
 function closeSidebar(){
   document.getElementById('app-sidebar').classList.remove('open');
@@ -7443,7 +7444,7 @@ function toggleSidebarCollapse(){
   const sb=document.getElementById('app-sidebar'); if(!sb) return;
   try{if(localStorage.getItem('rr_sidebar_collapsed')==='1') sb.classList.add('collapsed');}catch(e){}
   sb.querySelectorAll('.tab').forEach(t=>{ t.title=t.textContent.replace(/\d+\s*$/,'').trim(); }); // tooltip when collapsed
-  sb.addEventListener('click',e=>{ if(e.target.closest('.tab')) closeSidebar(); });
+  sb.addEventListener('click',e=>{ if(e.target.closest('.tab:not(.side-fac)')) closeSidebar(); });
 })();
 
 // ── Sidebar animation: sliding highlight + scroll shadow ──

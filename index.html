@@ -1113,18 +1113,20 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   </div>
   <div class="side-group"><div class="side-label">Clinical</div>
     <div class="tab" onclick="switchTab('patients')" id="tab-patients"><i class="ti ti-users" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patients</div>
-    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
-    <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Inventory</div>
     <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('procurement')" id="tab-procurement"><i class="ti ti-shopping-cart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Procurement<span class="badge" id="proc-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
-    <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Reports</div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
     <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
+  </div>
+  <div class="side-group"><div class="side-label">Others</div>
+    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
+    <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
+    <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
@@ -1380,7 +1382,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
     <div class="form-group"><label>Full name *</label><input id="u-name" placeholder="Display name"></div>
     <div class="form-group"><label>Username *</label><input id="u-username" placeholder="Login username"></div>
     <div class="form-group"><label>Password *</label><input id="u-password" type="password" placeholder="Set password"></div>
-    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Staff</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
+    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
   </div>
   <div class="modal-err" id="user-error"><i class="ti ti-alert-circle"></i><span id="user-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('user-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUser()"><i class="ti ti-check"></i> Register</button></div>
@@ -1981,7 +1983,7 @@ async function doLogin(){
     charGestureSuccess();
     await new Promise(r=>setTimeout(r,650));
     document.getElementById('tbu').textContent=data.name;
-    document.getElementById('tbr').textContent=data.role;
+    document.getElementById('tbr').textContent=roleLabel(data.role);
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
@@ -2063,7 +2065,7 @@ async function restoreSession(){
     startIdleMonitor();
     startRequestNotifyMonitor();
     document.getElementById('tbu').textContent=data.name;
-    document.getElementById('tbr').textContent=data.role;
+    document.getElementById('tbr').textContent=roleLabel(data.role);
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
@@ -6101,7 +6103,7 @@ async function renderUsers(){
     setUsersPendingBadge(pendingReqs.length);
   }
   hideLoading();const users=(data||[]).filter(u=>!u.hidden);
-  const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Staff</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
+  const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${users.length}</div><div class="lbl">Total</div></div>
@@ -6115,7 +6117,7 @@ async function renderUsers(){
     const isSelf=u.id===currentUser.id;
     h+=`<tr><td>${repEsc(u.name)}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}</td>
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(u.username)}</code></td>${isHiddenAdmin?`<td>${emailMap[u.id]?repEsc(emailMap[u.id]):'<span style="color:var(--gray-400)">none</span>'}</td>`:''}
-      <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':u.role==='doctor'?'role-doctor':'role-staff'}">${u.role}</span></td>
+      <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':u.role==='doctor'?'role-doctor':'role-staff'}">${roleLabel(u.role)}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
       <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} ${isHiddenAdmin?`<button class="btn btn-sm" onclick="openSetEmail('${u.id}','${jsArg(u.name)}','${jsArg(emailMap[u.id]||'')}')"><i class="ti ti-mail"></i> Email</button> `:''}<button class="btn btn-sm" onclick="openResetPassword('${u.id}','${jsArg(u.name)}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
@@ -6168,6 +6170,8 @@ async function saveResetPassword(){
 }
 
 // ===== SELF SIGN-UP, APPROVAL, EMAIL PASSWORD RESET =====
+// Display names for stored role values (the stored value 'staff' is kept so permissions and the database are untouched)
+function roleLabel(r){return r==='staff'?'Nurse':r;}
 function setUsersPendingBadge(n){
   const b=document.getElementById('users-pending-badge'); if(!b) return;
   if(n>0){b.textContent=n;b.style.display='inline';}else{b.style.display='none';}

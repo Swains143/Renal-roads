@@ -932,6 +932,12 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 <style>
 .rep-fac-pill{display:inline-flex;align-items:center;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;padding:8px 16px;border-radius:999px;letter-spacing:.01em;white-space:nowrap}
 </style>
+<style>
+.death-chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.death-chip.at{background:#FCEBEB;color:#791F1F;border:1px solid #F3C3C3}
+.death-chip.out{background:#FFF4E0;color:#8A5300;border:1px solid #F5D9A6}
+.death-chip.none{background:#F1F1F5;color:#6B6B80;border:1px dashed #C9C9D6}
+</style>
 </head>
 <body>
 
@@ -1230,6 +1236,14 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
         <option value="Transferred">Transferred</option>
         <option value="Transplant">Transplant</option>
         <option value="Deceased">Deceased</option>
+      </select>
+    </div>
+    <div class="form-group full" id="death-place-group" style="display:none">
+      <label>Place of death *</label>
+      <select id="f-death-place">
+        <option value="">Select where the patient died</option>
+        <option value="facility">At the facility</option>
+        <option value="outside">Outside the facility</option>
       </select>
     </div>
     <div class="form-group full" id="discharge-date-group" style="display:none">
@@ -1588,7 +1602,8 @@ let requests = [];
 let pendingMovement = null;
 let editingPatientId = null;
 let editingSupplyId = null;
-let patientFilter = {search:'',status:[],gender:[],station:[]};
+let patientFilter = {search:'',status:[],gender:[],station:[],death:[]};
+let deathPlaces = {}, deathSetupError = null;   // patient id -> 'facility' | 'outside'
 let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};
 let currentSupplyCategory = 'supply'; // 'supply' | 'medication' — same features, split by category
@@ -1995,6 +2010,10 @@ function updateStatusFieldLabels(status){
 document.getElementById('f-status').addEventListener('change',function(){
   updateStatusFieldLabels(this.value);
 });
+(function(){ // show the Place of death field only when the status is Deceased
+  const o=window.updateStatusFieldLabels;
+  window.updateStatusFieldLabels=function(st){ o.apply(this,arguments); const g=document.getElementById('death-place-group'); if(g) g.style.display=(st==='Deceased')?'':'none'; };
+})();
 
 // Restore session on page load
 (async()=>{ await restoreSession(); })();
@@ -4871,7 +4890,28 @@ function docExportPrint(){
 // =====================================================================
 // HOME DASHBOARD: patients by station & status charts
 // =====================================================================
-const HOME_STATUSES=[{k:'Active',c:'#4E9429'},{k:'Discharged',c:'#3C3489'},{k:'Transferred',c:'#E67E22'},{k:'Transplant',c:'#0F6656'},{k:'Deceased',c:'#C0392B'}];
+const HOME_STATUSES_BASE=[{k:'Active',c:'#4E9429',m:p=>p.status==='Active'},{k:'Discharged',c:'#3C3489',m:p=>p.status==='Discharged'},{k:'Transferred',c:'#E67E22',m:p=>p.status==='Transferred'},{k:'Transplant',c:'#0F6656',m:p=>p.status==='Transplant'}];
+let deathPlacesLoaded=false;   // true once rr_patient_death_list has answered without error
+let HOME_STATUSES=[];          // rebuilt for each dashboard paint by homeStatusList()
+// Deceased is split by place of death once that data is loaded; the "not recorded"
+// row only appears while some deceased patients still have no place saved.
+function homeStatusList(pts){
+  const list=HOME_STATUSES_BASE.slice();
+  const dead=(pts||[]).filter(p=>p.status==='Deceased');
+  if(!deathPlacesLoaded||deathSetupError){ list.push({k:'Deceased',c:'#C0392B',m:p=>p.status==='Deceased'}); return list; }
+  list.push({k:'Died at facility',c:'#C0392B',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility'});
+  list.push({k:'Died outside',c:'#E67E22',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside'});
+  if(dead.some(p=>deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'))
+    list.push({k:'Death place not recorded',c:'#9898BB',m:p=>p.status==='Deceased'&&deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'});
+  return list;
+}
+async function loadDeathPlaces(){
+  try{
+    const r=await db.rpc('rr_patient_death_list',{p_session:sessionToken});
+    deathSetupError=r.error?(r.error.message||'error'):null;
+    if(!r.error){ deathPlaces={}; (r.data||[]).forEach(x=>{deathPlaces[String(x.patient_id)]=x.place;}); deathPlacesLoaded=true; }
+  }catch(e){ deathSetupError=String(e&&e.message||e); }
+}
 function homeDonutSvg(parts){
   const total=parts.reduce((t,p)=>t+p.v,0)||1, cx=130,cy=130,r=114,ir=64; let ang=-90,g='';
   parts.forEach(p=>{
@@ -4888,13 +4928,13 @@ function homeDonutSvg(parts){
 }
 function homeStatusBarsSvg(stations){
   const max=Math.max(1,...stations.flatMap(s=>HOME_STATUSES.map(st=>s.counts[st.k]||0)));
-  const W=560,rowH=8,gap=3,ml=64,mr=24,barMax=W-ml-mr;
+  const W=560,rowH=8,gap=3,ml=78,mr=24,barMax=W-ml-mr;
   let y=3,g='';
   stations.forEach(s=>{
     g+=`<text x="0" y="${y+6}" font-size="7" font-weight="700" fill="var(--gray-800)">${repEsc(s.label)}</text>`;
     HOME_STATUSES.forEach(st=>{
       const v=s.counts[st.k]||0, w=v/max*barMax;
-      g+=`<text x="${ml-5}" y="${y+4}" font-size="6" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
+      g+=`<text x="${ml-5}" y="${y+4}" font-size="5.5" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
       g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="4" rx="1.5" fill="var(--gray-100)"/>`;
       g+=`<rect x="${ml}" y="${y}" width="${w}" height="4" rx="1.5" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
       g+=`<text x="${ml+barMax+5}" y="${y+4}" font-size="6" font-weight="700" fill="var(--gray-800)">${v}</text>`;
@@ -4905,11 +4945,12 @@ function homeStatusBarsSvg(stations){
   return `<svg viewBox="0 0 ${W} ${y}" style="width:100%;height:auto">${g}</svg>`;
 }
 function homePatientCharts(patients){
+  HOME_STATUSES=homeStatusList(patients);
   const stationKeys=[...new Set(patients.map(p=>p.station).filter(Boolean))].sort();
   if(!stationKeys.length)return '';
   const stations=stationKeys.map(key=>{
     const rows=patients.filter(p=>p.station===key);
-    const counts={}; HOME_STATUSES.forEach(st=>counts[st.k]=rows.filter(p=>p.status===st.k).length);
+    const counts={}; HOME_STATUSES.forEach(st=>counts[st.k]=rows.filter(st.m).length);
     return {label:key,total:rows.length,counts};
   });
   const HOME_STATION_COLORS=['#2E2D9F','#6BBF3E','#E67E22','#0F6656','#C0392B','#9B59B6','#2E86C1','#D4AC0D'];
@@ -4955,8 +4996,8 @@ async function renderHome(){
   // Instant first paint from patients already loaded this session; the fresh numbers replace it a moment later.
   if(patients.length) paint(patients);
   let hp, homeErr=null;
-  if(isAdmin){ await shaLoad(); hp=shaPatients; }   // shaLoad already fetches the patient list in parallel with the SHA data
-  else { const r=await db.rpc('rr_patients_list',{p_session:sessionToken}); hp=r.data; homeErr=r.error; }
+  if(isAdmin){ await Promise.all([shaLoad(),loadDeathPlaces()]); hp=shaPatients; }   // shaLoad already fetches the patient list in parallel with the SHA data
+  else { const [r]=await Promise.all([db.rpc('rr_patients_list',{p_session:sessionToken}),loadDeathPlaces()]); hp=r.data; homeErr=r.error; }
   paint(homeErr?patients:(hp||[]));
 }
 
@@ -5005,7 +5046,10 @@ document.addEventListener('click',()=>{
 });
 async function renderPatients(){
   showLoading('Loading patients...');
-  const {data}=await db.rpc('rr_patients_list',{p_session:sessionToken});
+  const [plRes,dpRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:sessionToken}),db.rpc('rr_patient_death_list',{p_session:sessionToken})]);
+  const data=plRes.data;
+  deathPlaces={}; deathSetupError=dpRes.error?(dpRes.error.message||'error'):null; deathPlacesLoaded=!dpRes.error;
+  (dpRes.data||[]).forEach(r=>{deathPlaces[String(r.patient_id)]=r.place;});
   patients=(data||[]).sort((a,b)=>{
     const av=ipSortValue(a.ip),bv=ipSortValue(b.ip);
     if(av!==bv)return av-bv;
@@ -5028,20 +5072,25 @@ function renderPatientsView(){
   const transferred=patients.filter(p=>p.status==='Transferred').length;
   const transplant=patients.filter(p=>p.status==='Transplant').length;
   const deceased=patients.filter(p=>p.status==='Deceased').length;
-  let h=`<div class="metrics">
+  const deadFac=patients.filter(p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility').length;
+  const deadOut=patients.filter(p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside').length;
+  const deadNone=deceased-deadFac-deadOut;
+  const deathBanner=(deathSetupError&&isAdmin)?`<div class="alert alert-info" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><div><b>Place of death isn't set up in the database yet.</b> Run <code>renal_roads_death_place.sql</code> in the Supabase SQL Editor, then reload this page.</div></div>`:'';
+  let h=`${deathBanner}<div class="metrics">
     <div class="metric"><div class="num">${patients.length}</div><div class="lbl">Total</div></div>
     <div class="metric"><div class="num" style="color:var(--green)">${active}</div><div class="lbl">Active</div></div>
     <div class="metric"><div class="num" style="color:#534AB7">${discharged}</div><div class="lbl">Discharged</div></div>
     <div class="metric"><div class="num" style="color:var(--amber)">${transferred}</div><div class="lbl">Transferred</div></div>
     <div class="metric"><div class="num" style="color:#0F6656">${transplant}</div><div class="lbl">Transplant</div></div>
-    <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div></div>
+    <div class="metric"><div class="num" style="color:var(--red)">${deceased}</div><div class="lbl">Deceased</div><div class="lbl" style="text-transform:none;letter-spacing:0;font-size:11px;font-weight:600;margin-top:3px">${deadFac} at facility · ${deadOut} outside${deadNone?` · ${deadNone} not recorded`:''}</div></div>
   </div>
   <div class="toolbar">
     <input id="patient-search" placeholder="Search name, IP, ID, phone..." value="${attrEsc(f.search)}" oninput="patientFilter.search=this.value;renderPatientsView()">
     ${filterDropdownHTML('status',{label:'Status',options:['Active','Discharged','Transferred','Transplant','Deceased']})}
+    ${filterDropdownHTML('death',{label:'Place of death',options:['At facility','Outside facility','Not recorded']})}
     ${filterDropdownHTML('gender',{label:'Gender',options:['Male','Female']})}
     ${filterDropdownHTML('station',{label:'Station',options:['Gatura','Kirwara','Kigumo','Maragua']})}
-    ${(f.search||f.status.length||f.gender.length||f.station.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[]};renderPatientsView()"><i class="ti ti-x"></i> Clear filters</button>':''}
+    ${(f.search||f.status.length||f.gender.length||f.station.length||f.death.length)?'<button class="btn" onclick="patientFilterOpenDropdown=null;patientFilter={search:\'\',status:[],gender:[],station:[],death:[]};renderPatientsView()"><i class="ti ti-x"></i> Clear filters</button>':''}
     ${!isViewer?'<button class="btn btn-primary" onclick="openAddPatient()"><i class="ti ti-plus"></i> Register</button>':''}
     ${isAdmin?'<button class="btn" onclick="exportPatients()"><i class="ti ti-download"></i> Export</button>':''}
   </div>
@@ -5052,7 +5101,7 @@ function renderPatientsView(){
     const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
     h+=`<tr class="${rc}"><td><strong>${repEsc(p.ip)}</strong></td><td>${repEsc(p.name)}</td><td>${repEsc(p.id_no)||'—'}</td><td>${repEsc(p.phone)||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${repEsc(p.gender)||'—'}</td><td>${repEsc(p.blood_group)||'—'}</td><td>${repEsc(p.dialysis_access)||'—'}</td><td>${p.sessions_per_week||'—'}</td><td>${repEsc(p.comorbidities)||'—'}</td><td>${repEsc(p.station)||'—'}</td>
-      <td><span class="status-badge ${sc}">${p.status}</span></td>
+      <td><span class="status-badge ${sc}">${p.status}</span>${p.status==='Deceased'?`<div style="margin-top:4px">${deathChip(p.id)}</div>`:''}</td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
   h+=`</tbody></table></div>`;
@@ -5069,6 +5118,7 @@ function openAddPatient(){
   document.getElementById('f-access').value='';
   document.getElementById('f-station').value='';
   document.getElementById('f-status').value='Active';
+  document.getElementById('f-death-place').value='';
   document.getElementById('f-discharge-date').value='';
   document.getElementById('f-discharge-notes').value='';
   updateStatusFieldLabels('Active');
@@ -5094,6 +5144,7 @@ function openEditPatient(id){
   document.getElementById('f-comorbidities').value=p.comorbidities||'';
   document.getElementById('f-station').value=p.station||'';
   document.getElementById('f-status').value=p.status;
+  document.getElementById('f-death-place').value=deathPlaces[p.id]||'';
   document.getElementById('f-discharge-date').value=p.discharge_date||'';
   document.getElementById('f-discharge-notes').value=p.discharge_notes||'';
   updateStatusFieldLabels(p.status);
@@ -5110,6 +5161,8 @@ async function savePatient(){
   const showErr=msg=>{document.getElementById('form-error-msg').textContent=msg;document.getElementById('form-error').classList.add('show');};
   if(!ip||!name||!yob)return showErr('IP number, full name, and year of birth are required.');
   if(!station)return showErr('Please select a station.');
+  const deathPlace=document.getElementById('f-death-place').value;
+  if(status==='Deceased'&&!deathPlace&&!deathSetupError)return showErr('Please choose where the patient died: at the facility or outside the facility.');
   if(yob<1900||yob>YEAR)return showErr('Enter a valid year of birth.');
   const existing=patients.find(p=>p.ip===ip&&p.id!==editingPatientId);
   if(existing)return showErr('IP "'+ip+'" is already assigned to '+existing.name+'.');
@@ -5138,14 +5191,24 @@ async function savePatient(){
   });
   hideLoading();
   if(error){showErr('Save failed: '+error.message);return;}
+  let deathErr=null;
+  if(!deathSetupError&&(status==='Deceased'||deathPlaces[editingPatientId])){
+    let pid=editingPatientId;
+    if(!pid){ const r=await db.rpc('rr_patients_list',{p_session:sessionToken}); const row=(r.data||[]).find(x=>x.ip===ip); pid=row&&row.id; }
+    if(pid){ const {error:de}=await db.rpc('rr_patient_death_set',{p_session:sessionToken,p_patient_id:String(pid),p_place:status==='Deceased'?(deathPlace||null):null}); deathErr=de; }
+  }
   closeModal('patient-modal');await renderPatients();
+  if(deathErr&&status==='Deceased') alert('The patient was saved, but the place of death could not be stored ('+(deathErr.message||'error')+'). Ask the administrator to run renal_roads_death_place.sql in Supabase.');
 }
+function deathLabel(id){const v=deathPlaces[id];return v==='facility'?'At the facility':v==='outside'?'Outside the facility':'Place not recorded';}
+function deathChip(id){const v=deathPlaces[id];const cls=v==='facility'?'at':v==='outside'?'out':'none';return `<span class="death-chip ${cls}">${deathLabel(id)}</span>`;}
 async function deletePatient(id){
   if(!confirm('Permanently delete this patient record?'))return;
   showLoading('Deleting...');
   const {error:delErr}=await db.rpc('rr_patient_delete',{p_session:sessionToken,p_id:id});
   hideLoading();
   if(rpcFailed(delErr,'deleting this patient'))return;
+  try{ await db.rpc('rr_patient_death_set',{p_session:sessionToken,p_patient_id:String(id),p_place:null}); }catch(e){}
   await renderPatients();
 }
 
@@ -6384,6 +6447,12 @@ function getFilteredPatients(){
     if(f.status.length&&!f.status.includes(p.status))return false;
     if(f.gender.length&&!f.gender.includes(p.gender))return false;
     if(f.station.length&&!f.station.includes(p.station))return false;
+    if(f.death.length){
+      if(p.status!=='Deceased')return false;
+      const pl=deathPlaces[p.id]||'unrecorded';
+      const want=f.death.map(v=>v==='At facility'?'facility':v==='Outside facility'?'outside':'unrecorded');
+      if(!want.includes(pl))return false;
+    }
     return true;
   });
 }
@@ -6393,8 +6462,8 @@ function getFilteredSupplies(){
 }
 function exportPatients(){
   const rows=getFilteredPatients();
-  dlXLSX(['IP No','Name','ID No','Phone','Next of Kin','Next of Kin Phone','YOB','Age','Gender','Blood Group','Dialysis Access','Sessions/wk','Comorbidities','Station','Status','Discharge Date','Discharge Notes'],
-    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.next_of_kin_name||'',p.next_of_kin_phone||'',p.yob,calcAge(p),p.gender,p.blood_group||'',p.dialysis_access||'',p.sessions_per_week||'',p.comorbidities||'',p.station,p.status,p.discharge_date||'',p.discharge_notes||'']),
+  dlXLSX(['IP No','Name','ID No','Phone','Next of Kin','Next of Kin Phone','YOB','Age','Gender','Blood Group','Dialysis Access','Sessions/wk','Comorbidities','Station','Status','Place of Death','Discharge Date','Discharge Notes'],
+    rows.map(p=>[p.ip,p.name,p.id_no,p.phone,p.next_of_kin_name||'',p.next_of_kin_phone||'',p.yob,calcAge(p),p.gender,p.blood_group||'',p.dialysis_access||'',p.sessions_per_week||'',p.comorbidities||'',p.station,p.status,p.status==='Deceased'?deathLabel(p.id):'',p.discharge_date||'',p.discharge_notes||'']),
     'patients_'+localISO()+'.xlsx','Patients');
 }
 function dlXLSXMulti(sheets,fn){

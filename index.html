@@ -866,33 +866,21 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 }
 </style>
 <style>
-/* ══ GLASS LOGIN CARD + MORPH BETWEEN VIEWS (navy + green) ══ */
+/* ══ WHITE GLASS LOGIN CARD + MORPH BETWEEN VIEWS (navy + green) ══ */
 #login-page .login-card{position:relative;overflow:hidden;box-sizing:border-box;
-  background:linear-gradient(155deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 100%);
-  border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
-  box-shadow:0 30px 80px -20px rgba(6,6,40,.65),inset 0 1px 0 rgba(255,255,255,.28)}
+  background:linear-gradient(155deg,rgba(255,255,255,.93) 0%,rgba(255,255,255,.80) 100%);
+  border:1px solid rgba(255,255,255,.75);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:0 30px 80px -20px rgba(8,8,50,.6),inset 0 1px 0 rgba(255,255,255,.9)}
 #login-page .login-card::before,#login-page .login-card::after{content:"";position:absolute;width:54px;height:54px;pointer-events:none}
-#login-page .login-card::before{top:0;left:0;background:linear-gradient(135deg,rgba(255,255,255,.38),transparent 62%);clip-path:polygon(0 0,100% 0,0 100%)}
-#login-page .login-card::after{right:0;bottom:0;background:linear-gradient(315deg,rgba(143,214,90,.55),transparent 62%);clip-path:polygon(100% 0,100% 100%,0 100%)}
-#login-page .login-card-logo{filter:brightness(0) invert(1)}
-#login-page .login-card h2{color:#fff}
-#login-page .login-card-sub{color:rgba(255,255,255,.68)}
-#login-page .input-wrap input{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#fff}
-#login-page .input-wrap input:focus{background:rgba(255,255,255,.13);border-color:#8FD65A;box-shadow:0 0 0 3px rgba(143,214,90,.2)}
-#login-page .input-wrap .fi,#login-page .input-wrap .flabel,#login-page .eye-btn{color:rgba(255,255,255,.6)}
-#login-page .input-wrap input:focus~.flabel,#login-page .input-wrap input:valid~.flabel,#login-page .input-wrap input:not(:placeholder-shown)~.flabel,
-#login-page .input-wrap:focus-within .fi{color:#8FD65A}
-#login-page .input-wrap .uline{background:linear-gradient(90deg,#8FD65A,var(--green))}
-#login-page .input-wrap input:-webkit-autofill{-webkit-text-fill-color:#fff;transition:background-color 9999s}
+#login-page .login-card::before{top:0;left:0;background:linear-gradient(135deg,rgba(46,45,159,.28),transparent 62%);clip-path:polygon(0 0,100% 0,0 100%)}
+#login-page .login-card::after{right:0;bottom:0;background:linear-gradient(315deg,rgba(98,179,38,.5),transparent 62%);clip-path:polygon(100% 0,100% 100%,0 100%)}
+#login-page .login-card h2{color:var(--navy)}
+#login-page .login-card-sub{color:var(--gray-400)}
 #login-page .btn-login{background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);box-shadow:0 12px 26px -8px rgba(98,179,38,.6)}
 #login-page .btn-login:hover{box-shadow:0 14px 30px -6px rgba(98,179,38,.75)}
-#login-page .login-error{background:rgba(226,75,74,.2);color:#FFC3C2;border-color:rgba(226,75,74,.5)}
-#login-page .login-links a{color:rgba(255,255,255,.85)}
-#login-page .login-links a:hover{color:#8FD65A;text-decoration:none}
+#login-page .login-links a{color:var(--navy)}
+#login-page .login-links a:hover{color:var(--green-dark);text-decoration:none}
 #login-page .login-links.one{justify-content:center}
-#login-page .login-footer{color:rgba(255,255,255,.55)}
-#login-page .login-footer strong{color:#8FD65A}
-#login-page .modal-ok{background:rgba(143,214,90,.16);color:#E2F7CE;border-color:rgba(143,214,90,.45)}
 /* views */
 .lc-view[hidden]{display:none}
 .lc-view.compact .lform-group{margin-bottom:18px}
@@ -904,7 +892,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .login-card.morphing .login-card-logo,.login-card.morphing .mascot-3d-stage,.login-card.morphing .lc-views{opacity:0;filter:blur(6px);pointer-events:none}
 .lc-orb{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;opacity:0;pointer-events:none;transition:opacity .22s ease}
 .login-card.morphing .lc-orb{opacity:1}
-.orb-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#8FD65A;border-right-color:rgba(143,214,90,.5);animation:orbSpin 1s linear infinite}
+.orb-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(46,45,159,.14);border-top-color:var(--green);border-right-color:rgba(98,179,38,.45);animation:orbSpin 1s linear infinite}
 .orb-core{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:8px;background:linear-gradient(135deg,#8FD65A,var(--green));box-shadow:0 0 22px rgba(143,214,90,.9),0 0 48px rgba(143,214,90,.45);transform:rotate(45deg);animation:orbPulse 1.2s ease-in-out infinite}
 @keyframes orbSpin{to{transform:rotate(360deg)}}
 @keyframes orbPulse{0%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(45deg) scale(1.18)}}

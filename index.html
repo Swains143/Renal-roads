@@ -816,6 +816,100 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .tabs .tab .badge,.tabs .tab #supply-comment-dot,.tabs .tab #disinfection-alert-dot{margin-left:-8px!important}
 .tabs.collapsed .tab .badge,.tabs.collapsed .tab #supply-comment-dot,.tabs.collapsed .tab #disinfection-alert-dot{position:absolute;top:5px;right:6px;margin:0!important;font-size:9px!important}
 </style>
+<style>
+/* ══ FLOATING SIDEBAR PANEL (navy + green) ══ */
+.tabs{--si:10px;background:linear-gradient(180deg,#1B1A63 0%,#13124B 100%);border:1px solid rgba(255,255,255,.08);padding:14px 0 12px;box-shadow:0 18px 40px rgba(10,10,60,.35)}
+.tabs.scrolled{box-shadow:0 18px 40px rgba(10,10,60,.35)}
+@media(min-width:681px){
+  .tabs{position:sticky;top:72px;margin:12px 0 12px 12px;height:calc(100vh - 84px);width:240px;border-radius:22px}
+  .tabs.collapsed{width:68px;--si:8px}
+}
+@media(max-width:680px){
+  .tabs{width:264px;border-radius:0 22px 22px 0;margin:0;padding-top:12px}
+}
+/* profile + collapse */
+.side-head{display:flex;align-items:center;gap:8px;padding:2px 14px 12px}
+.side-profile{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.side-avatar{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-transform:uppercase;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
+.side-who{min-width:0;line-height:1.25}
+.side-name{color:#fff;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-role{color:rgba(255,255,255,.55);font-size:11px;text-transform:capitalize;white-space:nowrap}
+.side-collapse{width:28px;height:28px;border-width:1.5px;font-size:14px}
+/* search */
+.side-search{position:relative;margin:0 14px 6px;flex-shrink:0}
+.side-search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.5);font-size:15px;pointer-events:none}
+#app-sidebar .side-search input{width:100%!important;box-sizing:border-box;background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:12px!important;color:#fff!important;padding:9px 12px 9px 33px!important;font-size:12.5px!important;outline:none;box-shadow:none!important}
+#app-sidebar .side-search input::placeholder{color:rgba(255,255,255,.5)}
+#app-sidebar .side-search input:focus{border-color:var(--green)!important;background:rgba(255,255,255,.12)!important}
+/* groups */
+.side-label{color:rgba(255,255,255,.42);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:10px 22px 4px}
+/* items: rounded pills */
+.tabs .tab{margin:1px var(--si);padding:9px 12px;border-radius:12px;font-size:13px;gap:12px}
+.tabs .tab:hover{background:rgba(255,255,255,.1)}
+.tabs .tab:nth-child(n){animation-delay:.16s}
+.tab.side-hidden{display:none!important}
+.side-indicator{left:var(--si);right:var(--si);border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+/* sign out at the bottom */
+.side-foot{margin-top:auto;padding:10px var(--si) 0;border-top:1px solid rgba(255,255,255,.08);margin-left:14px;margin-right:14px;padding-left:0;padding-right:0}
+.side-logout{width:100%;display:flex;align-items:center;gap:12px;background:transparent;border:none;color:rgba(255,255,255,.8);font-size:13px;padding:10px 12px;border-radius:12px;cursor:pointer;font-family:inherit}
+.side-logout i{font-size:17px;width:18px;text-align:center}
+.side-logout:hover{background:rgba(226,75,74,.18);color:#fff}
+/* collapsed rail */
+@media(min-width:681px){
+  .tabs.collapsed .side-head{flex-direction:column;justify-content:center;gap:10px;padding:2px 0 10px}
+  .tabs.collapsed .side-who,.tabs.collapsed .side-search{display:none}
+  .tabs.collapsed .side-profile{flex:none}
+  .tabs.collapsed .side-label{font-size:0;height:1px;padding:0;margin:10px 16px 8px;background:rgba(255,255,255,.12)}
+  .tabs.collapsed .side-foot{margin-left:10px;margin-right:10px}
+  .tabs.collapsed .side-logout{justify-content:center;padding:10px 0;gap:0}
+  .tabs.collapsed .side-logout span{display:none}
+}
+</style>
+<style>
+/* ══ GLASS LOGIN CARD + MORPH BETWEEN VIEWS (navy + green) ══ */
+#login-page .login-card{position:relative;overflow:hidden;box-sizing:border-box;
+  background:linear-gradient(155deg,rgba(255,255,255,.17) 0%,rgba(255,255,255,.06) 100%);
+  border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+  box-shadow:0 30px 80px -20px rgba(6,6,40,.65),inset 0 1px 0 rgba(255,255,255,.28)}
+#login-page .login-card::before,#login-page .login-card::after{content:"";position:absolute;width:54px;height:54px;pointer-events:none}
+#login-page .login-card::before{top:0;left:0;background:linear-gradient(135deg,rgba(255,255,255,.38),transparent 62%);clip-path:polygon(0 0,100% 0,0 100%)}
+#login-page .login-card::after{right:0;bottom:0;background:linear-gradient(315deg,rgba(143,214,90,.55),transparent 62%);clip-path:polygon(100% 0,100% 100%,0 100%)}
+#login-page .login-card-logo{filter:brightness(0) invert(1)}
+#login-page .login-card h2{color:#fff}
+#login-page .login-card-sub{color:rgba(255,255,255,.68)}
+#login-page .input-wrap input{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#fff}
+#login-page .input-wrap input:focus{background:rgba(255,255,255,.13);border-color:#8FD65A;box-shadow:0 0 0 3px rgba(143,214,90,.2)}
+#login-page .input-wrap .fi,#login-page .input-wrap .flabel,#login-page .eye-btn{color:rgba(255,255,255,.6)}
+#login-page .input-wrap input:focus~.flabel,#login-page .input-wrap input:valid~.flabel,#login-page .input-wrap input:not(:placeholder-shown)~.flabel,
+#login-page .input-wrap:focus-within .fi{color:#8FD65A}
+#login-page .input-wrap .uline{background:linear-gradient(90deg,#8FD65A,var(--green))}
+#login-page .input-wrap input:-webkit-autofill{-webkit-text-fill-color:#fff;transition:background-color 9999s}
+#login-page .btn-login{background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);box-shadow:0 12px 26px -8px rgba(98,179,38,.6)}
+#login-page .btn-login:hover{box-shadow:0 14px 30px -6px rgba(98,179,38,.75)}
+#login-page .login-error{background:rgba(226,75,74,.2);color:#FFC3C2;border-color:rgba(226,75,74,.5)}
+#login-page .login-links a{color:rgba(255,255,255,.85)}
+#login-page .login-links a:hover{color:#8FD65A;text-decoration:none}
+#login-page .login-links.one{justify-content:center}
+#login-page .login-footer{color:rgba(255,255,255,.55)}
+#login-page .login-footer strong{color:#8FD65A}
+#login-page .modal-ok{background:rgba(143,214,90,.16);color:#E2F7CE;border-color:rgba(143,214,90,.45)}
+/* views */
+.lc-view[hidden]{display:none}
+.lc-view.compact .lform-group{margin-bottom:18px}
+.lc-view.compact .login-card-sub{margin-bottom:22px}
+#login-page .login-card[data-view="signup"] .mascot-3d-stage{display:none}
+#login-page .login-card[data-view="signup"] .login-card-logo{margin-bottom:18px}
+/* morph state: content fades, a glowing orb shows while the card is a small rounded square */
+.login-card .login-card-logo,.login-card .mascot-3d-stage,.login-card .lc-views{transition:opacity .22s ease,filter .22s ease}
+.login-card.morphing .login-card-logo,.login-card.morphing .mascot-3d-stage,.login-card.morphing .lc-views{opacity:0;filter:blur(6px);pointer-events:none}
+.lc-orb{position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;opacity:0;pointer-events:none;transition:opacity .22s ease}
+.login-card.morphing .lc-orb{opacity:1}
+.orb-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#8FD65A;border-right-color:rgba(143,214,90,.5);animation:orbSpin 1s linear infinite}
+.orb-core{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:8px;background:linear-gradient(135deg,#8FD65A,var(--green));box-shadow:0 0 22px rgba(143,214,90,.9),0 0 48px rgba(143,214,90,.45);transform:rotate(45deg);animation:orbPulse 1.2s ease-in-out infinite}
+@keyframes orbSpin{to{transform:rotate(360deg)}}
+@keyframes orbPulse{0%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(45deg) scale(1.18)}}
+@media(prefers-reduced-motion:reduce){.orb-ring,.orb-core{animation:none}.login-card .login-card-logo,.login-card .mascot-3d-stage,.login-card .lc-views{transition:none}}
+</style>
 </head>
 <body>
 
@@ -839,7 +933,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
     </div>
   </div>
   <div class="login-right">
-    <div class="login-card">
+    <div class="login-card" data-view="signin">
       <img class="login-card-logo" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Renal Roads"/>
       <div class="mascot-3d-stage">
       <div class="login-mascot" id="login-mascot" aria-hidden="true">
@@ -947,7 +1041,9 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
         </svg>
       </div>
       </div>
-      <h2>Sign in</h2>
+      <div class="lc-views">
+<div class="lc-view" id="lv-signin">
+<h2>Sign in</h2>
       <div class="login-card-sub">Enter your credentials to access the system</div>
       <div class="lform-group">
         <div class="input-wrap">
@@ -970,6 +1066,29 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
       <div class="login-error" id="login-error"><i class="ti ti-alert-circle"></i><span id="login-error-msg"></span></div>
       <div class="login-links"><a href="#" onclick="openForgot();return false">Forgot password?</a><a href="#" onclick="openSignup();return false">Request access</a></div>
       <div class="login-footer">Secured system &nbsp;·&nbsp; <strong>Renal Roads by Benacare</strong></div>
+</div>
+<div class="lc-view compact" id="lv-signup" hidden>
+<h2>Request access</h2><div class="login-card-sub">An administrator reviews every request and assigns your role.</div>
+<div id="signup-form">
+<div class="lform-group"><div class="input-wrap"><i class="ti ti-user fi"></i><input type="text" id="su-name" placeholder=" " autocomplete="name" required maxlength="80"/><span class="flabel">Full name</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-at fi"></i><input type="text" id="su-username" placeholder=" " autocomplete="username" required maxlength="30"/><span class="flabel">Username</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-mail fi"></i><input type="email" id="su-email" placeholder=" " autocomplete="email" required /><span class="flabel">Email</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-lock fi"></i><input type="password" id="su-password" placeholder=" " autocomplete="new-password" required /><span class="flabel">Password (8+ characters)</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-lock-check fi"></i><input type="password" id="su-password2" placeholder=" " autocomplete="new-password" required onkeydown="if(event.key==='Enter')submitSignup()"/><span class="flabel">Confirm password</span><i class="uline"></i></div></div>
+<button class="btn-login" id="signup-btn" onclick="submitSignup()"><i class="ti ti-send"></i> Submit request</button>
+<div class="login-error" id="signup-error"><i class="ti ti-alert-circle"></i><span id="signup-error-msg"></span></div>
+</div>
+<div id="signup-done" style="display:none"><div class="modal-ok"><i class="ti ti-circle-check"></i><div>Request sent. You can sign in once an administrator approves it.</div></div></div>
+<div class="login-links one"><a href="#" onclick="backToSignin();return false"><i class="ti ti-arrow-left"></i> Back to sign in</a></div>
+</div>
+<div class="lc-view" id="lv-forgot" hidden>
+<h2>Forgot password</h2><div class="login-card-sub">Enter your account email and we will send you a reset link.</div>
+<div id="forgot-form">
+<div class="lform-group"><div class="input-wrap"><i class="ti ti-mail fi"></i><input type="email" id="fp-email" placeholder=" " autocomplete="email" required onkeydown="if(event.key==='Enter')submitForgot()"/><span class="flabel">Email</span><i class="uline"></i></div></div>
+<button class="btn-login" id="forgot-btn" onclick="submitForgot()"><i class="ti ti-mail"></i> Send reset link</button>
+<div class="login-error" id="forgot-error"><i class="ti ti-alert-circle"></i><span id="forgot-error-msg"></span></div>
+</div>
+<div id="forgot-done" style="display:none"><div class="modal-ok"><i class="ti ti-circle-check"></i><div>If an active account uses that email, a reset link is on its way. It expires in 30 minutes. No email on your account? Ask the administrator to reset your password.</div></div></div>
+<div class="login-links one"><a href="#" onclick="backToSignin();return false"><i class="ti ti-arrow-left"></i> Back to sign in</a></div>
+</div>
+</div>
+<div class="lc-orb" aria-hidden="true"><i class="orb-ring"></i><i class="orb-core"></i></div>
     </div>
   </div>
 </div>
@@ -995,23 +1114,35 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   <div class="app-body">
   <div class="side-overlay" onclick="closeSidebar()"></div>
   <nav class="tabs" id="app-sidebar">
-    <div class="side-indicator"></div>
-    <div class="side-head">
-      <button class="side-collapse" onclick="toggleSidebarCollapse()" aria-label="Collapse menu" title="Collapse menu"><i class="ti ti-arrow-left"></i></button>
-      <span class="side-title">MENU</span>
-    </div>
+  <div class="side-indicator"></div>
+  <div class="side-head">
+    <div class="side-profile"><div class="side-avatar" id="sp-av">?</div><div class="side-who"><div class="side-name" id="sp-name"></div><div class="side-role" id="sp-role"></div></div></div>
+    <button class="side-collapse" onclick="toggleSidebarCollapse()" aria-label="Collapse menu" title="Collapse menu"><i class="ti ti-arrow-left"></i></button>
+  </div>
+  <div class="side-search"><i class="ti ti-search"></i><input id="side-search" type="text" placeholder="Search menu…" autocomplete="off" aria-label="Search menu" oninput="sideFilter(this.value)" onkeydown="sideSearchKey(event)"></div>
+  <div class="side-group">
     <div class="tab active" onclick="switchTab('home')" id="tab-home"><i class="ti ti-home" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Home</div>
+  </div>
+  <div class="side-group"><div class="side-label">Clinical</div>
     <div class="tab" onclick="switchTab('patients')" id="tab-patients"><i class="ti ti-users" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patients</div>
+    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
+    <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
+  </div>
+  <div class="side-group"><div class="side-label">Inventory</div>
     <div class="tab" onclick="switchTab('supplies')" id="tab-supplies"><i class="ti ti-package" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Supplies<span id="supply-comment-dot" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('procurement')" id="tab-procurement"><i class="ti ti-shopping-cart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Procurement<span class="badge" id="proc-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('requests')" id="tab-requests" style="display:none"><i class="ti ti-bell" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Requests<span class="badge" id="req-badge" style="display:none">0</span></div>
-    <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
-    <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
+  </div>
+  <div class="side-group"><div class="side-label">Reports</div>
     <div class="tab" onclick="switchTab('report')" id="tab-report"><i class="ti ti-clipboard-text" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Weekly Report</div>
     <div class="tab" onclick="switchTab('monthlyreport')" id="tab-monthlyreport"><i class="ti ti-calendar-stats" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Monthly Report</div>
-    <div class="tab" onclick="switchTab('heparin')" id="tab-heparin"><i class="ti ti-droplet" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Heparin</div>
-  </nav>
+  </div>
+  <div class="side-group"><div class="side-label">Admin</div>
+    <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
+  </div>
+  <div class="side-foot"><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
+</nav>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
       <option value="home" id="opt-home">🏠 Home</option>
@@ -1237,38 +1368,6 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 </div></div>
 
 <!-- Sign-up / forgot / reset / set-email modals -->
-<div class="modal-bg" id="signup-modal"><div class="modal">
-  <h2>Request access</h2><div class="modal-sub">An administrator reviews every request and assigns your role before you can sign in.</div>
-  <div id="signup-form">
-    <div class="form-grid">
-      <div class="form-group full"><label>Full name *</label><input id="su-name" autocomplete="name" maxlength="80"></div>
-      <div class="form-group full"><label>Username *</label><input id="su-username" autocomplete="username" maxlength="30" placeholder="3-30 letters, numbers, . _ -"></div>
-      <div class="form-group full"><label>Email * <span style="font-weight:400;color:var(--gray-400)">(used if you forget your password)</span></label><input id="su-email" type="email" autocomplete="email"></div>
-      <div class="form-group full"><label>Password *</label><input id="su-password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
-      <div class="form-group full"><label>Confirm password *</label><input id="su-password2" type="password" autocomplete="new-password"></div>
-    </div>
-    <div class="modal-err" id="signup-error"><i class="ti ti-alert-circle"></i><span id="signup-error-msg"></span></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('signup-modal')">Cancel</button><button class="btn btn-primary" id="signup-btn" onclick="submitSignup()"><i class="ti ti-send"></i> Submit request</button></div>
-  </div>
-  <div id="signup-done" style="display:none">
-    <div class="modal-ok"><i class="ti ti-circle-check"></i><div>Request sent. You will be able to sign in once an administrator approves it.</div></div>
-    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('signup-modal')">Close</button></div>
-  </div>
-</div></div>
-
-<div class="modal-bg" id="forgot-modal"><div class="modal">
-  <h2>Forgot password</h2><div class="modal-sub">Enter the email address on your account and we will send you a reset link.</div>
-  <div id="forgot-form">
-    <div class="form-grid"><div class="form-group full"><label>Email *</label><input id="fp-email" type="email" autocomplete="email" onkeydown="if(event.key==='Enter')submitForgot()"></div></div>
-    <div class="modal-err" id="forgot-error"><i class="ti ti-alert-circle"></i><span id="forgot-error-msg"></span></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('forgot-modal')">Cancel</button><button class="btn btn-primary" id="forgot-btn" onclick="submitForgot()"><i class="ti ti-mail"></i> Send reset link</button></div>
-  </div>
-  <div id="forgot-done" style="display:none">
-    <div class="modal-ok"><i class="ti ti-circle-check"></i><div>If an active account uses that email, a reset link is on its way. It expires in 30 minutes. If you have no email on your account, ask the administrator to reset your password.</div></div>
-    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('forgot-modal')">Close</button></div>
-  </div>
-</div></div>
-
 <div class="modal-bg" id="reset-modal"><div class="modal">
   <h2>Choose a new password</h2><div class="modal-sub">This link works once.</div>
   <div class="form-grid">
@@ -6109,11 +6208,56 @@ function authMsg(err){const m=(err&&err.message)||'';for(const k in AUTH_MSGS){i
 function setErr(prefix,msg){document.getElementById(prefix+'-error-msg').textContent=msg;document.getElementById(prefix+'-error').classList.add('show');}
 function clearErr(prefix){document.getElementById(prefix+'-error').classList.remove('show');}
 
-function openSignup(){
-  ['su-name','su-username','su-email','su-password','su-password2'].forEach(k=>document.getElementById(k).value='');
-  clearErr('signup');document.getElementById('signup-form').style.display='';document.getElementById('signup-done').style.display='none';
-  document.getElementById('signup-modal').classList.add('open');
+function openSignup(){lcMorph('signup');}
+// ── Login card: glass morph between Sign in / Request access / Forgot password ──
+function lcPrepare(name){
+  if(name==='signup'){
+    ['su-name','su-username','su-email','su-password','su-password2'].forEach(k=>{const e=document.getElementById(k);if(e)e.value='';});
+    clearErr('signup');document.getElementById('signup-form').style.display='';document.getElementById('signup-done').style.display='none';
+  }
+  if(name==='forgot'){
+    const e=document.getElementById('fp-email');if(e)e.value='';
+    clearErr('forgot');document.getElementById('forgot-form').style.display='';document.getElementById('forgot-done').style.display='none';
+  }
 }
+function lcShow(name){
+  const card=document.querySelector('.login-card'); if(!card) return;
+  lcPrepare(name);
+  document.querySelectorAll('.lc-view').forEach(v=>{v.hidden=(v.id!=='lv-'+name);});
+  card.dataset.view=name;
+}
+function lcFocus(name){
+  const id={signin:'login-username',signup:'su-name',forgot:'fp-email'}[name];
+  setTimeout(()=>{const e=document.getElementById(id);if(e&&e.offsetParent!==null)e.focus({preventScroll:true});},60);
+}
+let lcBusy=false;
+async function lcMorph(name){
+  const card=document.querySelector('.login-card');
+  if(!card||lcBusy||card.dataset.view===name) return;
+  lcBusy=true;
+  try{
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches||!card.animate){lcShow(name);lcFocus(name);return;}
+    const SZ=132, r1=card.getBoundingClientRect();
+    card.classList.add('morphing');
+    const a1=card.animate([{width:r1.width+'px',height:r1.height+'px',borderRadius:'22px'},{width:SZ+'px',height:SZ+'px',borderRadius:'36px'}],
+      {duration:340,easing:'cubic-bezier(.65,0,.35,1)',fill:'forwards'});
+    await a1.finished;
+    lcShow(name);                       // swap the form while the card is a small square
+    a1.cancel();                        // back to natural size so the new form can be measured
+    const r2=card.getBoundingClientRect();
+    card.classList.remove('morphing');  // orb fades out, form fades in as the card opens
+    const a2=card.animate([{width:SZ+'px',height:SZ+'px',borderRadius:'36px'},{width:r2.width+'px',height:r2.height+'px',borderRadius:'22px'}],
+      {duration:460,easing:'cubic-bezier(.22,.8,.3,1)'});
+    await a2.finished;
+    lcFocus(name);
+  }catch(e){
+    card.classList.remove('morphing');lcShow(name);
+  }finally{lcBusy=false;}
+}
+(function(){ // always come back to the Sign in view after signing out
+  const lo=window.doLogout; if(typeof lo!=='function') return;
+  window.doLogout=function(){const r=lo.apply(this,arguments);try{lcShow('signin');}catch(e){}return r;};
+})();
 async function submitSignup(){
   clearErr('signup');
   const name=document.getElementById('su-name').value.trim(),un=document.getElementById('su-username').value.trim().toLowerCase(),
@@ -6128,11 +6272,8 @@ async function submitSignup(){
   document.getElementById('signup-form').style.display='none';document.getElementById('signup-done').style.display='';
 }
 
-function openForgot(){
-  document.getElementById('fp-email').value='';clearErr('forgot');
-  document.getElementById('forgot-form').style.display='';document.getElementById('forgot-done').style.display='none';
-  document.getElementById('forgot-modal').classList.add('open');
-}
+function openForgot(){lcMorph('forgot');}
+function backToSignin(){lcMorph('signin');}
 async function submitForgot(){
   clearErr('forgot');
   const em=document.getElementById('fp-email').value.trim().toLowerCase();
@@ -6163,7 +6304,7 @@ async function submitReset(){
   const {error}=await db.rpc('rr_reset_complete',{p_token:resetToken,p_password:pw});
   btn.disabled=false;
   if(error)return setErr('reset',authMsg(error));
-  resetToken=null;closeModal('reset-modal');
+  resetToken=null;closeModal('reset-modal');lcShow('signin');
   const errEl=document.getElementById('login-error');
   document.getElementById('login-error-msg').textContent='Password updated. Please sign in with your new password.';
   errEl.classList.add('show');
@@ -7300,6 +7441,43 @@ function moveSideIndicator(instant){
   const origToggle=window.toggleSidebar;
   window.toggleSidebar=function(){origToggle();setTimeout(()=>moveSideIndicator(true),30);};
   setTimeout(()=>moveSideIndicator(true),50);
+})();
+
+// ── Sidebar: profile card, menu search, group visibility ──
+function sideRefreshGroups(){
+  document.querySelectorAll('#app-sidebar .side-group').forEach(g=>{
+    const any=[...g.querySelectorAll('.tab')].some(t=>getComputedStyle(t).display!=='none');
+    g.style.display=any?'':'none';
+  });
+}
+function sideFilter(q){
+  q=String(q||'').trim().toLowerCase();
+  document.querySelectorAll('#app-sidebar .tab').forEach(t=>{
+    const label=t.textContent.replace(/\d+\s*$/,'').trim().toLowerCase();
+    t.classList.toggle('side-hidden',!!q&&!label.includes(q));
+  });
+  sideRefreshGroups();
+}
+function sideSearchKey(e){
+  const inp=e.target;
+  if(e.key==='Escape'){inp.value='';sideFilter('');inp.blur();}
+  if(e.key==='Enter'){
+    const first=[...document.querySelectorAll('#app-sidebar .tab')].find(t=>getComputedStyle(t).display!=='none');
+    if(first){first.click();inp.value='';sideFilter('');inp.blur();}
+  }
+}
+(function(){
+  const sb=document.getElementById('app-sidebar'); if(!sb) return;
+  const map=[['uav','sp-av'],['tbu','sp-name'],['tbr','sp-role']];
+  const sync=()=>map.forEach(([a,b])=>{const x=document.getElementById(a),y=document.getElementById(b);if(x&&y)y.textContent=x.textContent;});
+  const mo=new MutationObserver(sync);
+  map.forEach(([a])=>{const x=document.getElementById(a);if(x)mo.observe(x,{childList:true,characterData:true,subtree:true});});
+  sync();
+  const go=new MutationObserver(sideRefreshGroups);
+  sb.querySelectorAll('.tab').forEach(t=>go.observe(t,{attributes:true,attributeFilter:['style']}));
+  const origRole=window.applyRoleTabVisibility;
+  if(typeof origRole==='function') window.applyRoleTabVisibility=function(r){origRole.apply(this,arguments);sideRefreshGroups();};
+  sideRefreshGroups();
 })();
 
 // ══════════════════════════════════════════════

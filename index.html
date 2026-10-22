@@ -938,6 +938,22 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .death-chip.out{background:#FFF4E0;color:#8A5300;border:1px solid #F5D9A6}
 .death-chip.none{background:#F1F1F5;color:#6B6B80;border:1px dashed #C9C9D6}
 </style>
+<style>
+.home-charts{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.6fr);gap:8px;margin-bottom:6px}
+.home-charts>.hep-card{min-width:0;padding:6px 8px}
+.home-donut-card{display:flex;align-items:center;gap:8px}
+.home-donut{width:220px;height:220px;flex-shrink:0}
+.home-donut-legend{display:flex;flex-direction:column;gap:2px}
+@media(max-width:680px){
+  .home-charts{grid-template-columns:1fr}
+  .home-donut-card{flex-direction:column;gap:10px;padding:12px 10px!important}
+  .home-donut{width:min(220px,70vw);height:auto;flex-shrink:1}
+  .home-donut-legend{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px 14px}
+  .home-donut-legend div{font-size:12px!important}
+  .home-bars-card{padding:10px!important}
+  .home-bars-card>div{font-size:11px!important;gap:6px 10px!important}
+}
+</style>
 </head>
 <body>
 
@@ -4891,6 +4907,7 @@ function docExportPrint(){
 // HOME DASHBOARD: patients by station & status charts
 // =====================================================================
 const HOME_STATUSES_BASE=[{k:'Active',c:'#4E9429',m:p=>p.status==='Active'},{k:'Discharged',c:'#3C3489',m:p=>p.status==='Discharged'},{k:'Transferred',c:'#E67E22',m:p=>p.status==='Transferred'},{k:'Transplant',c:'#0F6656',m:p=>p.status==='Transplant'}];
+try{ window.matchMedia('(max-width:680px)').addEventListener('change',()=>{ if(typeof currentTab!=='undefined'&&currentTab==='home'&&currentUser) renderHome(); }); }catch(e){}
 let deathPlacesLoaded=false;   // true once rr_patient_death_list has answered without error
 let HOME_STATUSES=[];          // rebuilt for each dashboard paint by homeStatusList()
 // Deceased is split by place of death once that data is loaded; the "not recorded"
@@ -4924,20 +4941,24 @@ function homeDonutSvg(parts){
     g+=`<path d="M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${ir},${ir} 0 ${large} 0 ${x3},${y3} Z" fill="${p.c}"><title>${repEsc(p.k)}: ${p.v}</title></path>`;
   });
   g+=`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="38" font-weight="700" fill="var(--navy)">${total}</text><text x="${cx}" y="${cy+26}" text-anchor="middle" font-size="16" fill="var(--gray-600)">patients</text>`;
-  return `<svg viewBox="0 0 260 260" style="width:220px;height:220px;flex-shrink:0">${g}</svg>`;
+  return `<svg class="home-donut" viewBox="0 0 260 260">${g}</svg>`;
 }
 function homeStatusBarsSvg(stations){
   const max=Math.max(1,...stations.flatMap(s=>HOME_STATUSES.map(st=>s.counts[st.k]||0)));
-  const W=560,rowH=8,gap=3,ml=78,mr=24,barMax=W-ml-mr;
+  const narrow=window.matchMedia('(max-width:680px)').matches;
+  // Desktop: wide canvas that the card scales down a little. Phone: canvas ~ card width so text stays legible.
+  const W=narrow?320:560, rowH=narrow?13:8, gap=narrow?8:3, ml=narrow?118:78, mr=narrow?22:24, barMax=W-ml-mr;
+  const fsH=narrow?10:7, fsL=narrow?8.5:5.5, fsV=narrow?9:6, bh=narrow?6:4;
   let y=3,g='';
   stations.forEach(s=>{
-    g+=`<text x="0" y="${y+6}" font-size="7" font-weight="700" fill="var(--gray-800)">${repEsc(s.label)}</text>`;
+    g+=`<text x="0" y="${y+(narrow?9:6)}" font-size="${fsH}" font-weight="700" fill="var(--gray-800)">${repEsc(s.label)}</text>`;
+    if(narrow) y+=13;
     HOME_STATUSES.forEach(st=>{
       const v=s.counts[st.k]||0, w=v/max*barMax;
-      g+=`<text x="${ml-5}" y="${y+4}" font-size="5.5" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
-      g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="4" rx="1.5" fill="var(--gray-100)"/>`;
-      g+=`<rect x="${ml}" y="${y}" width="${w}" height="4" rx="1.5" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
-      g+=`<text x="${ml+barMax+5}" y="${y+4}" font-size="6" font-weight="700" fill="var(--gray-800)">${v}</text>`;
+      g+=`<text x="${ml-5}" y="${y+bh}" font-size="${fsL}" text-anchor="end" fill="var(--gray-600)">${st.k}</text>`;
+      g+=`<rect x="${ml}" y="${y}" width="${barMax}" height="${bh}" rx="1.5" fill="var(--gray-100)"/>`;
+      g+=`<rect x="${ml}" y="${y}" width="${w}" height="${bh}" rx="1.5" fill="${st.c}"><title>${st.k}: ${v}</title></rect>`;
+      g+=`<text x="${ml+barMax+5}" y="${y+bh}" font-size="${fsV}" font-weight="700" fill="var(--gray-800)">${v}</text>`;
       y+=rowH;
     });
     y+=gap;
@@ -4957,12 +4978,12 @@ function homePatientCharts(patients){
   const donutParts=stations.map((s,i)=>({k:s.label,v:s.total,c:HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]}));
   const legend=stations.map((s,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gray-800)"><span style="width:10px;height:10px;border-radius:3px;background:${HOME_STATION_COLORS[i%HOME_STATION_COLORS.length]};display:inline-block"></span>${repEsc(s.label)}: <b>${s.total}</b></div>`).join('');
   const statusLegend=HOME_STATUSES.map(st=>`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-600)"><span style="width:9px;height:9px;border-radius:3px;background:${st.c};display:inline-block"></span>${st.k}</div>`).join('');
-  return `<div style="display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2.6fr);gap:8px;margin-bottom:6px">
-    <div class="hep-card" style="padding:6px 8px;display:flex;align-items:center;gap:8px">
+  return `<div class="home-charts">
+    <div class="hep-card home-donut-card">
       ${homeDonutSvg(donutParts)}
-      <div style="display:flex;flex-direction:column;gap:2px">${legend}</div>
+      <div class="home-donut-legend">${legend}</div>
     </div>
-    <div class="hep-card" style="padding:6px 8px">
+    <div class="hep-card home-bars-card">
       ${homeStatusBarsSvg(stations)}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">${statusLegend}</div>
     </div>

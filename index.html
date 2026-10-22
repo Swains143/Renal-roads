@@ -1999,9 +1999,24 @@ function switchTab(t){
     if(mc){ mc.classList.remove('content-animate'); void mc.offsetWidth; mc.classList.add('content-animate'); }
   };
   // Patients / Supplies already loaded once this session: paint them immediately, then refresh in the background.
-  const haveCache = currentUser && ((t==='patients' && patients.length) || (t==='supplies' && (supplies.length||archivedSupplies.length)));
+  const isAdminUser = currentUser && currentUser.role==='admin';
+  const haveCache = currentUser && (
+    (t==='patients' && patients.length) ||
+    (t==='supplies' && (supplies.length||archivedSupplies.length)) ||
+    (t==='sha' && isAdminUser && window.__loaded.sha) ||
+    (t==='procurement' && currentUser.role!=='viewer' && window.__loaded.proc) ||
+    (t==='disinfection' && window.__loaded.dis) ||
+    (HTML_CACHED_TABS.includes(t) && tabHtmlCache[t])
+  );
   if(haveCache){
-    try{ if(t==='patients') renderPatientsView(); else renderSuppliesView(); }catch(e){}
+    try{
+      if(t==='patients') renderPatientsView();
+      else if(t==='supplies') renderSuppliesView();
+      else if(t==='sha'){ shaUpdateBadge(); shaRenderView(); }
+      else if(t==='procurement'){ procUpdateBadge(); procRender(); }
+      else if(t==='disinfection'){ window.__disSkipFetch=true; try{ renderDisinfection(); } finally { window.__disSkipFetch=false; } }
+      else { const mc=document.getElementById('main-content'); if(mc) mc.innerHTML=tabHtmlCache[t]; }
+    }catch(e){}
     animate();
     window.__silentRefresh=true;
     render().catch(()=>{}).finally(()=>{ window.__silentRefresh=false; });
@@ -2087,6 +2102,7 @@ async function doLogin(){
     startRequestNotifyMonitor();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
+    prefetchTabData();
     startSessionPollers(data.role);
   }catch(e){
     const msg=e.message==='inactive'?'Your account has been deactivated. Contact the administrator.':(e.message==='too_many_attempts'?'Too many failed attempts. Please wait a few minutes and try again.':(e.message==='network'?'Could not reach the server. Check your internet connection and try again.':'Invalid username or password.'));
@@ -2098,7 +2114,18 @@ async function doLogin(){
   }
 }
 
+// After the first screen is up, quietly load the big lists so the first visit to Patients / Supplies is instant.
+// (SHA, Procurement and Disinfection are already loaded at sign-in.)
+function prefetchTabData(){
+  const tok=sessionToken;
+  setTimeout(async()=>{
+    try{ if(tok===sessionToken && !patients.length) await loadPatientsData(); }catch(e){}
+    try{ if(tok===sessionToken && !supplies.length && !archivedSupplies.length) await loadSuppliesData(); }catch(e){}
+  },400);
+}
 function doLogout(){
+  Object.keys(tabHtmlCache).forEach(k=>delete tabHtmlCache[k]);   // never show one user's cached screens to the next
+  window.__loaded={};
   if(sessionToken){const t=sessionToken;db.rpc('rr_logout',{p_session:t});}
   currentUser=null;
   sessionToken=null;
@@ -2166,12 +2193,25 @@ async function restoreSession(){
     if(data.role==='admin') procInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
+    prefetchTabData();
     startSessionPollers(data.role);
     return true;
   }catch(e){ return false; }
 }
 
+const tabHtmlCache={};                       // last painted HTML of Home / Requests / Users, shown instantly on the next visit
+const HTML_CACHED_TABS=['home','requests','users'];
+window.__loaded=window.__loaded||{};         // which in-memory datasets have loaded at least once this session
 async function render(){
+  const _tab=currentTab;
+  try{ await _renderInner(); }
+  finally{
+    if(currentUser && HTML_CACHED_TABS.includes(_tab) && currentTab===_tab){
+      const mc=document.getElementById('main-content'); if(mc&&mc.innerHTML) tabHtmlCache[_tab]=mc.innerHTML;
+    }
+  }
+}
+async function _renderInner(){
   updateBadge().catch(()=>{});   // runs alongside the tab's own request instead of in front of it
   if(currentTab!=='report' && currentTab!=='monthlyreport'){ repStopAutoSave(); repStopRealtime(); }
   if(currentTab==='home') await renderHome();
@@ -2243,6 +2283,7 @@ async function loadDisData() {
   const { data, error } = await db.rpc('rr_disinfection_list', {p_session:sessionToken});
   disData = {};
   if (data) data.forEach(r => { disData[r.hub + '::' + r.machine_key] = r; });
+  if (!error) window.__loaded.dis = true;
 }
 
 async function saveDisRecord(hub, machineKey, lastDate, notes) {
@@ -2396,9 +2437,12 @@ function disWaterPlantBlock(hub, intervalMonths, hasRinse) {
 }
 
 async function renderDisinfection() {
-  showLoading('Loading disinfection records...');
-  await loadDisData();
-  hideLoading();
+  if(!window.__disSkipFetch){
+    showLoading('Loading disinfection records...');
+    await loadDisData();
+    hideLoading();
+    if(currentTab!=='disinfection') return;   // user already moved on while this loaded
+  }
 
   const hubs = [
     { key:'kigumo', label:'Kigumo Hub', icon:'ti-building-hospital', iconBg:'#EEF2FF', iconColor:'var(--navy)', machines: DIS_MACHINES.kigumo, machineInterval:1, waterInterval:6, hasRinse:true },
@@ -5069,9 +5113,10 @@ document.addEventListener('click',()=>{
     if(typeof currentTab!=='undefined'&&currentTab==='patients')renderPatientsView();
   }
 });
-async function renderPatients(){
-  showLoading('Loading patients...');
-  const [plRes,dpRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:sessionToken}),db.rpc('rr_patient_death_list',{p_session:sessionToken})]);
+async function loadPatientsData(){
+  const tok=sessionToken;
+  const [plRes,dpRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:tok}),db.rpc('rr_patient_death_list',{p_session:tok})]);
+  if(tok!==sessionToken) return;   // signed out (or switched user) while loading: drop the result
   const data=plRes.data;
   deathPlaces={}; deathSetupError=dpRes.error?(dpRes.error.message||'error'):null; deathPlacesLoaded=!dpRes.error;
   (dpRes.data||[]).forEach(r=>{deathPlaces[String(r.patient_id)]=r.place;});
@@ -5080,6 +5125,10 @@ async function renderPatients(){
     if(av!==bv)return av-bv;
     return String(a.ip||'').localeCompare(String(b.ip||''));
   });
+}
+async function renderPatients(){
+  showLoading('Loading patients...');
+  await loadPatientsData();
   hideLoading();
   if(currentTab!=='patients') return;
   renderPatientsView();
@@ -5537,15 +5586,15 @@ function downloadDischargeSummary(){
 }
 
 // SUPPLIES
-async function renderSupplies(){
-  showLoading('Loading supplies...');
+async function loadSuppliesData(){
+  const tok=sessionToken;
   const _canSeeUnread=!!(currentUser&&(currentUser.role==='admin'||currentUser.role==='viewer'));
   const [{data,error:listErr},unreadRes]=await Promise.all([
-    db.rpc('rr_supplies_list',{p_session:sessionToken}),
-    _canSeeUnread?db.rpc('rr_comments_unread_by_supply',{p_session:sessionToken}):Promise.resolve({data:[]})
+    db.rpc('rr_supplies_list',{p_session:tok}),
+    _canSeeUnread?db.rpc('rr_comments_unread_by_supply',{p_session:tok}):Promise.resolve({data:[]})
   ]);
-  if(listErr){ hideLoading(); rpcFailed(listErr,'loading the supplies list (what you see may be out of date)'); }
-  else suppliesRawCache={t:Date.now(),data:data||[]};
+  if(tok!==sessionToken) return null;   // signed out while loading: drop the result
+  if(!listErr) suppliesRawCache={t:Date.now(),data:data||[]};
   const _allSupplies=(data||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
   supplies=_allSupplies.filter(s=>!s.archived_at);
   archivedSupplies=_allSupplies.filter(s=>s.archived_at);
@@ -5555,7 +5604,13 @@ async function renderSupplies(){
   if(isAdmin || isViewer){
     ((unreadRes&&unreadRes.data)||[]).forEach(c=>{suppliesUnread[c.supply_id]=Number(c.unread_count);});
   }
+  return {listErr};
+}
+async function renderSupplies(){
+  showLoading('Loading supplies...');
+  const _res=await loadSuppliesData();
   hideLoading();
+  if(_res&&_res.listErr) rpcFailed(_res.listErr,'loading the supplies list (what you see may be out of date)');
   if(currentTab!=='supplies') return;
   renderSuppliesView();
 }
@@ -6023,7 +6078,9 @@ async function submitRequest(){
 async function renderRequests(){
   showLoading('Loading requests...');
   const {data}=await db.rpc('rr_requests_list',{p_session:sessionToken});
-  hideLoading();requests=(data||[]).map(r=>({...r, supplies: r.supply_name?{name:r.supply_name, unit:r.supply_unit}:null}));
+  hideLoading();
+  if(currentTab!=='requests') return;
+  requests=(data||[]).map(r=>({...r, supplies: r.supply_name?{name:r.supply_name, unit:r.supply_unit}:null}));
   const pending=requests.filter(r=>r.status==='pending');
   const done=requests.filter(r=>r.status!=='pending');
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><strong style="font-size:15px">Supply requests</strong>${requests.length?'<button class="btn" onclick="exportRequests()"><i class="ti ti-download"></i> Export</button>':''}</div>`;
@@ -6219,7 +6276,9 @@ async function renderUsers(){
     pendingReqs=pr.data||[];(er.data||[]).forEach(r=>{emailMap[r.id]=r.email;});
     setUsersPendingBadge(pendingReqs.length);
   }
-  hideLoading();const users=(data||[]).filter(u=>!u.hidden);
+  hideLoading();
+  if(currentTab!=='users') return;
+  const users=(data||[]).filter(u=>!u.hidden);
   const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
@@ -6976,6 +7035,7 @@ async function shaLoad(){
   shaData = {};
   (a.data||[]).forEach(r=>{ shaData[r.patient_id]=r; });
   shaPatients = b.data||[];
+  window.__loaded.sha = !a.error;
 }
 
 function shaAddDays(dateStr, n){
@@ -7056,6 +7116,7 @@ async function renderSha(){
   await shaLoad();
   hideLoading();
   shaUpdateBadge();
+  if(currentTab!=='sha') return;
   shaRenderView();
 }
 
@@ -7251,6 +7312,7 @@ async function procLoad(){
   const {data,error}=await db.rpc('rr_proc_list',{p_session:sessionToken});
   procErr=error?(error.message||'error'):null;
   procData=error?[]:(data||[]);
+  if(!error) window.__loaded.proc=true;
 }
 function procPendingCount(){return procData.filter(r=>r.status==='pending').length;}
 function procUpdateBadge(){
@@ -7276,6 +7338,7 @@ async function renderProcurement(){
   await procLoad();
   hideLoading();
   procUpdateBadge();
+  if(currentTab!=='procurement') return;
   procRender();
 }
 function procRender(){

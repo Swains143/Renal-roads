@@ -935,14 +935,15 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 <style>
 .death-chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .death-chip.at{background:#FCEBEB;color:#791F1F;border:1px solid #F3C3C3}
-.death-chip.out{background:#FFF4E0;color:#8A5300;border:1px solid #F5D9A6}
+.death-chip.out{background:#F1DCE0;color:#7A1F2B;border:1px solid #D9AEB6}
 .death-chip.none{background:#F1F1F5;color:#6B6B80;border:1px dashed #C9C9D6}
 </style>
 <style>
 .home-charts-wrap{container-type:inline-size;container-name:homecharts}
 .home-charts{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,2.2fr);gap:8px;margin-bottom:6px}
 .home-charts>.hep-card{min-width:0;padding:6px 8px}
-.home-donut-card{display:flex;align-items:center;gap:8px}
+.home-donut-card{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.home-cap{flex:0 0 100%;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray-400);margin:0 0 2px}
 .home-donut{width:100%;max-width:220px;height:auto;flex:0 1 220px}
 .home-donut-legend{display:flex;flex-direction:column;gap:2px;min-width:0}
 .home-bars-wide{display:block;width:100%;height:auto}
@@ -951,6 +952,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 @container homecharts (max-width:900px){
   .home-charts{grid-template-columns:1fr}
   .home-donut-card{flex-direction:column;gap:10px;padding:12px 10px}
+  .home-cap{flex:0 0 auto;width:100%}
   .home-donut{flex:0 0 auto;width:min(220px,70cqw)}
   .home-donut-legend{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px 14px}
   .home-donut-legend div{font-size:12px!important}
@@ -4956,7 +4958,7 @@ function docExportPrint(){
 // =====================================================================
 // HOME DASHBOARD: patients by station & status charts
 // =====================================================================
-const HOME_STATUSES_BASE=[{k:'Active',c:'#4E9429',m:p=>p.status==='Active'},{k:'Discharged',c:'#3C3489',m:p=>p.status==='Discharged'},{k:'Transferred',c:'#E67E22',m:p=>p.status==='Transferred'},{k:'Transplant',c:'#0F6656',m:p=>p.status==='Transplant'}];
+const HOME_STATUSES_BASE=[{k:'Active',c:'#2F80ED',m:p=>p.status==='Active'},{k:'Discharged',c:'#9B59B6',m:p=>p.status==='Discharged'},{k:'Transferred',c:'#00A8CC',m:p=>p.status==='Transferred'},{k:'Transplant',c:'#D4568A',m:p=>p.status==='Transplant'}];
 let deathPlacesLoaded=false;   // true once rr_patient_death_list has answered without error
 let HOME_STATUSES=[];          // rebuilt for each dashboard paint by homeStatusList()
 // Deceased is split by place of death once that data is loaded; the "not recorded"
@@ -4964,9 +4966,9 @@ let HOME_STATUSES=[];          // rebuilt for each dashboard paint by homeStatus
 function homeStatusList(pts){
   const list=HOME_STATUSES_BASE.slice();
   const dead=(pts||[]).filter(p=>p.status==='Deceased');
-  if(!deathPlacesLoaded||deathSetupError){ list.push({k:'Deceased',c:'#C0392B',m:p=>p.status==='Deceased'}); return list; }
-  list.push({k:'Died in our facility',c:'#C0392B',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility'});
-  list.push({k:'Died outside',c:'#E67E22',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside'});
+  if(!deathPlacesLoaded||deathSetupError){ list.push({k:'Deceased',c:'#B0172F',m:p=>p.status==='Deceased'}); return list; }
+  list.push({k:'Died in our facility',c:'#B0172F',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='facility'});
+  list.push({k:'Died outside',c:'#5E1A2B',m:p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside'});
   if(dead.some(p=>deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'))
     list.push({k:'Death place not recorded',c:'#9898BB',m:p=>p.status==='Deceased'&&deathPlaces[p.id]!=='facility'&&deathPlaces[p.id]!=='outside'});
   return list;
@@ -5028,10 +5030,12 @@ function homePatientCharts(patients){
   const statusLegend=HOME_STATUSES.map(st=>`<div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--gray-600)"><span style="width:9px;height:9px;border-radius:3px;background:${st.c};display:inline-block"></span>${st.k}</div>`).join('');
   return `<div class="home-charts-wrap"><div class="home-charts">
     <div class="hep-card home-donut-card">
+      <div class="home-cap">Patients by station</div>
       ${homeDonutSvg(donutParts)}
       <div class="home-donut-legend">${legend}</div>
     </div>
     <div class="hep-card home-bars-card">
+      <div class="home-cap">Patient status by station</div>
       ${homeStatusBarsSvg(stations,false)}${homeStatusBarsSvg(stations,true)}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">${statusLegend}</div>
     </div>

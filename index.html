@@ -37,6 +37,7 @@
      exactly the same amount together. */
   --print-scale:1;
 }
+button,input,select,textarea{font-family:inherit}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
 @keyframes float{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-40px) rotate(180deg)}100%{transform:translateY(0) rotate(360deg)}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -853,7 +854,7 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 /* sign out at the bottom */
 .side-foot{margin-top:auto;padding:10px 14px 12px;position:relative}
 .side-foot::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:rgba(255,255,255,.08)}
-.side-logout{width:100%;display:flex;align-items:center;gap:12px;background:transparent;border:none;color:rgba(255,255,255,.8);font-size:13px;padding:10px 12px;border-radius:12px;cursor:pointer;font-family:inherit}
+.side-logout{width:100%;display:flex;align-items:center;gap:12px;background:transparent;border:none;color:rgba(255,255,255,.8);font-size:12.5px;padding:10px 12px;border-radius:12px;cursor:pointer;font-family:inherit}
 .side-logout i{font-size:17px;width:18px;text-align:center}
 .side-logout:hover{background:rgba(226,75,74,.18);color:#fff}
 /* collapsed rail */
@@ -1301,21 +1302,12 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
     <div class="form-group"><label>Phone</label><input id="f-phone" placeholder="+254..."></div>
     <div class="form-group"><label>Next of kin</label><input id="f-nok-name" placeholder="Full name"></div>
     <div class="form-group"><label>Next of kin phone</label><input id="f-nok-phone" placeholder="+254..."></div>
-    <div class="form-group"><label>Year of birth *</label><input id="f-yob" type="number" min="1900" max="2026" placeholder="e.g. 1985" oninput="consentUiRefresh()"></div>
+    <div class="form-group"><label>Year of birth *</label><input id="f-yob" type="number" min="1900" max="2026" placeholder="e.g. 1985"></div>
     <div class="form-group"><label>Gender</label><select id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     <div class="form-group"><label>Blood group</label><select id="f-blood"><option value="">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
     <div class="form-group"><label>Dialysis access</label><select id="f-access"><option value="">Not specified</option><option>AVF</option><option>AVG</option><option>Tunneled catheter - Permanent</option><option>Non-tunneled catheter - Temporary</option><option>Peritoneal catheter</option><option>Other</option></select></div>
     <div class="form-group"><label>Sessions per week</label><input id="f-sessions" type="number" min="1" max="7" placeholder="e.g. 3"></div>
     <div class="form-group full"><label>Comorbidities</label><input id="f-comorbidities" placeholder="e.g. Hypertension, Diabetes (comma separated)"></div>
-    <div class="form-group full consent-head"><h3>Consent &amp; privacy</h3><div class="hint">Confirm the patient (or their parent / guardian) has been told how their data is used.</div></div>
-    <div class="form-group full" id="minor-note" style="display:none"><div class="minor-banner" role="status"><i class="ti ti-user-exclamation"></i><span>This patient is under 18. A parent or guardian must give consent, and their details must be recorded.</span></div></div>
-    <div class="form-group"><label for="f-consent-by">Consent given by</label><select id="f-consent-by" onchange="consentByChanged()"><option value="">Not recorded yet</option><option value="self">The patient</option><option value="guardian">Parent / guardian</option><option value="representative">Other legal representative</option></select></div>
-    <div class="form-group"><label for="f-consent-date">Date</label><input type="date" id="f-consent-date"></div>
-    <div class="form-group full" id="guardian-group" style="display:none"><div class="form-grid">
-      <div class="form-group"><label for="f-guardian-name">Parent / guardian name *</label><input id="f-guardian-name" autocomplete="off"></div>
-      <div class="form-group"><label for="f-guardian-rel">Relationship *</label><input id="f-guardian-rel" placeholder="e.g. Mother"></div>
-      <div class="form-group full"><label for="f-guardian-phone">Guardian phone</label><input id="f-guardian-phone" autocomplete="off"></div>
-    </div></div>
     <div class="form-group"><label>Station *</label>
       <select id="f-station">
         <option value="">Select station</option>
@@ -5224,12 +5216,11 @@ document.addEventListener('click',()=>{
 });
 async function loadPatientsData(){
   const tok=sessionToken;
-  const [plRes,dpRes,cRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:tok}),db.rpc('rr_patient_death_list',{p_session:tok}),((Date.now()-consentsAt<120000&&consentsTok===tok)?Promise.resolve(null):Promise.resolve(db.rpc('rr_patient_consent_list',{p_session:tok})).catch(e=>({data:null,error:e})))]);
+  const [plRes,dpRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:tok}),db.rpc('rr_patient_death_list',{p_session:tok})]);
   if(tok!==sessionToken) return;   // signed out (or switched user) while loading: drop the result
   const data=plRes.data;
   deathPlaces={}; deathSetupError=dpRes.error?(dpRes.error.message||'error'):null; deathPlacesLoaded=!dpRes.error;
   (dpRes.data||[]).forEach(r=>{deathPlaces[String(r.patient_id)]=r.place;});
-  if(cRes){ consents={}; consentSetupError=cRes.error?(cRes.error.message||'error'):null; (cRes.data||[]).forEach(r=>{consents[String(r.patient_id)]=r;}); consentsAt=Date.now(); consentsTok=tok; }
   patients=(data||[]).sort((a,b)=>{
     const av=ipSortValue(a.ip),bv=ipSortValue(b.ip);
     if(av!==bv)return av-bv;
@@ -5260,7 +5251,7 @@ function renderPatientsView(){
   const deadOut=patients.filter(p=>p.status==='Deceased'&&deathPlaces[p.id]==='outside').length;
   const deadNone=deceased-deadFac-deadOut;
   const deathBanner=(deathSetupError&&isAdmin)?`<div class="alert alert-info" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><div><b>Place of death isn't set up in the database yet.</b> Run <code>renal_roads_death_place.sql</code> in the Supabase SQL Editor, then reload this page.</div></div>`:'';
-  let h=`${deathBanner}${consentBanner()}<div class="metrics">
+  let h=`${deathBanner}<div class="metrics">
     <div class="metric"><div class="num">${patients.length}</div><div class="lbl">Total</div></div>
     <div class="metric"><div class="num" style="color:var(--green)">${active}</div><div class="lbl">Active</div></div>
     <div class="metric"><div class="num" style="color:#534AB7">${discharged}</div><div class="lbl">Discharged</div></div>
@@ -5306,7 +5297,6 @@ function openAddPatient(){
   document.getElementById('f-discharge-date').value='';
   document.getElementById('f-discharge-notes').value='';
   updateStatusFieldLabels('Active');
-  consentFormReset(null);
   document.getElementById('form-error').classList.remove('show');
   document.getElementById('patient-modal').classList.add('open');
 }
@@ -5333,7 +5323,6 @@ function openEditPatient(id){
   document.getElementById('f-discharge-date').value=p.discharge_date||'';
   document.getElementById('f-discharge-notes').value=p.discharge_notes||'';
   updateStatusFieldLabels(p.status);
-  consentFormReset(consents[String(p.id)]||null);
   document.getElementById('form-error').classList.remove('show');
   document.getElementById('patient-modal').classList.add('open');
 }
@@ -5350,7 +5339,6 @@ async function savePatient(){
   const deathPlace=document.getElementById('f-death-place').value;
   if(status==='Deceased'&&!deathPlace&&!deathSetupError)return showErr('Please choose where the patient died: in our facility or outside the facility.');
   if(yob<1900||yob>YEAR)return showErr('Enter a valid year of birth.');
-  const consentMsg=consentValidate(status);if(consentMsg)return showErr(consentMsg);
   const existing=patients.find(p=>p.ip===ip&&p.id!==editingPatientId);
   if(existing)return showErr('IP "'+ip+'" is already assigned to '+existing.name+'.');
   showLoading('Saving patient...');
@@ -5384,18 +5372,8 @@ async function savePatient(){
     if(!pid){ const r=await db.rpc('rr_patients_list',{p_session:sessionToken}); const row=(r.data||[]).find(x=>x.ip===ip); pid=row&&row.id; }
     if(pid){ const {error:de}=await db.rpc('rr_patient_death_set',{p_session:sessionToken,p_patient_id:String(pid),p_place:status==='Deceased'?(deathPlace||null):null}); deathErr=de; }
   }
-  let consentErr=null;const cv=consentFormValues();
-  if(cv.by||(editingPatientId&&consents[String(editingPatientId)])){
-    if(consentSetupError){consentErr={message:'consent storage is not set up'};}
-    else{
-      let cpid=editingPatientId;
-      if(!cpid){ const r=await db.rpc('rr_patients_list',{p_session:sessionToken}); const row=(r.data||[]).find(x=>x.ip===ip); cpid=row&&row.id; }
-      consentErr=cpid?await consentSave(cpid,cv):{message:'could not find the saved patient'};
-    }
-  }
   closeModal('patient-modal');await renderPatients();
   if(deathErr&&status==='Deceased') alert('The patient was saved, but the place of death could not be stored ('+(deathErr.message||'error')+'). Ask the administrator to run renal_roads_death_place.sql in Supabase.');
-  if(consentErr) alert('The patient was saved, but the consent details could not be stored ('+(consentErr.message||'error')+'). Ask the administrator to run renal_roads_consent.sql in Supabase.');
 }
 function deathLabel(id){const v=deathPlaces[id];return v==='facility'?'In our facility':v==='outside'?'Outside the facility':'Place not recorded';}
 function deathChip(id){const v=deathPlaces[id];const cls=v==='facility'?'at':v==='outside'?'out':'none';return `<span class="death-chip ${cls}">${deathLabel(id)}</span>`;}
@@ -7884,7 +7862,7 @@ function sideSearchKey(e){
 // AUTO-REFRESH SETTINGS — change these numbers to refresh faster or slower.
 // Times are in milliseconds (1000 = 1 second). Lower = fresher data, but more load on the server.
 // ══════════════════════════════════════════════
-const AUTO_REFRESH_MS = 20000;   // refresh the page you are looking at every 20 seconds
+const AUTO_REFRESH_MS = 60000;   // refresh the page you are looking at every 60 seconds
 const PROC_POLL_MS    = 60000;   // check for new procurement requests (admin badge) every 1 minute
 const SHA_POLL_MS     = 5*60000; // re-check SHA expiry reminders every 5 minutes
 // Pages that refresh themselves. (Reports, Users and Heparin are left out so unsaved work is never lost.)
@@ -8001,61 +7979,10 @@ function ptAgeBand(){   // yob alone cannot tell 17 from 18, so a patient born e
   if(!y||y<1900||y>YEAR)return '';
   const a=YEAR-y;return a<=17?'minor':(a===18?'maybe':'');
 }
-function consentUiRefresh(){
-  const band=ptAgeBand(),by=document.getElementById('f-consent-by').value;
-  const note=document.getElementById('minor-note'),span=note.querySelector('span');
-  note.style.display=band?'':'none';
-  if(band==='minor')span.textContent='This patient is under 18. A parent or guardian must give consent, and their details must be recorded.';
-  else if(band==='maybe')span.textContent='Born in '+document.getElementById('f-yob').value+', so this patient may still be 17. If they are under 18, a parent or guardian must give consent.';
-  document.getElementById('guardian-group').style.display=(band==='minor'||by==='guardian'||by==='representative')?'':'none';
-}
-function consentByChanged(){
-  const by=document.getElementById('f-consent-by').value,d=document.getElementById('f-consent-date');
-  if(by&&!d.value){const t=new Date();d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
-  consentUiRefresh();
-}
-function consentFormReset(rec){
-  rec=rec||{};
-  document.getElementById('f-consent-by').value=rec.consent_by||'';
-  document.getElementById('f-consent-date').value=rec.consent_date||'';
-  document.getElementById('f-guardian-name').value=rec.guardian_name||'';
-  document.getElementById('f-guardian-rel').value=rec.guardian_rel||'';
-  document.getElementById('f-guardian-phone').value=rec.guardian_phone||'';
-  consentUiRefresh();
-}
-function consentFormValues(){
-  const g=id=>document.getElementById(id).value.trim();
-  const v={by:g('f-consent-by'),date:g('f-consent-date'),gName:g('f-guardian-name'),gRel:g('f-guardian-rel'),gPhone:g('f-guardian-phone')};
-  if(v.by!=='guardian'&&v.by!=='representative'){ /* keep guardian details only when a guardian gave consent, or for a minor */ if(ptAgeBand()!=='minor'){v.gName='';v.gRel='';v.gPhone='';} }
-  return v;
-}
-function consentValidate(status){
-  const v=consentFormValues(),band=ptAgeBand();
-  if(consentSetupError)return '';   // nowhere to store it yet; the admin banner explains
-  if(band==='minor'&&status==='Active'&&v.by!=='guardian'&&v.by!=='representative')
-    return 'This patient is under 18. Under "Consent given by", choose Parent / guardian (or Other legal representative) and record their details.';
-  if(v.by==='guardian'||v.by==='representative'){
-    if(!v.gName)return 'Enter the parent / guardian name.';
-    if(!v.gRel)return 'Enter the parent / guardian relationship to the patient.';
-  }
-  return '';
-}
-async function consentSave(pid,v){
-  const {error}=await db.rpc('rr_patient_consent_set',{p_session:sessionToken,p_patient_id:String(pid),
-    p_consent_by:v.by||null,p_consent_date:v.date||null,p_guardian_name:v.gName||null,p_guardian_rel:v.gRel||null,
-    p_guardian_phone:v.gPhone||null,p_notice_version:LEGAL_VERSION});
-  consentsAt=0;   // fetch fresh on the next load
-  return error||null;
-}
 function consentChips(p){
   let h='';
   if(p.status!=='Deceased'&&p.yob&&calcAge(p)<=17)h+='<div><span class="chip-minor">Under 18</span></div>';
-  if(!consentSetupError&&p.status==='Active'&&!consents[String(p.id)])h+='<div><span class="chip-noconsent">Consent not recorded</span></div>';
   return h;
-}
-function consentBanner(){
-  if(!consentSetupError||!currentUser||currentUser.role!=='admin')return '';
-  return `<div class="alert alert-info" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><div><b>Patient consent isn't set up in the database yet.</b> Run <code>renal_roads_consent.sql</code> in the Supabase SQL Editor, then reload this page. Until then, consent details typed into the form are not saved.</div></div>`;
 }
 </script>
 

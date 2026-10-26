@@ -1179,7 +1179,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
       <div class="login-error" id="login-error"><i class="ti ti-alert-circle"></i><span id="login-error-msg"></span></div>
       <div class="login-links"><a href="#" onclick="openForgot();return false">Forgot password?</a><a href="#" onclick="openSignup();return false">Request access</a></div>
       <div class="login-footer">Authorised users only &nbsp;·&nbsp; <strong>Renal Roads by Benacare</strong></div>
-      <div class="login-legal"><a href="#" onclick="openLegal('cookies');return false">Cookies &amp; storage</a></div>
+      <div class="login-legal"><a href="#" onclick="openLegal('cookies');return false">Cookies &amp; storage</a><span class="support-wa" style="display:none">&nbsp;·&nbsp;</span><a href="#" class="support-wa" style="display:none" onclick="supportWhatsApp();return false"><i class="ti ti-brand-whatsapp"></i> Need help? WhatsApp us</a></div>
 </div>
 <div class="lc-view compact" id="lv-signup" hidden>
 <h2>Request access</h2><div class="login-card-sub">An administrator reviews every request and assigns your role.</div>
@@ -1271,7 +1271,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('datarequests')" id="tab-datarequests" style="display:none"><i class="ti ti-file-certificate" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Data Requests<span class="badge" id="dsr-badge" style="display:none"></span></div>
   </div>
-  <div class="side-foot"><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
+  <div class="side-foot"><button class="side-legal support-wa" style="display:none" onclick="supportWhatsApp()" title="Get help on WhatsApp"><i class="ti ti-brand-whatsapp"></i><span>Help on WhatsApp</span></button><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
 </nav>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -8005,6 +8005,34 @@ function consentChips(p){
   </div>
 </div></div>
 
+<script>
+// ── WhatsApp support ──────────────────────────────────────────────
+// Put the support number here in international format, digits only (e.g. 254712345678).
+// While it is empty, the WhatsApp help buttons stay hidden.
+const SUPPORT_WHATSAPP = '254791982130';
+function supportWhatsApp(){
+  if(!SUPPORT_WHATSAPP) return;
+  const L=[];
+  L.push('Hello, I need help with the Renal Roads system.');
+  try{
+    if(typeof currentUser!=='undefined' && currentUser){
+      L.push('Name: '+(currentUser.name||'-'));
+      L.push('Role: '+(currentUser.role||'-'));
+      L.push('Page: '+(typeof currentTab!=='undefined'?currentTab:'-'));
+    } else {
+      L.push('I am on the sign-in page.');
+      const box=document.getElementById('login-error'), msg=document.getElementById('login-error-msg');
+      if(box && msg && msg.textContent.trim() && getComputedStyle(box).display!=='none') L.push('Error shown: '+msg.textContent.trim());
+    }
+  }catch(e){}
+  L.push('Device: '+(navigator.userAgentData&&navigator.userAgentData.mobile?'Phone':'Computer')+' - '+navigator.userAgent.replace(/\s+/g,' ').slice(0,110));
+  L.push('Time: '+new Date().toLocaleString('en-KE'));
+  L.push('');
+  L.push('My problem: ');
+  window.open('https://wa.me/'+SUPPORT_WHATSAPP.replace(/\D/g,'')+'?text='+encodeURIComponent(L.join('\n')),'_blank','noopener');
+}
+if(SUPPORT_WHATSAPP) document.querySelectorAll('.support-wa').forEach(el=>{el.style.display='';});
+</script>
 <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>

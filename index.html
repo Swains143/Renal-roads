@@ -963,6 +963,38 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
   .home-bars-wide{display:none}
   .home-bars-narrow{display:block}
 }
+
+.top-help{display:flex;align-items:center;gap:5px;height:38px;padding:0 10px;border:none;background:none;color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:19px}
+.top-help i{font-size:20px;color:#8CC63F}
+.top-help:hover{background:rgba(255,255,255,.12)}
+@media(max-width:680px){.top-help span{display:none}.top-help{padding:0 6px}}
+/* ── NOTIFICATION CENTER ── */
+.nc-bell{position:relative;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-family:inherit}
+.nc-bell:hover{background:rgba(255,255,255,.12)}
+.nc-bell.nc-ring i{animation:ncRing .8s ease 2;transform-origin:50% 10%}
+@keyframes ncRing{0%,100%{transform:rotate(0)}15%{transform:rotate(18deg)}30%{transform:rotate(-16deg)}45%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}75%{transform:rotate(4deg)}}
+.nc-count{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#E5484D;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #2E3192}
+.nc-dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#8CC63F;border:2px solid #2E3192}
+.nc-panel{position:fixed;top:66px;right:16px;width:380px;max-width:calc(100vw - 24px);max-height:calc(100vh - 90px);background:#fff;color:#1E1D70;border-radius:16px;box-shadow:0 24px 60px -12px rgba(20,20,80,.45),0 0 0 1px rgba(30,29,112,.08);z-index:100001;display:flex;flex-direction:column;overflow:hidden}
+.nc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #E6E6F2;font-size:14px}
+.nc-head-actions button{background:none;border:none;color:#2E3192;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;padding:4px 6px;border-radius:6px}
+.nc-head-actions button:hover{background:#EEF;}
+.nc-body{overflow-y:auto;padding:6px 0 10px}
+.nc-sec{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#62628A;padding:10px 16px 6px}
+.nc-item{display:flex;gap:11px;padding:10px 16px;align-items:flex-start;border:none;background:none;width:100%;text-align:left;font-family:inherit;color:inherit}
+.nc-item.nc-click{cursor:pointer}
+.nc-item.nc-click:hover{background:#F4F6FB}
+.nc-item.nc-unread{background:#F3F9E8}
+.nc-ico{flex:0 0 30px;height:30px;border-radius:50%;background:#E6F3CC;color:#1E1D70;display:flex;align-items:center;justify-content:center;font-size:15px}
+.nc-ico.nc-bad{background:#FCEBEB;color:#9B1C1C}
+.nc-ico.nc-warn{background:#FFF1D6;color:#7A4510}
+.nc-txt{flex:1;min-width:0;font-size:12.5px;line-height:1.4}
+.nc-title{font-weight:700;font-size:13px}
+.nc-msg{color:#44446E;margin-top:1px;word-wrap:break-word}
+.nc-time{font-size:11px;color:#62628A;margin-top:3px}
+.nc-new{width:8px;height:8px;border-radius:50%;background:#8CC63F;flex:0 0 8px;margin-top:6px}
+.nc-empty{padding:26px 16px;text-align:center;color:#62628A;font-size:12.5px}
+@media(max-width:680px){.nc-panel{top:60px;right:8px}}
 </style>
 <style>
 /* ══ COMPLIANCE: accessibility, contrast, legal pages, consent ══ */
@@ -1179,7 +1211,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
       <div class="login-error" id="login-error"><i class="ti ti-alert-circle"></i><span id="login-error-msg"></span></div>
       <div class="login-links"><a href="#" onclick="openForgot();return false">Forgot password?</a><a href="#" onclick="openSignup();return false">Request access</a></div>
       <div class="login-footer">Authorised users only &nbsp;·&nbsp; <strong>Renal Roads by Benacare</strong></div>
-      <div class="login-legal"><a href="#" onclick="openLegal('cookies');return false">Cookies &amp; storage</a><span class="support-wa" style="display:none">&nbsp;·&nbsp;</span><a href="#" class="support-wa" style="display:none" onclick="supportWhatsApp();return false"><i class="ti ti-brand-whatsapp"></i> Need help? WhatsApp us</a></div>
+      <div class="login-legal"><a href="#" onclick="openLegal('cookies');return false">Cookies &amp; storage</a><span class="support-wa" style="display:none">&nbsp;·&nbsp;</span><a href="#" class="support-wa" style="display:none" onclick="supportWhatsApp();return false"><i class="ti ti-brand-whatsapp"></i> Help</a></div>
 </div>
 <div class="lc-view compact" id="lv-signup" hidden>
 <h2>Request access</h2><div class="login-card-sub">An administrator reviews every request and assigns your role.</div>
@@ -1218,6 +1250,8 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
       <span class="topbar-title">Management System</span>
     </div>
     <div class="topbar-right">
+      <button class="top-help support-wa" style="display:none" onclick="supportWhatsApp()" aria-label="Help on WhatsApp" title="Need help? Chat with us on WhatsApp"><i class="ti ti-brand-whatsapp"></i><span>Help</span></button>
+      <button class="nc-bell" id="nc-bell" onclick="toggleNotifCenter(event)" aria-label="Notifications" title="Notifications"><i class="ti ti-bell"></i><span class="nc-count" id="nc-count" style="display:none">0</span><span class="nc-dot" id="nc-dot" style="display:none"></span></button>
       <div class="user-pill">
         <div class="user-avatar" id="uav">?</div>
         <span id="tbu"></span>
@@ -1271,7 +1305,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('datarequests')" id="tab-datarequests" style="display:none"><i class="ti ti-file-certificate" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Data Requests<span class="badge" id="dsr-badge" style="display:none"></span></div>
   </div>
-  <div class="side-foot"><button class="side-legal support-wa" style="display:none" onclick="supportWhatsApp()" title="Get help on WhatsApp"><i class="ti ti-brand-whatsapp"></i><span>Help on WhatsApp</span></button><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
+  <div class="side-foot"><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
 </nav>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -1732,6 +1766,9 @@ let currentSupplyCategory = 'supply'; // 'supply' | 'medication' — same featur
 
 // ---- TOAST NOTIFICATIONS (e.g. supply request approved/rejected) ----
 function showToast(title, body, type){
+  try{ logNotification(title, body, type); }catch(e){}
+  // Alerts go to the notification bell instead of popping up; only the "Request sent" confirmation still shows on screen.
+  if(title!=='Request sent'){ try{ ncRing(); }catch(e){} return; }
   const container = document.getElementById('toast-container');
   if(!container) return;
   const el = document.createElement('div');
@@ -2224,6 +2261,7 @@ function prefetchTabData(){
   },400);
 }
 function doLogout(){
+  try{ const _p=document.getElementById('nc-panel'); if(_p) _p.style.display='none'; }catch(e){}
   Object.keys(tabHtmlCache).forEach(k=>delete tabHtmlCache[k]);   // never show one user's cached screens to the next
   window.__loaded={};
   if(sessionToken){const t=sessionToken;db.rpc('rr_logout',{p_session:t});}
@@ -8005,6 +8043,10 @@ function consentChips(p){
   </div>
 </div></div>
 
+<div class="nc-panel" id="nc-panel" style="display:none" role="dialog" aria-label="Notifications">
+  <div class="nc-head"><strong>Notifications</strong><div class="nc-head-actions"><button onclick="ncMarkAllRead()">Mark all read</button><button onclick="ncClearLog()">Clear log</button></div></div>
+  <div class="nc-body" id="nc-body"></div>
+</div>
 <script>
 // ── WhatsApp support ──────────────────────────────────────────────
 // Put the support number here in international format, digits only (e.g. 254712345678).
@@ -8032,6 +8074,81 @@ function supportWhatsApp(){
   window.open('https://wa.me/'+SUPPORT_WHATSAPP.replace(/\D/g,'')+'?text='+encodeURIComponent(L.join('\n')),'_blank','noopener');
 }
 if(SUPPORT_WHATSAPP) document.querySelectorAll('.support-wa').forEach(el=>{el.style.display='';});
+
+// ── NOTIFICATION CENTER ───────────────────────────────────────────
+// Every toast the system shows is also saved to a per-user log on this device (last 100),
+// and the panel lists what currently needs attention (from the sidebar badges).
+function ncKey(){ return (typeof currentUser!=='undefined' && currentUser) ? 'rr_notif_log_'+currentUser.id : null; }
+function ncLoad(){ const k=ncKey(); if(!k) return []; try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+function ncSave(a){ const k=ncKey(); if(!k) return; try{ localStorage.setItem(k, JSON.stringify(a.slice(0,100))); }catch(e){} }
+function ncPlain(h){ const d=document.createElement('div'); d.innerHTML=String(h||''); return (d.textContent||'').trim(); }
+function logNotification(title, body, type){
+  if(!ncKey()) return;
+  const a=ncLoad();
+  a.unshift({t:Date.now(), title:ncPlain(title), body:ncPlain(body), type:type||'info', read:false});
+  ncSave(a); ncRefreshBell();
+}
+function ncRing(){ const b=document.getElementById('nc-bell'); if(!b) return; b.classList.remove('nc-ring'); void b.offsetWidth; b.classList.add('nc-ring'); setTimeout(()=>b.classList.remove('nc-ring'),1800); }
+function ncRefreshBell(){
+  const c=document.getElementById('nc-count'), d=document.getElementById('nc-dot'); if(!c||!d) return;
+  const unread=ncLoad().filter(n=>!n.read).length;
+  c.textContent=unread>99?'99+':unread; c.style.display=unread?'flex':'none';
+  d.style.display=(!unread && ncAttention().length)?'block':'none';
+}
+function ncAttention(){
+  const out=[];
+  document.querySelectorAll('.tabs .tab').forEach(tab=>{
+    if(tab.style.display==='none') return;
+    const b=tab.querySelector('.badge'); if(!b) return;
+    const n=(b.textContent||'').trim();
+    if(b.style.display==='none' || !n || n==='0') return;
+    const label=(tab.textContent||'').replace(n,'').trim();
+    out.push({label:label, n:n, tab:(tab.id||'').replace(/^tab-/,'')});
+  });
+  return out;
+}
+function ncAgo(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'Just now'; if(s<3600) return Math.floor(s/60)+' min ago';
+  const d=new Date(ts), now=new Date();
+  const time=d.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===now.toDateString()) return 'Today, '+time;
+  const y=new Date(now); y.setDate(now.getDate()-1);
+  if(d.toDateString()===y.toDateString()) return 'Yesterday, '+time;
+  return d.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'})+', '+time;
+}
+function ncEsc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function ncRender(){
+  const body=document.getElementById('nc-body'); if(!body) return;
+  const att=ncAttention(), log=ncLoad();
+  let h='';
+  if(att.length){
+    h+='<div class="nc-sec">Needs attention now</div>';
+    att.forEach(a=>{ h+=`<button class="nc-item nc-click" onclick="ncGo('${ncEsc(a.tab)}')"><div class="nc-ico nc-warn"><i class="ti ti-alert-circle"></i></div><div class="nc-txt"><div class="nc-title">${ncEsc(a.label)}</div><div class="nc-msg">${ncEsc(a.n)} item${a.n==='1'?'':'s'} waiting for you</div></div></button>`; });
+  }
+  h+='<div class="nc-sec">Notification log</div>';
+  if(!log.length) h+='<div class="nc-empty">No notifications yet. Approvals, rejections and other alerts will be logged here.</div>';
+  log.forEach(n=>{
+    const bad=n.type==='rejected';
+    h+=`<div class="nc-item ${n.read?'':'nc-unread'}"><div class="nc-ico ${bad?'nc-bad':''}"><i class="ti ${bad?'ti-circle-x':'ti-circle-check'}"></i></div><div class="nc-txt"><div class="nc-title">${ncEsc(n.title)}</div><div class="nc-msg">${ncEsc(n.body)}</div><div class="nc-time">${ncAgo(n.t)}</div></div>${n.read?'':'<span class="nc-new"></span>'}</div>`;
+  });
+  body.innerHTML=h;
+}
+function toggleNotifCenter(e){
+  if(e) e.stopPropagation();
+  const p=document.getElementById('nc-panel'); if(!p) return;
+  if(p.style.display==='none'){ ncRender(); p.style.display='flex'; }
+  else { p.style.display='none'; ncMarkAllRead(true); }
+}
+function ncMarkAllRead(silent){
+  const a=ncLoad(); a.forEach(n=>n.read=true); ncSave(a); ncRefreshBell();
+  if(!silent) ncRender();
+}
+function ncClearLog(){ if(!confirm('Clear the notification log on this device?')) return; ncSave([]); ncRefreshBell(); ncRender(); }
+function ncGo(tab){ document.getElementById('nc-panel').style.display='none'; ncMarkAllRead(true); if(tab&&typeof switchTab==='function') switchTab(tab); }
+document.addEventListener('click',e=>{ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'&&!p.contains(e.target)&&!e.target.closest('#nc-bell')){ p.style.display='none'; ncMarkAllRead(true); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'){ p.style.display='none'; ncMarkAllRead(true); } } });
+setInterval(ncRefreshBell, 5000);
 </script>
 <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>

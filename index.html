@@ -1021,11 +1021,6 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .dsr-status.refused{background:#F1DCE0;color:#7A1F2B}
 .dsr-status.in_progress{background:#E0EEFF;color:#1B4F9C}
 </style>
-<!-- Vercel Speed Insights -->
-<script type="module">
-  import { injectSpeedInsights } from 'https://cdn.jsdelivr.net/npm/@vercel/speed-insights@1/dist/index.mjs';
-  injectSpeedInsights();
-</script>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -7928,7 +7923,7 @@ function lgTerms(){return `<h3>Terms &amp; conditions</h3>
 <p>Kenyan law applies. Version ${LEGAL_VERSION}.</p>`;}
 
 function lgCookies(){return `<h3>What this system stores on your device</h3>
-<p>We do not use cookies, advertising or analytics trackers. The system stores a few small items in your browser's local storage so it can work. All of them are needed to run the system or to remember your layout, so there is no consent banner.</p>
+<p>We do not use cookies or advertising trackers. We use Vercel Speed Insights to measure how fast the pages load; it collects anonymous performance data only (such as page load times and device type) and does not use cookies or identify individual users. The system stores a few small items in your browser's local storage so it can work. All of them are needed to run the system or to remember your layout, so there is no consent banner.</p>
 <table><thead><tr><th>Name</th><th>What it does</th><th>How long</th></tr></thead><tbody>
 <tr><td>rr_session</td><td>Keeps you signed in.</td><td>Until you sign out or are idle for 15 minutes</td></tr>
 <tr><td>rr_last_activity</td><td>Time of your last action, used to sign you out when idle.</td><td>Until you sign out</td></tr>
@@ -8009,5 +8004,7 @@ function consentChips(p){
   </div>
 </div></div>
 
+<script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
 </html>

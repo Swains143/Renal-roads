@@ -1008,6 +1008,11 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .legal-body mark.lg-todo{background:#FFF1A8;color:#4A3B00;padding:0 4px;border-radius:4px}
 .legal-body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:6px 0 10px}
 .legal-body td,.legal-body th{border:1px solid var(--gray-200);padding:6px 8px;text-align:left;vertical-align:top}
+/* typewriter style for the legal pages (system fonts only, so nothing to license or download) */
+.legal-body{font-family:'Courier New',Courier,'Liberation Mono',monospace;font-size:12px;line-height:1.6}
+.legal-body h3{font-family:inherit;font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.legal-body table{font-size:11.5px}
+.legal-body li{margin-bottom:3px}
 .dsr-due.overdue{color:#B0172F;font-weight:700}
 .dsr-due.soon{color:#8A5300;font-weight:700}
 .dsr-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:#EDEDF8;color:#2E2D9F}
@@ -1531,10 +1536,9 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
   <div class="legal-tabs" role="tablist" aria-label="Legal information">
     <button role="tab" id="lt-terms" onclick="openLegal('terms')">Terms &amp; conditions</button>
     <button role="tab" id="lt-cookies" onclick="openLegal('cookies')">Cookies &amp; storage</button>
-    <button role="tab" id="lt-contact" onclick="openLegal('contact')">Contact</button>
   </div>
   <div id="legal-body" class="legal-body" tabindex="0"></div>
-  <div class="modal-footer"><button class="btn" onclick="printLegal()"><i class="ti ti-printer"></i> Print</button><button class="btn btn-primary" onclick="closeLegal()">Close</button></div>
+  <div class="modal-footer"><button class="btn btn-primary" onclick="closeLegal()">Close</button></div>
 </div></div>
 
 <!-- Data request -->
@@ -1727,7 +1731,7 @@ let pendingMovement = null;
 let editingPatientId = null;
 let editingSupplyId = null;
 let patientFilter = {search:'',status:[],gender:[],station:[],death:[]};
-let consents = {}, consentSetupError = null;   // patient id -> consent record (see renal_roads_consent.sql)
+let consents = {}, consentSetupError = null, consentsAt = 0, consentsTok = null;   // consents are re-fetched at most every 2 minutes (and after a save)   // patient id -> consent record (see renal_roads_consent.sql)
 let deathPlaces = {}, deathSetupError = null;   // patient id -> 'facility' | 'outside'
 let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};
@@ -5220,13 +5224,12 @@ document.addEventListener('click',()=>{
 });
 async function loadPatientsData(){
   const tok=sessionToken;
-  const [plRes,dpRes,cRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:tok}),db.rpc('rr_patient_death_list',{p_session:tok}),Promise.resolve(db.rpc('rr_patient_consent_list',{p_session:tok})).catch(e=>({data:null,error:e}))]);
+  const [plRes,dpRes,cRes]=await Promise.all([db.rpc('rr_patients_list',{p_session:tok}),db.rpc('rr_patient_death_list',{p_session:tok}),((Date.now()-consentsAt<120000&&consentsTok===tok)?Promise.resolve(null):Promise.resolve(db.rpc('rr_patient_consent_list',{p_session:tok})).catch(e=>({data:null,error:e})))]);
   if(tok!==sessionToken) return;   // signed out (or switched user) while loading: drop the result
   const data=plRes.data;
   deathPlaces={}; deathSetupError=dpRes.error?(dpRes.error.message||'error'):null; deathPlacesLoaded=!dpRes.error;
   (dpRes.data||[]).forEach(r=>{deathPlaces[String(r.patient_id)]=r.place;});
-  consents={}; consentSetupError=cRes.error?(cRes.error.message||'error'):null;
-  (cRes.data||[]).forEach(r=>{consents[String(r.patient_id)]=r;});
+  if(cRes){ consents={}; consentSetupError=cRes.error?(cRes.error.message||'error'):null; (cRes.data||[]).forEach(r=>{consents[String(r.patient_id)]=r;}); consentsAt=Date.now(); consentsTok=tok; }
   patients=(data||[]).sort((a,b)=>{
     const av=ipSortValue(a.ip),bv=ipSortValue(b.ip);
     if(av!==bv)return av-bv;
@@ -7920,7 +7923,7 @@ const LEGAL_ORG={
   hostRegion:'',    // where the database is hosted, e.g. 'Frankfurt, Germany'
   retention:''      // e.g. 'at least 7 years after the last treatment'
 };
-const LG_TABS=['terms','cookies','contact'];
+const LG_TABS=['terms','cookies'];
 let lgLastFocus=null;
 function lgEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function lgv(k,label){const v=String(LEGAL_ORG[k]||'').trim();return v?lgEsc(v):`<mark class="lg-todo">[${lgEsc(label)}]</mark>`;}
@@ -7954,22 +7957,12 @@ function lgCookies(){return `<h3>What this system stores on your device</h3>
 <h3>Clearing it</h3>
 <p>Signing out removes the sign-in items. You can remove the rest in your browser's settings under site data.</p>`;}
 
-function lgContact(){
-  const go=t=>`<a href="#" onclick="openLegal('${t}');document.getElementById('lt-${t}').focus();return false">`;
-  return `<h3>Asking about your data</h3>
-<p>To see, correct, delete, limit or move your data, or to withdraw consent, tell any member of staff. Please say whose record it is. We may ask you to prove who you are, and a parent or guardian can ask for a child. We log every request and reply within the legal time limits: 7 days to show you your data, 14 days to correct or delete it, and 30 days to give it to you in a usable format. We may refuse a deletion where the law requires us to keep a medical record, and we will tell you why in writing.</p>
-<h3>Read more</h3>
-<ul><li>${go('terms')}Terms &amp; conditions</a>: the rules for staff who use this system.</li>
-<li>${go('cookies')}Cookies &amp; storage</a>: what the system saves on your device.</li></ul>
-<h3>Complaints</h3>
-<p>If we have not dealt with your concern, you can complain to the Office of the Data Protection Commissioner: www.odpc.go.ke.</p>`;}
-
 function openLegal(tab){
   tab=LG_TABS.includes(tab)?tab:'terms';
   const m=document.getElementById('legal-modal'),body=document.getElementById('legal-body');
   const wasOpen=m.classList.contains('open');
   if(!wasOpen) lgLastFocus=document.activeElement;
-  const pages={terms:lgTerms,cookies:lgCookies,contact:lgContact};
+  const pages={terms:lgTerms,cookies:lgCookies};
   body.innerHTML=pages[tab]();
   body.setAttribute('role','tabpanel');body.setAttribute('aria-labelledby','lt-'+tab);body.scrollTop=0;
   const solo=!currentUser;   // signed out: show only the page that was asked for
@@ -8002,19 +7995,6 @@ function closeLegal(){
   if(lgLastFocus&&document.contains(lgLastFocus)&&lgLastFocus.focus){try{lgLastFocus.focus();}catch(e){}}
   lgLastFocus=null;
 }
-function printLegal(){
-  const body=document.getElementById('legal-body');
-  const sel=document.querySelector('#legal-modal [role=tab][aria-selected=true]');
-  const title=sel?sel.textContent:'Legal information';
-  const f=document.createElement('iframe');
-  f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-  document.body.appendChild(f);
-  const d=f.contentWindow.document;d.open();
-  d.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${lgEsc(title)}</title><style>body{font:13px/1.6 Georgia,serif;color:#111;margin:24px}h1{font-size:18px}h3{font-size:14px;margin:14px 0 4px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}mark{background:#ff0}.lg-note{border:1px solid #999;padding:6px;margin-bottom:10px}</style></head><body><h1>Renal Roads — ${lgEsc(title)}</h1>${body.innerHTML}</body></html>`);
-  d.close();
-  setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();}catch(e){}setTimeout(()=>f.remove(),1500);},200);
-}
-
 // ── Patient consent (form behaviour, saving, list chips) ──
 function ptAgeBand(){   // yob alone cannot tell 17 from 18, so a patient born exactly 18 years ago is flagged softly
   const y=parseInt(document.getElementById('f-yob').value);
@@ -8064,6 +8044,7 @@ async function consentSave(pid,v){
   const {error}=await db.rpc('rr_patient_consent_set',{p_session:sessionToken,p_patient_id:String(pid),
     p_consent_by:v.by||null,p_consent_date:v.date||null,p_guardian_name:v.gName||null,p_guardian_rel:v.gRel||null,
     p_guardian_phone:v.gPhone||null,p_notice_version:LEGAL_VERSION});
+  consentsAt=0;   // fetch fresh on the next load
   return error||null;
 }
 function consentChips(p){

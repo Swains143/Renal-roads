@@ -1172,13 +1172,13 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
       <div class="login-error" id="login-error"><i class="ti ti-alert-circle"></i><span id="login-error-msg"></span></div>
       <div class="login-links"><a href="#" onclick="openForgot();return false">Forgot password?</a><a href="#" onclick="openSignup();return false">Request access</a></div>
       <div class="login-footer">Authorised users only &nbsp;·&nbsp; <strong>Renal Roads by Benacare</strong></div>
-      <div class="login-legal"><a href="#" onclick="openLegal('privacy');return false">Privacy</a><span aria-hidden="true">·</span><a href="#" onclick="openLegal('terms');return false">Terms</a><span aria-hidden="true">·</span><a href="#" onclick="openLegal('contact');return false">Contact</a></div>
+      <div class="login-legal"><a href="#" onclick="openLegal('cookies');return false">Cookies &amp; storage</a></div>
 </div>
 <div class="lc-view compact" id="lv-signup" hidden>
 <h2>Request access</h2><div class="login-card-sub">An administrator reviews every request and assigns your role.</div>
 <div id="signup-form">
 <div class="lform-group"><div class="input-wrap"><i class="ti ti-user fi"></i><input type="text" id="su-name" placeholder=" " autocomplete="name" required maxlength="80"/><span class="flabel">Full name</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-at fi"></i><input type="text" id="su-username" placeholder=" " autocomplete="username" required maxlength="30"/><span class="flabel">Username</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-mail fi"></i><input type="email" id="su-email" placeholder=" " autocomplete="email" required /><span class="flabel">Email</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-lock fi"></i><input type="password" id="su-password" placeholder=" " autocomplete="new-password" required /><span class="flabel">Password (8+ characters)</span><i class="uline"></i></div></div><div class="lform-group"><div class="input-wrap"><i class="ti ti-lock-check fi"></i><input type="password" id="su-password2" placeholder=" " autocomplete="new-password" required onkeydown="if(event.key==='Enter')submitSignup()"/><span class="flabel">Confirm password</span><i class="uline"></i></div></div>
-<div class="lc-consent"><label><input type="checkbox" id="su-accept"><span>I am 18 or older, I accept the <a href="#" onclick="openLegal('terms');return false">Terms of Use</a> and I have read the <a href="#" onclick="openLegal('privacy');return false">Privacy Notice</a>.</span></label></div>
+<div class="lc-consent"><label><input type="checkbox" id="su-accept"><span>I am 18 or older and I accept the <a href="#" onclick="openLegal('terms');return false">Terms &amp; conditions</a>.</span></label></div>
 <button class="btn-login" id="signup-btn" onclick="submitSignup()"><i class="ti ti-send"></i> Submit request</button>
 <div class="login-error" id="signup-error"><i class="ti ti-alert-circle"></i><span id="signup-error-msg"></span></div>
 </div>
@@ -1264,7 +1264,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('datarequests')" id="tab-datarequests" style="display:none"><i class="ti ti-file-certificate" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Data Requests<span class="badge" id="dsr-badge" style="display:none"></span></div>
   </div>
-  <div class="side-foot"><button class="side-legal" onclick="openLegal('privacy')" title="Privacy &amp; Terms"><i class="ti ti-shield-lock"></i><span>Privacy &amp; Terms</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
+  <div class="side-foot"><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
 </nav>
   <div class="tabs-dropdown">
     <select id="tab-select" onchange="switchTab(this.value)">
@@ -1302,7 +1302,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
     <div class="form-group"><label>Dialysis access</label><select id="f-access"><option value="">Not specified</option><option>AVF</option><option>AVG</option><option>Tunneled catheter - Permanent</option><option>Non-tunneled catheter - Temporary</option><option>Peritoneal catheter</option><option>Other</option></select></div>
     <div class="form-group"><label>Sessions per week</label><input id="f-sessions" type="number" min="1" max="7" placeholder="e.g. 3"></div>
     <div class="form-group full"><label>Comorbidities</label><input id="f-comorbidities" placeholder="e.g. Hypertension, Diabetes (comma separated)"></div>
-    <div class="form-group full consent-head"><h3>Consent &amp; privacy</h3><div class="hint">Confirm the patient (or their parent / guardian) has been told how their data is used. <a href="#" onclick="openLegal('privacy');return false">Privacy Notice</a></div></div>
+    <div class="form-group full consent-head"><h3>Consent &amp; privacy</h3><div class="hint">Confirm the patient (or their parent / guardian) has been told how their data is used.</div></div>
     <div class="form-group full" id="minor-note" style="display:none"><div class="minor-banner" role="status"><i class="ti ti-user-exclamation"></i><span>This patient is under 18. A parent or guardian must give consent, and their details must be recorded.</span></div></div>
     <div class="form-group"><label for="f-consent-by">Consent given by</label><select id="f-consent-by" onchange="consentByChanged()"><option value="">Not recorded yet</option><option value="self">The patient</option><option value="guardian">Parent / guardian</option><option value="representative">Other legal representative</option></select></div>
     <div class="form-group"><label for="f-consent-date">Date</label><input type="date" id="f-consent-date"></div>
@@ -1529,8 +1529,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 <!-- Legal pages -->
 <div class="modal-bg" id="legal-modal"><div class="modal legal-modal" role="dialog" aria-modal="true" aria-label="Legal information">
   <div class="legal-tabs" role="tablist" aria-label="Legal information">
-    <button role="tab" id="lt-privacy" onclick="openLegal('privacy')">Privacy Notice</button>
-    <button role="tab" id="lt-terms" onclick="openLegal('terms')">Terms of Use</button>
+    <button role="tab" id="lt-terms" onclick="openLegal('terms')">Terms &amp; conditions</button>
     <button role="tab" id="lt-cookies" onclick="openLegal('cookies')">Cookies &amp; storage</button>
     <button role="tab" id="lt-contact" onclick="openLegal('contact')">Contact</button>
   </div>
@@ -6552,7 +6551,7 @@ async function submitSignup(){
   const name=document.getElementById('su-name').value.trim(),un=document.getElementById('su-username').value.trim().toLowerCase(),
         em=document.getElementById('su-email').value.trim().toLowerCase(),pw=document.getElementById('su-password').value,pw2=document.getElementById('su-password2').value;
   if(!name||!un||!em||!pw)return setErr('signup','All fields are required.');
-  if(!document.getElementById('su-accept').checked)return setErr('signup','Please tick the box to confirm you are 18 or older and accept the Terms of Use and Privacy Notice.');
+  if(!document.getElementById('su-accept').checked)return setErr('signup','Please tick the box to confirm you are 18 or older and accept the Terms & conditions.');
   if(pw.length<8)return setErr('signup','Password must be at least 8 characters.');
   if(pw!==pw2)return setErr('signup','Passwords do not match.');
   const btn=document.getElementById('signup-btn');btn.disabled=true;
@@ -7921,7 +7920,7 @@ const LEGAL_ORG={
   hostRegion:'',    // where the database is hosted, e.g. 'Frankfurt, Germany'
   retention:''      // e.g. 'at least 7 years after the last treatment'
 };
-const LG_TABS=['privacy','terms','cookies','contact'];
+const LG_TABS=['terms','cookies','contact'];
 let lgLastFocus=null;
 function lgEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function lgv(k,label){const v=String(LEGAL_ORG[k]||'').trim();return v?lgEsc(v):`<mark class="lg-todo">[${lgEsc(label)}]</mark>`;}
@@ -7930,71 +7929,19 @@ function lgDraftNote(){
   return missing?`<div class="lg-note"><b>Draft (version ${LEGAL_VERSION}).</b> Fill in the yellow items in <code>LEGAL_ORG</code>, and have a lawyer review this text before you rely on it.</div>`:'';
 }
 
-function lgPrivacy(){return `${lgDraftNote()}
-<h3>1. Who we are</h3>
-<p>${lgv('name','Business legal name')} runs the Renal Roads ward-management system and decides how the information in it is used (the "data controller"). Address: ${lgv('address','Postal or physical address')}. Registered with the Office of the Data Protection Commissioner (ODPC) under number ${lgv('odpcReg','ODPC registration number')}.</p>
-<h3>2. What we keep</h3>
-<table><thead><tr><th>About</th><th>What</th></tr></thead><tbody>
-<tr><td>Patients</td><td>IP number, name, year of birth, gender, phone, national ID number (only where needed), next of kin and their phone, blood group, dialysis access, sessions per week, other conditions, station, treatment status, discharge or death details, clinical and operational report entries, insurance (SHA) membership details, and a record of who gave consent.</td></tr>
-<tr><td>Parents or guardians</td><td>Name, relationship to the patient and phone, for patients under 18.</td></tr>
-<tr><td>Staff users</td><td>Name, username, email, role, password (used only to sign you in), and the time of your last activity so we can sign you out when you are idle.</td></tr>
-</tbody></table>
-<p>Health information is sensitive personal data. We ask only for what care and record-keeping need; the national ID number, for example, is optional.</p>
-<h3>3. Why we use it</h3>
-<ul><li>To give and manage dialysis care, and to plan sessions, supplies and staffing.</li>
-<li>To write clinical, operational and monthly reports, and discharge summaries.</li>
-<li>To deal with insurers such as SHA where a claim or membership check is needed.</li>
-<li>To meet legal and professional record-keeping duties.</li>
-<li>Where we rely on consent, we record who gave it and when. Consent can be withdrawn at any time, though care and legal records may still have to be kept.</li></ul>
-<p>We do not sell personal data, and we do not use it for advertising.</p>
-<h3>4. Children</h3>
-<p>For a patient under 18 we ask a parent, guardian or other legal representative to give consent, and we record their details. Staff users must be 18 or older.</p>
-<h3>5. Who sees it</h3>
-<ul><li>Our staff, according to the role an administrator has given them. Viewers cannot change records.</li>
-<li>Doctors and other clinicians involved in the patient's care.</li>
-<li>Insurers and authorities, only where needed for a claim or required by law.</li>
-<li>Our database provider (Supabase), which stores the data for us as a processor under a contract with us. Hosting location: ${lgv('hostRegion','Database hosting region')}.</li>
-<li>When you open this system, your browser loads code libraries and icons from cdn.jsdelivr.net, which can see your IP address and browser details. No patient data is sent there.</li></ul>
-<h3>6. How long we keep it</h3>
-<p>Patient records are kept for ${lgv('retention','retention period')}. After that they are deleted or made anonymous. Staff accounts are deactivated when a person leaves.</p>
-<h3>7. Your rights</h3>
-<p>Patients (or a parent, guardian or someone they authorise) can ask us to:</p>
-<ul><li>show them the data we hold (we reply within 7 days);</li>
-<li>correct wrong data, or delete it (within 14 days);</li>
-<li>stop or limit how we use it, or object to a use (within 14 days);</li>
-<li>give it to them in a usable format (within 30 days).</li></ul>
-<p>We may refuse a deletion where the law requires us to keep a medical record. If we refuse any request, we will say why in writing. We log every request. See the Contact tab for how to ask. If you are not satisfied, you can complain to the ODPC (www.odpc.go.ke).</p>
-<h3>8. Keeping it safe</h3>
-<p>Everyone signs in with their own account. Access depends on role. The system signs you out after 15 minutes without activity. Reports you export or print contain patient data, so keep them locked away and share them only with people who need them. <mark class="lg-todo">[Add any other safeguards you use, e.g. encryption and backups]</mark></p>
-<h3>9. Changes</h3>
-<p>We will update this notice when our practice changes. Version: ${LEGAL_VERSION}.</p>`;}
+function lgTerms(){return `<h3>Terms &amp; conditions</h3>
+<p>By using this system you agree to the following.</p>
+<ul>
+<li>You are 18 or older, and an administrator has approved your access.</li>
+<li>Your account is yours alone. Keep your password private and sign out when you leave a shared device.</li>
+<li>Use patient information only for your work. Do not copy, export or share it unless your work needs it, and keep anything you export safe.</li>
+<li>Enter records accurately and correct mistakes you find. Do not enter false information or delete records without authority.</li>
+<li>Tell an administrator at once if you lose access to your account or think patient data has been shared by mistake.</li>
+<li>An administrator may suspend your access at any time. We work to keep the system running, but cannot promise it is error free.</li>
+</ul>
+<p>Kenyan law applies. Version ${LEGAL_VERSION}.</p>`;}
 
-function lgTerms(){return `${lgDraftNote()}
-<h3>1. Who may use this system</h3>
-<p>This system is for staff of ${lgv('name','Business legal name')} who are 18 or older and whose access request an administrator has approved. The administrator decides your role.</p>
-<h3>2. Your account</h3>
-<ul><li>Keep your password private. Do not share your account or sign in for someone else.</li>
-<li>Sign out when you leave a shared device. Tell an administrator at once if you think someone else has used your account.</li></ul>
-<h3>3. Using patient information</h3>
-<ul><li>Open and use patient records only for your work.</li>
-<li>Do not copy, photograph, export or print patient data unless your work needs it, and store anything you export safely.</li>
-<li>Do not tell people outside the care team about a patient without the patient's (or guardian's) permission, unless the law requires it.</li>
-<li>Tell your administrator straight away about any loss, leak or wrong disclosure of patient data.</li></ul>
-<h3>4. Accurate records</h3>
-<p>Enter information carefully and correct mistakes you find. The system supports clinical work; it does not replace clinical judgement or the patient's paper or hospital record.</p>
-<h3>5. Not allowed</h3>
-<ul><li>Trying to get into accounts, records or settings you have not been given.</li>
-<li>Entering false information, or deleting records without authority.</li>
-<li>Interfering with how the system works.</li></ul>
-<h3>6. Suspending access</h3>
-<p>An administrator may suspend or remove access at any time, for example if these terms are broken or you change role or leave.</p>
-<h3>7. Availability</h3>
-<p>We work to keep the system running, but cannot promise it will always be available or error-free. Keep another way to record urgent clinical information.</p>
-<h3>8. Law and changes</h3>
-<p>Kenyan law applies. We may change these terms; the version date is ${LEGAL_VERSION}. Continuing to use the system after a change means you accept it.</p>`;}
-
-function lgCookies(){return `${lgDraftNote()}
-<h3>What this system stores on your device</h3>
+function lgCookies(){return `<h3>What this system stores on your device</h3>
 <p>We do not use cookies, advertising or analytics trackers. The system stores a few small items in your browser's local storage so it can work. All of them are needed to run the system or to remember your layout, so there is no consent banner.</p>
 <table><thead><tr><th>Name</th><th>What it does</th><th>How long</th></tr></thead><tbody>
 <tr><td>rr_session</td><td>Keeps you signed in.</td><td>Until you sign out or are idle for 15 minutes</td></tr>
@@ -8007,30 +7954,26 @@ function lgCookies(){return `${lgDraftNote()}
 <h3>Clearing it</h3>
 <p>Signing out removes the sign-in items. You can remove the rest in your browser's settings under site data.</p>`;}
 
-function lgContact(){return `${lgDraftNote()}
-<h3>Contact us</h3>
-<table><tbody>
-<tr><th>Organisation</th><td>${lgv('name','Business legal name')}</td></tr>
-<tr><th>Address</th><td>${lgv('address','Postal or physical address')}</td></tr>
-<tr><th>Phone</th><td>${lgv('phone','Phone number')}</td></tr>
-<tr><th>Email</th><td>${lgv('email','Contact email')}</td></tr>
-<tr><th>Data-protection contact</th><td>${lgv('dpoName','Name')} — ${lgv('dpoEmail','Email or phone')}</td></tr>
-<tr><th>ODPC registration</th><td>${lgv('odpcReg','ODPC registration number')}</td></tr>
-</tbody></table>
-<h3>Asking about your data</h3>
-<p>To see, correct, delete, limit or move your data, or to withdraw consent, tell any member of staff or contact the data-protection contact above. Please say whose record it is. We may ask you to prove who you are, and a parent or guardian can ask for a child. We log every request and reply within the time limits in the Privacy Notice.</p>
+function lgContact(){
+  const go=t=>`<a href="#" onclick="openLegal('${t}');document.getElementById('lt-${t}').focus();return false">`;
+  return `<h3>Asking about your data</h3>
+<p>To see, correct, delete, limit or move your data, or to withdraw consent, tell any member of staff. Please say whose record it is. We may ask you to prove who you are, and a parent or guardian can ask for a child. We log every request and reply within the legal time limits: 7 days to show you your data, 14 days to correct or delete it, and 30 days to give it to you in a usable format. We may refuse a deletion where the law requires us to keep a medical record, and we will tell you why in writing.</p>
+<h3>Read more</h3>
+<ul><li>${go('terms')}Terms &amp; conditions</a>: the rules for staff who use this system.</li>
+<li>${go('cookies')}Cookies &amp; storage</a>: what the system saves on your device.</li></ul>
 <h3>Complaints</h3>
 <p>If we have not dealt with your concern, you can complain to the Office of the Data Protection Commissioner: www.odpc.go.ke.</p>`;}
 
 function openLegal(tab){
-  tab=LG_TABS.includes(tab)?tab:'privacy';
+  tab=LG_TABS.includes(tab)?tab:'terms';
   const m=document.getElementById('legal-modal'),body=document.getElementById('legal-body');
   const wasOpen=m.classList.contains('open');
   if(!wasOpen) lgLastFocus=document.activeElement;
-  const pages={privacy:lgPrivacy,terms:lgTerms,cookies:lgCookies,contact:lgContact};
+  const pages={terms:lgTerms,cookies:lgCookies,contact:lgContact};
   body.innerHTML=pages[tab]();
   body.setAttribute('role','tabpanel');body.setAttribute('aria-labelledby','lt-'+tab);body.scrollTop=0;
-  LG_TABS.forEach(t=>{const b=document.getElementById('lt-'+t),on=t===tab;b.setAttribute('aria-selected',on?'true':'false');b.setAttribute('aria-controls','legal-body');b.tabIndex=on?0:-1;});
+  const solo=!currentUser;   // signed out: show only the page that was asked for
+  LG_TABS.forEach(t=>{const b=document.getElementById('lt-'+t),on=t===tab;b.hidden=solo&&!on;b.setAttribute('aria-selected',on?'true':'false');b.setAttribute('aria-controls','legal-body');b.tabIndex=on?0:-1;});
   m.classList.add('open');
   if(!m.dataset.wired){
     m.dataset.wired='1';
@@ -8038,9 +7981,10 @@ function openLegal(tab){
       if(e.key==='Escape'){e.preventDefault();closeLegal();return;}
       if(e.target&&e.target.getAttribute&&e.target.getAttribute('role')==='tab'&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
         e.preventDefault();
-        const i=LG_TABS.indexOf(e.target.id.replace('lt-',''));
-        const n=e.key==='Home'?0:e.key==='End'?LG_TABS.length-1:(i+(e.key==='ArrowRight'?1:-1)+LG_TABS.length)%LG_TABS.length;
-        openLegal(LG_TABS[n]);document.getElementById('lt-'+LG_TABS[n]).focus();return;
+        const vis=LG_TABS.filter(t=>!document.getElementById('lt-'+t).hidden);
+        const i=vis.indexOf(e.target.id.replace('lt-',''));
+        const n=e.key==='Home'?0:e.key==='End'?vis.length-1:(i+(e.key==='ArrowRight'?1:-1)+vis.length)%vis.length;
+        openLegal(vis[n]);document.getElementById('lt-'+vis[n]).focus();return;
       }
       if(e.key==='Tab'){   // keep focus inside the dialog
         const f=[...m.querySelectorAll('button,a[href],[tabindex="0"]')].filter(x=>x.tabIndex>=0&&x.offsetParent!==null);

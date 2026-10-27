@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>try{if(localStorage.getItem("rr_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Renal Roads — Ward Management</title>
@@ -1054,6 +1056,120 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .dsr-status.refused{background:#F1DCE0;color:#7A1F2B}
 .dsr-status.in_progress{background:#E0EEFF;color:#1B4F9C}
 </style>
+<style>
+/* ══ THEME: DARK MODE + TOGGLE ══ */
+html.theme-fade,html.theme-fade *{transition:background-color .4s ease,color .4s ease,border-color .4s ease,fill .4s ease!important}
+.theme-toggle{--tt-bg:#E7EAFB;--tt-hole:#CBD1EA;--tt-man:#2A2A4A;position:relative;width:104px;height:38px;flex:0 0 auto;border:none;padding:0;border-radius:19px;background:var(--tt-bg);box-shadow:0 2px 7px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.8);cursor:pointer;font-family:inherit;margin-right:6px}
+.theme-toggle:focus-visible{outline:2px solid #8CC63F;outline-offset:2px}
+.tt-knob{position:absolute;left:4px;top:4px;width:30px;height:30px;border-radius:50%;background:var(--tt-bg);box-shadow:3px 3px 7px rgba(110,120,170,.45),-2px -2px 5px rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center}
+.tt-knob svg{width:18px;height:18px}
+.tt-moon{display:none}
+.tt-hole{position:absolute;right:12px;bottom:8px;width:22px;height:7px;border-radius:50%;background:var(--tt-hole);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+.tt-man{position:absolute;left:40px;bottom:10px;width:10px;height:17px;opacity:0;color:var(--tt-man);pointer-events:none}
+.tt-man svg{width:10px;height:17px;display:block;overflow:visible}
+.tt-man .la,.tt-man .lb{stroke:currentColor;stroke-width:1.4;stroke-linecap:round;fill:none}
+.tt-man .lb{opacity:0}
+.tt-walk .tt-man{animation:ttWalk 1.2s linear forwards}
+.tt-walk .tt-man .la{animation:ttLegA .3s steps(1) infinite}
+.tt-walk .tt-man .lb{animation:ttLegB .3s steps(1) infinite}
+@keyframes ttWalk{0%{opacity:0;left:40px;transform:none}8%{opacity:1}78%{opacity:1;left:76px;transform:none}100%{opacity:0;left:76px;transform:translateY(9px) scaleY(.15)}}
+@keyframes ttLegA{0%{opacity:1}50%{opacity:0}}
+@keyframes ttLegB{0%{opacity:0}50%{opacity:1}}
+.login-theme{position:absolute;top:16px;right:18px;z-index:5}
+#app-shell .theme-toggle,.topbar-right .theme-toggle{margin-right:8px}
+@media(max-width:680px){.theme-toggle{zoom:.78;margin-right:2px}}
+@media (prefers-reduced-motion:reduce){.tt-walk .tt-man{animation:none}}
+@media screen{
+html[data-theme="dark"]{color-scheme:dark;
+  --white:#1A1B33;--gray-50:#11122A;--gray-100:#23254A;--gray-200:#34376A;
+  --gray-400:#8F92BD;--gray-600:#B7BADB;--gray-800:#E9EAF8;
+  --navy:#6E6DF0;--navy-dark:#5655D6;--navy-light:#8F8EFF;--navy-pale:#26284F;
+  --green-pale:#27381B;--green-dark:#A8D860;
+  --red:#FF6F61;--red-pale:#3B1E28;--amber:#F3A04D;--amber-pale:#3A2B1B;
+  --shadow:0 4px 24px rgba(0,0,0,.35);--shadow-lg:0 8px 40px rgba(0,0,0,.5)}
+/* brand surfaces keep the original deep blue */
+html[data-theme="dark"] .topbar,html[data-theme="dark"] .login-bg,html[data-theme="dark"] .blob,html[data-theme="dark"] .dash-hero,html[data-theme="dark"] .btn-login{--navy:#2E2D9F;--navy-dark:#1E1D70;--navy-light:#4A49C4}
+html[data-theme="dark"] #login-page{background:#1E1D70}
+html[data-theme="dark"] #login-page .login-card{background:linear-gradient(155deg,rgba(26,27,51,.94) 0%,rgba(20,21,42,.88) 100%);border-color:rgba(255,255,255,.12);box-shadow:0 30px 80px -20px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.08)}
+html[data-theme="dark"] .login-card-logo{filter:invert(1) hue-rotate(180deg) brightness(1.25)}
+html[data-theme="dark"] .login-card .mascot-3d-stage{filter:none}
+html[data-theme="dark"] .theme-toggle{--tt-bg:#1B1E2B;--tt-hole:#05060A;--tt-man:#FFFFFF;box-shadow:0 2px 7px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08)}
+html[data-theme="dark"] .tt-knob{box-shadow:3px 3px 7px rgba(0,0,0,.65),-2px -2px 5px rgba(255,255,255,.06)}
+html[data-theme="dark"] .tt-sun{display:none}
+html[data-theme="dark"] .tt-moon{display:block}
+html[data-theme="dark"] .tt-hole{box-shadow:none}
+html[data-theme="dark"] .nc-panel{background:var(--white);box-shadow:0 24px 60px -12px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08)}
+html[data-theme="dark"] .nc-head{border-bottom-color:var(--gray-200)}
+html[data-theme="dark"] .nc-head-actions button{color:var(--navy-light)}
+html[data-theme="dark"] .nc-head-actions button:hover{background:var(--gray-100)}
+html[data-theme="dark"] .modal-bg{background:rgba(5,5,25,.66)}
+html[data-theme="dark"] .topbar{color:#fff}
+html[data-theme="dark"] .user-avatar{color:#fff}
+html[data-theme="dark"] .btn-logout{color:#fff}
+html[data-theme="dark"] .dash-hero{color:#fff}
+html[data-theme="dark"] .cat-btn.active{color:#fff}
+html[data-theme="dark"] .filter-badge{color:#fff}
+html[data-theme="dark"] .btn-primary{color:#fff}
+html[data-theme="dark"] .btn-danger{color:#fff}
+html[data-theme="dark"] tr.row-deceased td{background:#381414;color:#E8A1A1}
+html[data-theme="dark"] tr.row-discharged td{background:#161439;color:#A2A1D9}
+html[data-theme="dark"] tr.row-transferred td{background:#3E2C17;color:#ECC196}
+html[data-theme="dark"] tr.row-transplant td{background:#1C3931;color:#A2EDDF}
+html[data-theme="dark"] tr.row-deceased:hover td{background:#461818}
+html[data-theme="dark"] tr.row-discharged:hover td{background:#1F1943}
+html[data-theme="dark"] tr.row-transferred:hover td{background:#553F1E}
+html[data-theme="dark"] tr.row-transplant:hover td{background:#26493F}
+html[data-theme="dark"] .s-active{color:#A09FE2}
+html[data-theme="dark"] .s-discharged{background:#16143A;color:#9993D1}
+html[data-theme="dark"] .s-transferred{color:#ECC196}
+html[data-theme="dark"] .s-transplant{background:#1C3931;color:#A2EDDF}
+html[data-theme="dark"] .s-deceased{background:#3A1818;color:#E09A9A}
+html[data-theme="dark"] .s-in{color:#A09FE2}
+html[data-theme="dark"] .s-out{background:#3A1818;color:#E09A9A}
+html[data-theme="dark"] .alert-warn{color:#ECC196}
+html[data-theme="dark"] .role-staff{color:#A09FE2}
+html[data-theme="dark"] .role-doctor{background:#1C3931;color:#A2EDDF}
+html[data-theme="dark"] .role-viewer{background:#1E113B;color:#B37EDF}
+html[data-theme="dark"] .viewer-banner{color:#B37EDF}
+html[data-theme="dark"] .supply-comment-btn{background:#1E113B;color:#B37EDF}
+html[data-theme="dark"] .supply-comment-btn:hover{background:#1C143E !important}
+html[data-theme="dark"] #comment-modal .modal h2{color:#B37EDF}
+html[data-theme="dark"] .comment-item.unread{background:#0F0F33}
+html[data-theme="dark"] .rep-toggle button.active{color:#fff}
+html[data-theme="dark"] .sha-banner h3{color:#ECB783}
+html[data-theme="dark"] .sha-chip.ordered{background:#1A2540;color:#7F8FD5}
+html[data-theme="dark"] table tr.proc-urgent td{background:#3C1A16}
+html[data-theme="dark"] .sha-chip.routine{background:#26362C}
+html[data-theme="dark"] .modal-ok{color:#A09FE2}
+html[data-theme="dark"] .pending-panel h3{color:#ECC196}
+html[data-theme="dark"] .death-chip.at{background:#3A1818;color:#E09A9A}
+html[data-theme="dark"] .death-chip.out{background:#41282D;color:#E099A3}
+html[data-theme="dark"] .death-chip.none{background:#26262D;color:#9D9DAB}
+html[data-theme="dark"] .nc-panel{color:#A09FE2}
+html[data-theme="dark"] .nc-head-actions button{color:#8C8FD6}
+html[data-theme="dark"] .nc-sec{color:#9696B2}
+html[data-theme="dark"] .nc-item.nc-click:hover{background:#1C212F}
+html[data-theme="dark"] .nc-item.nc-unread{background:#303A1E}
+html[data-theme="dark"] .nc-ico{background:#424F27;color:#A09FE2}
+html[data-theme="dark"] .nc-ico.nc-bad{background:#3A1818;color:#E38585}
+html[data-theme="dark"] .nc-ico.nc-warn{background:#4C3A16;color:#ECC196}
+html[data-theme="dark"] .nc-msg{color:#A6A6C5}
+html[data-theme="dark"] .nc-time{color:#9696B2}
+html[data-theme="dark"] .nc-empty{color:#9696B2}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#9696B2}
+html[data-theme="dark"] .minor-banner{background:#453414;color:#FAD69B}
+html[data-theme="dark"] .chip-minor{background:#1F1F39;color:#8584D6}
+html[data-theme="dark"] .chip-noconsent{background:#26262D;color:#9797B7}
+html[data-theme="dark"] .legal-body .lg-note{background:#453414;color:#FAD69B}
+html[data-theme="dark"] .legal-body mark.lg-todo{background:#6C601F;color:#FBEBAE}
+html[data-theme="dark"] .dsr-due.overdue{color:#E67789}
+html[data-theme="dark"] .dsr-due.soon{color:#F9CC8A}
+html[data-theme="dark"] .dsr-status{background:#202034;color:#8584D6}
+html[data-theme="dark"] .dsr-status.completed{color:#A09FE2}
+html[data-theme="dark"] .dsr-status.refused{background:#41282D;color:#E099A3}
+html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3}
+}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -1066,6 +1182,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 
 <!-- LOGIN -->
 <div id="login-page">
+  <div class="login-theme"><button class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch between light and dark mode" title="Light / dark mode" onclick="toggleTheme()"><span class="tt-knob"><svg class="tt-sun" viewBox="0 0 24 24" fill="none" stroke="#FF9F1C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="#FF9F1C"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><svg class="tt-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="#29B6FF"/></svg></span><span class="tt-hole"></span><span class="tt-man"><svg viewBox="0 0 10 17" aria-hidden="true"><circle cx="5" cy="2.4" r="2" fill="currentColor"/><path d="M5 4.6V10M5 6l-3 3M5 6l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/><path class="la" d="M5 10l-2.8 6.2M5 10l2.8 6.2"/><path class="lb" d="M5 10l-.8 6.2M5 10l1.6 6.2"/></svg></span></button></div>
   <div class="login-bg"></div>
   <div class="login-bubbles">
     <div class="blob blob1"></div><div class="blob blob2"></div><div class="blob blob3"></div>
@@ -1250,6 +1367,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
       <span class="topbar-title">Management System</span>
     </div>
     <div class="topbar-right">
+      <button class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch between light and dark mode" title="Light / dark mode" onclick="toggleTheme()"><span class="tt-knob"><svg class="tt-sun" viewBox="0 0 24 24" fill="none" stroke="#FF9F1C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="#FF9F1C"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><svg class="tt-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="#29B6FF"/></svg></span><span class="tt-hole"></span><span class="tt-man"><svg viewBox="0 0 10 17" aria-hidden="true"><circle cx="5" cy="2.4" r="2" fill="currentColor"/><path d="M5 4.6V10M5 6l-3 3M5 6l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/><path class="la" d="M5 10l-2.8 6.2M5 10l2.8 6.2"/><path class="lb" d="M5 10l-.8 6.2M5 10l1.6 6.2"/></svg></span></button>
       <button class="top-help support-wa" style="display:none" onclick="supportWhatsApp()" aria-label="Help on WhatsApp" title="Need help? Chat with us on WhatsApp"><i class="ti ti-brand-whatsapp"></i><span>Help</span></button>
       <button class="nc-bell" id="nc-bell" onclick="toggleNotifCenter(event)" aria-label="Notifications" title="Notifications"><i class="ti ti-bell"></i><span class="nc-count" id="nc-count" style="display:none">0</span><span class="nc-dot" id="nc-dot" style="display:none"></span></button>
       <div class="user-pill">
@@ -8149,6 +8267,27 @@ function ncGo(tab){ document.getElementById('nc-panel').style.display='none'; nc
 document.addEventListener('click',e=>{ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'&&!p.contains(e.target)&&!e.target.closest('#nc-bell')){ p.style.display='none'; ncMarkAllRead(true); } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'){ p.style.display='none'; ncMarkAllRead(true); } } });
 setInterval(ncRefreshBell, 5000);
+</script>
+<script>
+// ── LIGHT / DARK MODE ─────────────────────────────────────────────
+function applyTheme(th){
+  if(th==='dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
+  document.querySelectorAll('.theme-toggle').forEach(b=>b.setAttribute('aria-checked', th==='dark'?'true':'false'));
+  try{ localStorage.setItem('rr_theme', th); }catch(e){}
+}
+let _themeBusy=false;
+function toggleTheme(){
+  if(_themeBusy) return; _themeBusy=true;
+  const next=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const flip=()=>{ document.documentElement.classList.add('theme-fade'); applyTheme(next); setTimeout(()=>document.documentElement.classList.remove('theme-fade'),500); };
+  if(reduce){ flip(); _themeBusy=false; return; }
+  const tg=document.querySelectorAll('.theme-toggle');
+  tg.forEach(b=>b.classList.add('tt-walk'));
+  setTimeout(flip,1000);
+  setTimeout(()=>{ tg.forEach(b=>b.classList.remove('tt-walk')); _themeBusy=false; },1250);
+}
+document.querySelectorAll('.theme-toggle').forEach(b=>b.setAttribute('aria-checked', document.documentElement.getAttribute('data-theme')==='dark'?'true':'false'));
 </script>
 <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>

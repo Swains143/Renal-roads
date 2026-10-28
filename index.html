@@ -970,36 +970,6 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .top-help i{font-size:20px;color:#8CC63F}
 .top-help:hover{background:rgba(255,255,255,.12)}
 @media(max-width:680px){.top-help span{display:none}.top-help{padding:0 6px}}
-.top-ask{display:flex;align-items:center;gap:5px;height:38px;padding:0 12px;border:1.5px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:19px;margin-right:2px}
-.top-ask i{font-size:17px;color:#8CC63F}
-.top-ask:hover{background:rgba(255,255,255,.16)}
-@media(max-width:680px){.top-ask span{display:none}.top-ask{padding:0 9px}}
-.ai-panel{position:fixed;top:66px;right:16px;width:410px;max-width:calc(100vw - 24px);height:min(600px,calc(100vh - 90px));background:var(--white);color:var(--gray-800);border-radius:16px;box-shadow:0 24px 60px -12px rgba(20,20,80,.45),0 0 0 1px rgba(30,29,112,.1);z-index:100001;display:flex;flex-direction:column;overflow:hidden}
-.ai-head{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--gray-200);font-size:14px;color:var(--navy)}
-.ai-head i{color:#8CC63F}
-.ai-head button{background:none;border:none;color:var(--gray-600);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;padding:4px 7px;border-radius:6px}
-.ai-head button:hover{background:var(--gray-100)}
-.ai-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-.ai-m{max-width:88%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.5;word-wrap:break-word}
-.ai-m.u{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
-.ai-m.a{align-self:flex-start;background:var(--gray-100);color:var(--gray-800);border-bottom-left-radius:4px}
-.ai-m.a ul{margin:4px 0 0 18px}
-.ai-m.e{align-self:flex-start;background:var(--red-pale);color:var(--red)}
-.ai-hint{color:var(--gray-600);font-size:12.5px;line-height:1.5;padding:4px 2px}
-.ai-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}
-.ai-chips button{border:1px solid var(--gray-200);background:var(--white);color:var(--navy);border-radius:999px;font-size:11.5px;font-weight:600;padding:5px 10px;cursor:pointer;font-family:inherit}
-.ai-chips button:hover{background:var(--gray-100)}
-.ai-input{display:flex;gap:8px;padding:8px 14px 6px}
-.ai-input input{flex:1;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:13px;background:var(--gray-50);color:var(--gray-800);outline:none;font-family:inherit}
-.ai-input input:focus{border-color:var(--navy)}
-.ai-send{width:40px;border:none;border-radius:10px;background:#8CC63F;color:#1E1D70;font-size:17px;cursor:pointer}
-.ai-send:disabled{opacity:.5;cursor:default}
-.ai-note{font-size:10.5px;color:var(--gray-400);padding:2px 14px 10px;line-height:1.4}
-.ai-dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--gray-400);animation:aiDot 1s infinite}
-.ai-dots span:nth-child(2){animation-delay:.15s}.ai-dots span:nth-child(3){animation-delay:.3s}
-@keyframes aiDot{0%,80%,100%{opacity:.25}40%{opacity:1}}
-@media(max-width:680px){.ai-panel{top:60px;right:8px}}
-@media print{.ai-panel,.top-ask{display:none!important}}
 /* ── NOTIFICATION CENTER ── */
 .nc-bell{position:relative;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-family:inherit}
 .nc-bell:hover{background:rgba(255,255,255,.12)}
@@ -1089,25 +1059,25 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 <style>
 /* ══ THEME: DARK MODE + TOGGLE ══ */
 html.theme-fade,html.theme-fade *{transition:background-color .4s ease,color .4s ease,border-color .4s ease,fill .4s ease!important}
-.theme-toggle{--tt-bg:#E7EAFB;--tt-hole:#CBD1EA;--tt-man:#2A2A4A;position:relative;width:104px;height:38px;flex:0 0 auto;border:none;padding:0;border-radius:19px;background:var(--tt-bg);box-shadow:0 2px 7px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.8);cursor:pointer;font-family:inherit;margin-right:6px}
+.theme-toggle{--tt-bg:#E7EAFB;--tt-hole:#CBD1EA;--tt-man:#2A2A4A;position:relative;width:132px;height:28px;flex:0 0 auto;border:none;padding:0;border-radius:14px;background:var(--tt-bg);box-shadow:0 2px 7px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.8);cursor:pointer;font-family:inherit;margin-right:6px}
 .theme-toggle:focus-visible{outline:2px solid #8CC63F;outline-offset:2px}
-.tt-knob{position:absolute;left:4px;top:4px;width:30px;height:30px;border-radius:50%;background:var(--tt-bg);box-shadow:3px 3px 7px rgba(110,120,170,.45),-2px -2px 5px rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center}
-.tt-knob svg{width:18px;height:18px}
+.tt-knob{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:var(--tt-bg);box-shadow:3px 3px 7px rgba(110,120,170,.45),-2px -2px 5px rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center}
+.tt-knob svg{width:14px;height:14px}
 .tt-moon{display:none}
-.tt-hole{position:absolute;right:12px;bottom:8px;width:22px;height:7px;border-radius:50%;background:var(--tt-hole);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
-.tt-man{position:absolute;left:40px;bottom:10px;width:10px;height:17px;opacity:0;color:var(--tt-man);pointer-events:none}
-.tt-man svg{width:10px;height:17px;display:block;overflow:visible}
+.tt-hole{position:absolute;right:14px;bottom:6px;width:22px;height:5px;border-radius:50%;background:var(--tt-hole);box-shadow:inset 0 1px 2px rgba(0,0,0,.18)}
+.tt-man{position:absolute;left:32px;bottom:7px;width:8px;height:14px;opacity:0;color:var(--tt-man);pointer-events:none}
+.tt-man svg{width:8px;height:14px;display:block;overflow:visible}
 .tt-man .la,.tt-man .lb{stroke:currentColor;stroke-width:1.4;stroke-linecap:round;fill:none}
 .tt-man .lb{opacity:0}
 .tt-walk .tt-man{animation:ttWalk 1.2s linear forwards}
 .tt-walk .tt-man .la{animation:ttLegA .3s steps(1) infinite}
 .tt-walk .tt-man .lb{animation:ttLegB .3s steps(1) infinite}
-@keyframes ttWalk{0%{opacity:0;left:40px;transform:none}8%{opacity:1}78%{opacity:1;left:76px;transform:none}100%{opacity:0;left:76px;transform:translateY(9px) scaleY(.15)}}
+@keyframes ttWalk{0%{opacity:0;left:32px;transform:none}8%{opacity:1}78%{opacity:1;left:103px;transform:none}100%{opacity:0;left:103px;transform:translateY(8px) scaleY(.15)}}
 @keyframes ttLegA{0%{opacity:1}50%{opacity:0}}
 @keyframes ttLegB{0%{opacity:0}50%{opacity:1}}
 .login-theme{position:absolute;top:16px;right:18px;z-index:5}
 #app-shell .theme-toggle,.topbar-right .theme-toggle{margin-right:8px}
-@media(max-width:680px){.theme-toggle{zoom:.78;margin-right:2px}}
+@media(max-width:680px){.theme-toggle{zoom:.8;margin-right:2px}}
 @media (prefers-reduced-motion:reduce){.tt-walk .tt-man{animation:none}}
 @media screen{
 html[data-theme="dark"]{color-scheme:dark;
@@ -1398,7 +1368,6 @@ html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3
     </div>
     <div class="topbar-right">
       <button class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch between light and dark mode" title="Light / dark mode" onclick="toggleTheme()"><span class="tt-knob"><svg class="tt-sun" viewBox="0 0 24 24" fill="none" stroke="#FF9F1C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="#FF9F1C"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><svg class="tt-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="#29B6FF"/></svg></span><span class="tt-hole"></span><span class="tt-man"><svg viewBox="0 0 10 17" aria-hidden="true"><circle cx="5" cy="2.4" r="2" fill="currentColor"/><path d="M5 4.6V10M5 6l-3 3M5 6l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/><path class="la" d="M5 10l-2.8 6.2M5 10l2.8 6.2"/><path class="lb" d="M5 10l-.8 6.2M5 10l1.6 6.2"/></svg></span></button>
-      <button class="top-ask" id="ai-btn" onclick="toggleAiPanel(event)" aria-label="Ask the data assistant" title="Ask questions about your data"><i class="ti ti-sparkles"></i><span>Ask</span></button>
       <button class="top-help support-wa" style="display:none" onclick="supportWhatsApp()" aria-label="Help on WhatsApp" title="Need help? Chat with us on WhatsApp"><i class="ti ti-brand-whatsapp"></i><span>Help</span></button>
       <button class="nc-bell" id="nc-bell" onclick="toggleNotifCenter(event)" aria-label="Notifications" title="Notifications"><i class="ti ti-bell"></i><span class="nc-count" id="nc-count" style="display:none">0</span><span class="nc-dot" id="nc-dot" style="display:none"></span></button>
       <div class="user-pill">
@@ -2410,7 +2379,6 @@ function prefetchTabData(){
   },400);
 }
 function doLogout(){
-  try{ const _a=document.getElementById('ai-panel'); if(_a){ _a.style.display='none'; } aiHistory=[]; const _m=document.getElementById('ai-msgs'); if(_m) _m.innerHTML=''; }catch(e){}
   try{ const _p=document.getElementById('nc-panel'); if(_p) _p.style.display='none'; }catch(e){}
   Object.keys(tabHtmlCache).forEach(k=>delete tabHtmlCache[k]);   // never show one user's cached screens to the next
   window.__loaded={};
@@ -8112,7 +8080,7 @@ function lgTerms(){return `<h3>Terms &amp; conditions</h3>
 <p>Kenyan law applies. Version ${LEGAL_VERSION}.</p>`;}
 
 function lgCookies(){return `<h3>What this system stores on your device</h3>
-<p>We do not use cookies or advertising trackers. We use Vercel Speed Insights to measure how fast the pages load; it collects anonymous performance data only (such as page load times and device type) and does not use cookies or identify individual users. The “Ask” assistant sends only grouped counts about patients (for example, how many are active at each station; groups of one or two people are hidden) to an AI service to answer your question. It never sends names, ID numbers, phone numbers, next of kin, notes or individual patient records, and the assistant saves nothing. The system stores a few small items in your browser's local storage so it can work. All of them are needed to run the system or to remember your layout, so there is no consent banner.</p>
+<p>We do not use cookies or advertising trackers. We use Vercel Speed Insights to measure how fast the pages load; it collects anonymous performance data only (such as page load times and device type) and does not use cookies or identify individual users. The system stores a few small items in your browser's local storage so it can work. All of them are needed to run the system or to remember your layout, so there is no consent banner.</p>
 <table><thead><tr><th>Name</th><th>What it does</th><th>How long</th></tr></thead><tbody>
 <tr><td>rr_session</td><td>Keeps you signed in.</td><td>Until you sign out or are idle for 15 minutes</td></tr>
 <tr><td>rr_last_activity</td><td>Time of your last action, used to sign you out when idle.</td><td>Until you sign out</td></tr>
@@ -8193,13 +8161,6 @@ function consentChips(p){
   </div>
 </div></div>
 
-<div class="ai-panel" id="ai-panel" style="display:none" role="dialog" aria-label="Ask the data assistant">
-  <div class="ai-head"><strong><i class="ti ti-sparkles"></i> Ask your data</strong><div><button onclick="aiClear()" title="Start over">Clear</button><button onclick="toggleAiPanel()" aria-label="Close"><i class="ti ti-x"></i></button></div></div>
-  <div class="ai-msgs" id="ai-msgs"></div>
-  <div class="ai-chips" id="ai-chips"></div>
-  <div class="ai-input"><input id="ai-q" type="text" maxlength="500" placeholder="e.g. Which supplies are low?" onkeydown="if(event.key==='Enter')aiAsk()"><button class="ai-send" id="ai-send" onclick="aiAsk()" aria-label="Send"><i class="ti ti-send"></i></button></div>
-  <div class="ai-note">Only grouped counts are shared, never individual patients. Please do not type patient names or numbers. AI can make mistakes: check important numbers.</div>
-</div>
 <div class="nc-panel" id="nc-panel" style="display:none" role="dialog" aria-label="Notifications">
   <div class="nc-head"><strong>Notifications</strong><div class="nc-head-actions"><button onclick="ncMarkAllRead()">Mark all read</button><button onclick="ncClearLog()">Clear log</button></div></div>
   <div class="nc-body" id="nc-body"></div>
@@ -8327,92 +8288,6 @@ function toggleTheme(){
   setTimeout(()=>{ tg.forEach(b=>b.classList.remove('tt-walk')); _themeBusy=false; },1250);
 }
 document.querySelectorAll('.theme-toggle').forEach(b=>b.setAttribute('aria-checked', document.documentElement.getAttribute('data-theme')==='dark'?'true':'false'));
-</script>
-<script>
-// ── ASK-THE-DATA ASSISTANT ────────────────────────────────────────
-// Sends the question plus an ANONYMISED summary of the data already loaded in the app to /api/ask
-// (a server function that holds the AI key). Names, ID numbers, phones, next of kin and free-text notes are never sent.
-let aiHistory=[], aiBusy=false;
-const AI_SUGGEST=['Which supplies are low?','How many active patients per station?','How many patients are on 3 sessions a week?','What procurement orders are still open?'];
-function aiEsc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-function aiFmt(s){
-  let h=aiEsc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  const lines=h.split('\n'); let out='',inList=false;
-  lines.forEach(l=>{ const m=l.match(/^\s*[-*•]\s+(.*)/);
-    if(m){ if(!inList){out+='<ul>';inList=true;} out+='<li>'+m[1]+'</li>'; }
-    else { if(inList){out+='</ul>';inList=false;} out+=(l.trim()?l+'<br>':''); } });
-  if(inList) out+='</ul>';
-  return out.replace(/(<br>)+$/,'');
-}
-function aiAdd(cls,html){ const box=document.getElementById('ai-msgs'); const d=document.createElement('div'); d.className='ai-m '+cls; d.innerHTML=html; box.appendChild(d); box.scrollTop=box.scrollHeight; return d; }
-function aiHint(){ const box=document.getElementById('ai-msgs'); box.innerHTML='<div class="ai-hint">Ask about patient numbers by group, supplies, requests or procurement. I answer from the figures loaded in the app right now, and I can never look up an individual patient.</div>'; const c=document.getElementById('ai-chips'); c.innerHTML=AI_SUGGEST.map(q=>'<button onclick="aiAsk(this.textContent)">'+aiEsc(q)+'</button>').join(''); }
-function aiClear(){ aiHistory=[]; aiHint(); }
-function toggleAiPanel(e){
-  if(e) e.stopPropagation();
-  const p=document.getElementById('ai-panel'); if(!p) return;
-  if(p.style.display==='none'){ const n=document.getElementById('nc-panel'); if(n) n.style.display='none'; p.style.display='flex'; if(!document.getElementById('ai-msgs').children.length) aiHint(); setTimeout(()=>document.getElementById('ai-q').focus(),50); }
-  else p.style.display='none';
-}
-function aiPick(rows,map){ return (rows||[]).map(map); }
-// Patients are NEVER sent one by one. Only grouped counts leave the browser, and any group
-// of 1 or 2 people is replaced by "<3" so a small group cannot point to an individual.
-function aiPatientCounts(pts){
-  const band=a=>a<18?'under 18':a<40?'18-39':a<60?'40-59':a<75?'60-74':'75+';
-  const COND=[['hypertension',/hypertens|\bhtn\b/i],['diabetes',/diabet|\bdm\b/i],['hiv',/\bhiv\b|\baids\b/i],['heart disease',/heart|cardiac|cardiomyop|\bchf\b/i],['cancer',/cancer|carcinoma|\bca\b|malignan|lymphoma/i],['stroke',/stroke|cva/i]];
-  const sup=n=>(n>=1&&n<=2)?'<3':n;
-  const one={},two={};
-  const add=(o,...k)=>{ let c=o; k.slice(0,-1).forEach(x=>{ c=c[x]=c[x]||{}; }); const last=k[k.length-1]; c[last]=(c[last]||0)+1; };
-  (pts||[]).forEach(p=>{
-    const st=p.status||'Unknown', stn=p.station||'Unknown', g=p.gender||'Unknown', ab=band(calcAge(p)||0), ac=p.dialysis_access||'Not specified', sp=p.sessions_per_week?String(p.sessions_per_week):'Not specified';
-    add(one,'by_status',st); add(one,'by_station',stn); add(one,'by_gender',g); add(one,'by_age_band',ab); add(one,'by_dialysis_access',ac); add(one,'by_sessions_per_week',sp);
-    add(two,'station_x_status',stn,st); add(two,'station_x_sessions_per_week',stn,sp); add(two,'status_x_gender',st,g); add(two,'status_x_age_band',st,ab); add(two,'station_x_age_band',stn,ab);
-    const cs=String(p.comorbidities||''); let hit=false;
-    COND.forEach(([n,re])=>{ if(re.test(cs)){ add(one,'with_condition',n); add(two,'condition_x_station',n,stn); hit=true; } });
-    if(cs.trim()&&!hit) add(one,'with_condition','other / not listed');
-  });
-  const clean=o=>{ const r={}; Object.keys(o).forEach(k=>{ r[k]=(typeof o[k]==='object')?clean(o[k]):sup(o[k]); }); return r; };
-  return { total_patients:(pts||[]).length, note:'Grouped counts only. "<3" means 1 or 2 people (hidden for privacy).', ...clean(one), cross_tabs:clean(two) };
-}
-async function aiBuildContext(){
-  const tok=sessionToken;
-  try{ if(!patients.length && typeof loadPatientsData==='function') await loadPatientsData(); }catch(e){}
-  try{ if(!supplies.length && typeof loadSuppliesData==='function') await loadSuppliesData(); }catch(e){}
-  let proc=[],reqs=[];
-  try{ const r=await db.rpc('rr_proc_list',{p_session:tok}); proc=r.data||[]; }catch(e){}
-  try{ const r=await db.rpc('rr_requests_list',{p_session:tok}); reqs=r.data||[]; }catch(e){}
-  const dt=v=>v?String(v).slice(0,10):null;
-  const ctx={
-    today:new Date().toISOString().slice(0,10),
-    note:'Anonymised. One row per patient / supply / order / request.',
-    patient_counts:aiPatientCounts(patients),
-    supplies:aiPick(supplies,s=>({item:s.name,category:s.category||null,unit:s.unit||null,stock:getStock(s),low_stock_threshold:s.threshold,daily_limit:s.daily_limit||null,is_low:getStock(s)<=s.threshold})),
-    procurement_orders:aiPick(proc,r=>({item:r.item,brand:r.brand||null,qty:r.qty,unit:r.unit||null,urgency:r.urgency||null,status:r.status,created:dt(r.created_at)})),
-    supply_requests:aiPick(reqs,r=>({item:r.supply_name||null,qty:r.qty,unit:r.supply_unit||null,status:r.status,station:r.station||null,requested:dt(r.requested_at||r.created_at),resolved:dt(r.resolved_at)}))
-  };
-  return ctx;
-}
-async function aiAsk(preset){
-  if(aiBusy) return;
-  const inp=document.getElementById('ai-q');
-  const q=(typeof preset==='string'?preset:inp.value).trim();
-  if(!q) return;
-  if(!sessionToken){ aiAdd('e','Please sign in first.'); return; }
-  if(/\d[\d\s\-]{5,}\d/.test(q)||/\+?254\d{6,}/.test(q)){ aiAdd('e','For privacy, please do not type phone numbers or ID numbers. Ask about groups of patients instead.'); return; }
-  inp.value=''; aiBusy=true; document.getElementById('ai-send').disabled=true;
-  const first=document.querySelector('#ai-msgs .ai-hint'); if(first){ document.getElementById('ai-msgs').innerHTML=''; document.getElementById('ai-chips').innerHTML=''; }
-  aiAdd('u',aiEsc(q));
-  const wait=aiAdd('a','<span class="ai-dots"><span></span><span></span><span></span></span>');
-  try{
-    const context=await aiBuildContext();
-    const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,session:sessionToken,context,history:aiHistory.slice(-6)})});
-    let j=null; try{ j=await r.json(); }catch(e){}
-    wait.remove();
-    if(!r.ok||!j||!j.answer){ aiAdd('e',aiEsc((j&&j.error)||(r.status===404?'The assistant is only available on the live site once it has been set up.':'The assistant could not answer right now.'))); }
-    else { aiAdd('a',aiFmt(j.answer)); aiHistory.push({role:'user',content:q},{role:'assistant',content:j.answer}); }
-  }catch(e){ wait.remove(); aiAdd('e','Could not reach the assistant. Check your internet connection and try again.'); }
-  aiBusy=false; document.getElementById('ai-send').disabled=false; inp.focus();
-}
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const p=document.getElementById('ai-panel'); if(p&&p.style.display!=='none') p.style.display='none'; } });
 </script>
 <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>

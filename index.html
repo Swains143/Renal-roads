@@ -366,6 +366,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:10px 12px;font-weight:700;font-size:11px;color:var(--gray-600);border-bottom:1px solid var(--gray-200);white-space:nowrap;text-transform:uppercase;letter-spacing:0.04em;background:var(--gray-50)}
 td{padding:9px 12px;border-bottom:1px solid var(--gray-200);vertical-align:middle}
 tr:last-child td{border-bottom:none}
+.rep-print-table tr:last-child td,.rep-print-table tr:last-child th{border-bottom:1px solid #000}
 tr:hover td{background:var(--navy-pale)}
 tr.row-deceased td{background:#FEF0F0;color:#6B1515}
 tr.row-discharged td{background:#F0EFFE;color:#2A2870}
@@ -676,7 +677,7 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-status-msg.dirty{color:var(--amber);font-weight:600}
 .rep-status-msg.dirty::before{content:"\25CF";margin-right:5px;font-size:9px;position:relative;top:-1px;animation:pulse 1.4s ease-in-out infinite}
 .rep-status-msg.saved{color:var(--green-dark);font-weight:600}
-#rep-printArea,#op-printArea,#doc-printArea,#mo-printArea{display:none}
+#rep-printArea,#op-printArea,#doc-printArea,#mo-printArea,#rr-print-root{display:none}
 /* Sizing rules for print blocks are defined UNCONDITIONALLY (not inside
    @media print) so that repRenderPaginated's offscreen height measurement
    sees the exact same box model the browser will use when actually
@@ -692,8 +693,8 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-print-meta{width:100%;margin-bottom:calc(var(--print-scale) * 14px);font-size:calc(var(--print-scale) * 10.5pt)}
 .rep-print-meta td{padding:calc(var(--print-scale) * 2px) calc(var(--print-scale) * 6px)}
 .rep-print-section-title{font-size:calc(var(--print-scale) * 12pt);font-weight:bold;margin:calc(var(--print-scale) * 16px) 0 calc(var(--print-scale) * 4px);border-bottom:1px solid #000;padding-bottom:calc(var(--print-scale) * 2px)}
-.rep-print-table{width:100%;border-collapse:collapse;margin-bottom:calc(var(--print-scale) * 8px);font-size:calc(var(--print-scale) * 10pt)}
-.rep-print-table th,.rep-print-table td{border:1px solid #000;padding:calc(var(--print-scale) * 4px) calc(var(--print-scale) * 6px);text-align:left;vertical-align:top;white-space:pre-wrap}
+.rep-print-table{width:100%;border-collapse:separate;border-spacing:0;border-top:1px solid #000;border-left:1px solid #000;box-sizing:border-box;margin-bottom:calc(var(--print-scale) * 8px);font-size:calc(var(--print-scale) * 10pt)}
+.rep-print-table th,.rep-print-table td{border:0;border-right:1px solid #000;border-bottom:1px solid #000;padding:calc(var(--print-scale) * 4px) calc(var(--print-scale) * 6px);text-align:left;vertical-align:top;white-space:pre-wrap}
 .rep-print-table th{background:#eee}
 .rep-print-text-block{border:1px solid #000;padding:calc(var(--print-scale) * 6px);min-height:calc(var(--print-scale) * 24px);font-size:calc(var(--print-scale) * 10pt);margin-bottom:calc(var(--print-scale) * 8px);white-space:pre-wrap}
 .rep-print-footer{margin-top:calc(var(--print-scale) * 24px);font-size:calc(var(--print-scale) * 9.5pt);color:#333}
@@ -710,7 +711,13 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
 .rep-print-12 .rep-print-footer{font-size:calc(var(--print-scale) * 12pt)}
 @media print{
   body *{visibility:hidden}
-  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *, #mo-printArea, #mo-printArea *{visibility:visible}
+  #rep-printArea, #rep-printArea *, #op-printArea, #op-printArea *, #doc-printArea, #doc-printArea *, #mo-printArea, #mo-printArea *, #rr-print-root, #rr-print-root *{visibility:visible}
+  /* Printing is structural, not event-based: the report lives in #rr-print-root, a direct child of <body>,
+     and every other child of <body> is removed from layout. Nothing (sidebar, scroll containers, fixed heights)
+     can shift, squeeze or clip the report, and there is nothing left to create blank extra pages. */
+  html,body{margin:0!important;padding:0!important;width:auto!important;height:auto!important;min-height:0!important;overflow:visible!important;background:#fff!important}
+  body > *:not(#rr-print-root){display:none!important}
+  #rr-print-root{display:block!important;position:static!important;width:100%;margin:0;padding:0;font-family:'Times New Roman',Times,serif;color:#000;background:#fff}
   #rep-printArea, #op-printArea, #doc-printArea, #mo-printArea{display:block;position:absolute;top:0;left:0;width:100%;font-family:'Times New Roman',Times,serif;font-size:calc(var(--print-scale) * 10pt);color:#000;background:#fff}
   /* Each .rep-print-page is one physical printed page (content was pre-packed
      to fit via JS measurement in repRenderPaginated, using the same sizing
@@ -720,8 +727,11 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
      can land on the wrong page), which is what caused headers/footers to
      appear on the wrong pages. Plain block-level content breaks across
      printed pages predictably. */
-  .rep-print-page{position:relative;page-break-after:always;break-after:page;page-break-inside:avoid}
-  .rep-print-page:last-child{page-break-after:auto;break-after:auto}
+  /* break-BEFORE on every page after the first (not break-after on every page): with break-after the next page's
+     letterhead started on the last pixel row of the previous page and showed as a thin stray line when the browser
+     printed on a paper size other than A4. */
+  .rep-print-page{position:relative;page-break-after:auto;break-after:auto;page-break-inside:avoid}
+  .rep-print-page + .rep-print-page{page-break-before:always;break-before:page}
   .rep-print-watermark{position:absolute;top:138.5mm;left:95mm;transform:translate(-50%,-50%);width:104.5mm;height:auto;z-index:0;pointer-events:none}
   .rep-letterhead-header,.rep-print-page-body{position:relative;z-index:1}
   .rep-letterhead-header{width:100%;height:auto;display:block;margin-bottom:4mm}
@@ -731,7 +741,9 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   .rep-print-table tr{page-break-inside:avoid;break-inside:avoid}
   .rep-print-text-block{page-break-inside:avoid;break-inside:avoid}
   .rep-print-footer{page-break-inside:avoid;break-inside:avoid}
-  @page{margin:10mm}
+  /* size:auto = use whatever paper the browser/printer has selected (A4 or Letter). Forcing A4 while the browser printed
+     on Letter produced a size mismatch: stray letterhead slivers and clipped pages. Pagination is packed to fit both. */
+  @page{size:auto;margin:10mm}
 }
 
 /* ── SHA COVER (admin only) ── */
@@ -1251,6 +1263,40 @@ html:not([data-theme="dark"]) #login-page .login-card-sub,
 html:not([data-theme="dark"]) #login-page .login-footer,
 html:not([data-theme="dark"]) #login-page .login-legal span{color:#5A5A88}
 html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
+</style>
+<script>
+/* Marks the branch of the page that contains the report being printed (see #rr-print-fix). */
+(function(){
+  var marked=[];
+  function mark(el,c){el.classList.add(c);marked.push([el,c]);}
+  window.addEventListener('beforeprint',function(){
+    try{
+      var pg=document.querySelector('#rep-printArea .rep-print-page,#mo-printArea .rep-print-page,#op-printArea .rep-print-page,#doc-printArea .rep-print-page');
+      if(!pg)return;
+      var area=pg.parentElement; mark(area,'rr-pa');
+      var node=area;
+      while(node.parentElement){
+        var par=node.parentElement;
+        for(var i=0;i<par.children.length;i++){ if(par.children[i]!==node) mark(par.children[i],'rr-ph'); }
+        mark(par,'rr-pp'); node=par;
+      }
+    }catch(e){}
+  });
+  window.addEventListener('afterprint',function(){
+    marked.forEach(function(m){m[0].classList.remove(m[1]);}); marked=[];
+    var r=document.getElementById('rr-print-root'); if(r) r.innerHTML='';
+  });
+})();
+</script>
+<style id="rr-print-fix" media="print">
+/* While printing a report, only the branch of the page that holds the report is laid out.
+   Everything else is display:none (not just invisible), so it can no longer push the report
+   to the right or create blank extra pages. Classes are added/removed by the beforeprint script. */
+.rr-ph{display:none!important}
+.rr-pp{display:block!important;position:static!important;transform:none!important;animation:none!important;overflow:visible!important;
+  height:auto!important;min-height:0!important;max-height:none!important;width:auto!important;max-width:none!important;
+  margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:#fff!important;filter:none!important;opacity:1!important}
+.rr-pa{display:block!important;position:static!important;width:auto!important;margin:0!important;padding:0!important}
 </style>
 </head>
 <body>
@@ -2883,7 +2929,9 @@ let repFacility = 'truck';
 // chunks. This avoids relying on the browser's native repeating-table-header
 // print behavior, which different browsers/print-to-PDF engines honor
 // inconsistently and can produce blank trailing pages.
-const REP_PAGE_WIDTH_MM = 210, REP_PAGE_HEIGHT_MM = 297, REP_PAGE_MARGIN_MM = 10;
+// Height is the SHORTER of A4 (297mm) and US Letter (279mm): some browsers ignore @page size and print on Letter,
+// and content packed for A4 would then overflow onto extra pages. On A4 this just leaves a little white space at the foot.
+const REP_PAGE_WIDTH_MM = 210, REP_PAGE_HEIGHT_MM = 279, REP_PAGE_MARGIN_MM = 10;
 const REP_PAGE_CONTENT_WIDTH_MM = REP_PAGE_WIDTH_MM - 2*REP_PAGE_MARGIN_MM;
 const REP_LETTERHEAD_HEADER_ASPECT = 2563/269;  // width:height of the header banner image
 // The lowest --print-scale we'll auto-shrink to. Below this, text becomes
@@ -2920,7 +2968,7 @@ function repMeasureAndPack(blocks, scale, opts){
   const pageHeightPx = REP_PAGE_HEIGHT_MM * pxPerMm;
   const marginPx = REP_PAGE_MARGIN_MM * pxPerMm;
   const gapPx = 4 * pxPerMm; // ~4mm breathing room below the header image
-  const safetyBufferPx = 55 * pxPerMm; // slack for print-vs-screen font metrics AND for the browser's own default print header/footer (date/title/URL/page-number) if the person hasn't disabled it in the print dialog's "More settings"
+  const safetyBufferPx = 12 * pxPerMm; // slack for print-vs-screen font metrics AND for the browser's own default print header/footer (date/title/URL/page-number) if the person hasn't disabled it in the print dialog's "More settings"
   const availableContentPx = pageHeightPx - 2*marginPx - headerHeightPx - gapPx - safetyBufferPx;
 
   // Measure each block's height individually.
@@ -2966,10 +3014,15 @@ function repRenderPaginated(blocks, area, maxPages, opts){
   document.documentElement.style.setProperty('--print-scale', scale);
   // The ID-scoped @media print rule sets a font-size on the print area, which
   // outranks any class; an inline style is what actually wins here.
-  area.className = opts.fontClass || '';
-  area.style.fontSize = opts.baseFontPt ? `calc(var(--print-scale) * ${opts.baseFontPt}pt)` : '';
+  // Render into a dedicated root that is a direct child of <body> (see the print rules), not into `area`,
+  // which sits deep inside the app layout. `area` is kept empty so nothing is printed twice.
+  area.innerHTML = '';
+  let root = document.getElementById('rr-print-root');
+  if(!root){ root = document.createElement('div'); root.id = 'rr-print-root'; document.body.appendChild(root); }
+  root.className = opts.fontClass || '';
+  root.style.fontSize = opts.baseFontPt ? `calc(var(--print-scale) * ${opts.baseFontPt}pt)` : '';
 
-  area.innerHTML = pages.map((pageBlocks, i) => `
+  root.innerHTML = pages.map((pageBlocks, i) => `
     <div class="rep-print-page">
       <img class="rep-letterhead-header" src="${REP_LETTERHEAD_HEADER}" alt="">
       <img class="rep-print-watermark" src="${REP_LETTERHEAD_WATERMARK}" alt="">
@@ -2981,6 +3034,7 @@ function repRenderPaginated(blocks, area, maxPages, opts){
 // finished decoding/painting them yet, so the letterhead prints blank. Wait
 // for every image in the print area to actually finish loading first.
 function repPrintWhenImagesReady(area){
+  area = document.getElementById('rr-print-root') || area;
   const imgs = Array.from(area.querySelectorAll('img'));
   if(imgs.length === 0){ window.print(); return; }
   let remaining = imgs.length;

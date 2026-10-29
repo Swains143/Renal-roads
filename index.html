@@ -3296,7 +3296,7 @@ async function renderClinicalReport(){
 
     <div class="rep-card">
       <h2>Patient Events</h2>
-      <div class="rep-hint">Recorded weekly — these roll up automatically into the Monthly Report totals</div>
+      <div class="rep-hint">Recorded weekly — these roll up automatically into the Monthly Report totals. Total number of dialysis sessions is filled automatically from the Outpatients total attended.</div>
       ${MO_FIELDS.map(([id,label])=>`
       <div class="rep-field"><label>${label}</label><input type="number" min="0" step="1" id="rep-ev-${id}"></div>`).join('')}
     </div>
@@ -3516,6 +3516,7 @@ function repRenderOutpatientTable(){
       <td><input type="number" min="0" data-day="${day}" data-field="count" class="rep-outpatient-count" oninput="repUpdateOutpatientTotal()"></td>
       <td><textarea rows="1" class="rep-autogrow" data-day="${day}" data-field="remarks" oninput="repAutoGrow(this)"></textarea></td>
     </tr>`).join('');
+  repUpdateOutpatientTotal();
 }
 // Grows a textarea to fit its content so daily-fill fields aren't limited to one line
 function repAutoGrow(el){
@@ -3526,6 +3527,15 @@ function repUpdateOutpatientTotal(){
   let total = 0;
   document.querySelectorAll('.rep-outpatient-count').forEach(inp=>total += Number(inp.value)||0);
   document.getElementById('rep-outpatientTotalDisplay').textContent = total;
+  // Total dialysis sessions (Patient Events) always equals the Outpatients total attended.
+  const sess = document.getElementById('rep-ev-dialysis_sessions');
+  if(sess){
+    const had = sess.value;
+    sess.value = total ? total : '';
+    sess.readOnly = true;
+    sess.title = 'Filled automatically from the Outpatients total attended';
+    if(had !== sess.value && typeof repMarkDirty === 'function' && !repPopulating) repMarkDirty();
+  }
 }
 function repCollectOutpatients(){
   const days = {};

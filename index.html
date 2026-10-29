@@ -970,6 +970,15 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .top-help i{font-size:20px;color:#8CC63F}
 .top-help:hover{background:rgba(255,255,255,.12)}
 @media(max-width:680px){.top-help span{display:none}.top-help{padding:0 6px}}
+.perm-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--green-pale);color:#1E1D70;margin-left:4px;vertical-align:middle}
+.perm-note{font-size:12px;color:var(--gray-600);margin:4px 0 12px;line-height:1.5}
+.perm-list{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.perm-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1.5px solid var(--gray-200);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--gray-800);background:var(--white)}
+.perm-item:hover{background:var(--gray-100)}
+.perm-item input{width:17px;height:17px;accent-color:#8CC63F;cursor:pointer;margin:0}
+.perm-item i{color:var(--navy);font-size:16px}
+.perm-item.perm-on{border-color:#8CC63F;background:var(--green-pale)}
+@media(max-width:520px){.perm-list{grid-template-columns:1fr}}
 /* ── NOTIFICATION CENTER ── */
 .nc-bell{position:relative;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-family:inherit}
 .nc-bell:hover{background:rgba(255,255,255,.12)}
@@ -1424,6 +1433,16 @@ html[data-theme="dark"] .legal-body mark.lg-todo{background:#6C601F;color:#FBEBA
   <div class="content" id="main-content"></div>
   </div>
 </div>
+
+<!-- Page access (super admin) -->
+<div class="modal-bg" id="perms-modal"><div class="modal" style="max-width:460px">
+  <h2><i class="ti ti-lock-open" style="margin-right:6px"></i>Page access</h2>
+  <div class="modal-sub" id="perms-user-sub"></div>
+  <div class="perm-note">Tick the pages this user can see. Home is always shown. Changes apply the next time they sign in or within about 2 minutes.</div>
+  <div id="perms-list" class="perm-list"></div>
+  <div class="modal-err" id="perms-error"><i class="ti ti-alert-circle"></i><span id="perms-error-msg"></span></div>
+  <div class="modal-footer"><button class="btn" onclick="permsReset()" style="margin-right:auto">Reset to role default</button><button class="btn" onclick="closeModal('perms-modal')">Cancel</button><button class="btn btn-primary" onclick="permsSave()"><i class="ti ti-check"></i> Save</button></div>
+</div></div>
 
 <!-- Patient Modal -->
 <div class="modal-bg" id="patient-modal"><div class="modal">
@@ -1947,6 +1966,7 @@ function startSessionHeartbeat(){
       const {data:rows,error}=await db.rpc('rr_resume_session',{p_session:sessionToken});
       if(error) return; // network hiccup — don't sign anyone out for that
       const d=rows&&rows[0];
+      if(d&&d.active){ try{ const before=JSON.stringify(window.__myPages); await loadMyPerms(); if(JSON.stringify(window.__myPages)!==before){ applyRoleTabVisibility(currentUser.role); if(!tabAllowed(currentTab)) switchTab('home'); } }catch(e){} }
       if(!d||!d.active){
         stopIdleMonitor(); doLogout();
         document.getElementById('login-error-msg').textContent='Your session expired. Please sign in again before entering records.';
@@ -2187,9 +2207,11 @@ function applyRoleTabVisibility(role){
   document.getElementById('opt-patients').hidden=role==='viewer';
   // Viewer: weekly clinical report tab is visible, but restricted to
   // browsing/downloading submitted reports only (see repOnPastReportChange)
+  try{ applyPagePerms(); }catch(e){}
 }
 
 function switchTab(t){
+  if(!tabAllowed(t)) t='home';
   const leavingReportTabs = (currentTab==='report'||currentTab==='monthlyreport');
   if(leavingReportTabs && t!==currentTab && repDirty){
     if(!confirm('You have unsaved changes in this report. Leave without saving?\n\n(Tip: changes are also autosaved as a draft periodically.)')){
@@ -2303,6 +2325,7 @@ async function doLogin(){
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
+    await loadMyPerms();
     applyRoleTabVisibility(data.role);
     currentTab='home';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -2338,6 +2361,7 @@ function prefetchTabData(){
   },400);
 }
 function doLogout(){
+  window.__myPages=null;
   try{ const _p=document.getElementById('nc-panel'); if(_p) _p.style.display='none'; }catch(e){}
   Object.keys(tabHtmlCache).forEach(k=>delete tabHtmlCache[k]);   // never show one user's cached screens to the next
   window.__loaded={};
@@ -2398,6 +2422,7 @@ async function restoreSession(){
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
+    await loadMyPerms();
     applyRoleTabVisibility(data.role);
     currentTab='home';
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -6488,14 +6513,17 @@ async function renderUsers(){
   const {data}=await db.rpc('rr_list_users',{p_session:sessionToken});
   const isHiddenAdmin = !!(currentUser && currentUser.hidden);
   let pendingReqs=[],emailMap={};
+  window.__permsMap={};
   if(isHiddenAdmin){
-    const [pr,er]=await Promise.all([db.rpc('rr_signup_list',{p_session:sessionToken}),db.rpc('rr_list_user_emails',{p_session:sessionToken})]);
+    const [pr,er,pm]=await Promise.all([db.rpc('rr_signup_list',{p_session:sessionToken}),db.rpc('rr_list_user_emails',{p_session:sessionToken}),Promise.resolve(db.rpc('rr_perms_list',{p_session:sessionToken})).catch(e=>({data:null}))]);
     pendingReqs=pr.data||[];(er.data||[]).forEach(r=>{emailMap[r.id]=r.email;});
+    ((pm&&pm.data)||[]).forEach(r=>{ window.__permsMap[String(r.user_id)]=r.pages; });
     setUsersPendingBadge(pendingReqs.length);
   }
   hideLoading();
   if(currentTab!=='users') return;
   const users=(data||[]).filter(u=>!u.hidden);
+  window.__usersList=users;
   const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
@@ -6508,11 +6536,11 @@ async function renderUsers(){
   ${pendingPanel}<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th>${isHiddenAdmin?'<th>Email</th>':''}<th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   users.forEach(u=>{
     const isSelf=u.id===currentUser.id;
-    h+=`<tr><td>${repEsc(u.name)}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}</td>
+    h+=`<tr><td>${repEsc(u.name)}${isSelf?' <span style="font-size:10px;color:var(--gray-400)">(you)</span>':''}${(isHiddenAdmin&&window.__permsMap[String(u.id)])?' <span class="perm-tag" title="This user has custom page access">Custom access</span>':''}</td>
       <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(u.username)}</code></td>${isHiddenAdmin?`<td>${emailMap[u.id]?repEsc(emailMap[u.id]):'<span style="color:var(--gray-400)">none</span>'}</td>`:''}
       <td><span class="role-tag ${u.role==='admin'?'role-admin':u.role==='viewer'?'role-viewer':u.role==='doctor'?'role-doctor':'role-staff'}">${roleLabel(u.role)}</span></td>
       <td><span class="active-dot ${u.active?'dot-active':'dot-inactive'}"></span>${u.active?'Active':'Deactivated'}</td>
-      <td style="white-space:nowrap">${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} ${isHiddenAdmin?`<button class="btn btn-sm" onclick="openSetEmail('${u.id}','${jsArg(u.name)}','${jsArg(emailMap[u.id]||'')}')"><i class="ti ti-mail"></i> Email</button> `:''}<button class="btn btn-sm" onclick="openResetPassword('${u.id}','${jsArg(u.name)}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
+      <td style="white-space:nowrap">${(isHiddenAdmin&&!isSelf)?`<button class="btn btn-sm" onclick="openPerms('${u.id}')"><i class="ti ti-lock-open"></i> Page access</button> `:''}${!isSelf?`${u.active?`<button class="btn btn-sm btn-danger" onclick="toggleUser('${u.id}',false)"><i class="ti ti-user-off"></i> Deactivate</button>`:`<button class="btn btn-sm btn-green" onclick="toggleUser('${u.id}',true)"><i class="ti ti-user-check"></i> Activate</button>`} ${isHiddenAdmin?`<button class="btn btn-sm" onclick="openSetEmail('${u.id}','${jsArg(u.name)}','${jsArg(emailMap[u.id]||'')}')"><i class="ti ti-mail"></i> Email</button> `:''}<button class="btn btn-sm" onclick="openResetPassword('${u.id}','${jsArg(u.name)}')"><i class="ti ti-key"></i> Reset password</button> ${isHiddenAdmin?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}`:'<span style="font-size:12px;color:var(--gray-400)">—</span>'}</td></tr>`;
   });
   h+=`</tbody></table></div><div class="alert alert-info" style="margin-top:16px"><i class="ti ti-info-circle"></i><div>Only admins can manage users. Deactivated users cannot sign in.</div></div>`;
   document.getElementById('main-content').innerHTML=h;
@@ -8247,6 +8275,99 @@ function toggleTheme(){
   setTimeout(()=>{ tg.forEach(b=>b.classList.remove('tt-walk')); _themeBusy=false; },1250);
 }
 document.querySelectorAll('.theme-toggle').forEach(b=>b.setAttribute('aria-checked', document.documentElement.getAttribute('data-theme')==='dark'?'true':'false'));
+</script>
+<script>
+// ── PAGE ACCESS (set by the super admin) ──────────────────────────
+// The hidden admin ticks which pages each user can see. Users without a saved setting keep their role's default pages.
+const PAGE_DEFS=[
+  {k:'patients',label:'Patients',icon:'ti-users'},
+  {k:'supplies',label:'Supplies',icon:'ti-package'},
+  {k:'procurement',label:'Procurement',icon:'ti-shopping-cart'},
+  {k:'requests',label:'Requests',icon:'ti-bell',adminOnly:true},
+  {k:'fac-truck',label:'Mobile Truck reports',icon:'ti-truck'},
+  {k:'fac-kigumo',label:'Kigumo reports',icon:'ti-building-hospital'},
+  {k:'doctorreport',label:"Doctor's Report",icon:'ti-stethoscope'},
+  {k:'disinfection',label:'Disinfection',icon:'ti-virus'},
+  {k:'sha',label:'SHA Cover',icon:'ti-shield-check',adminOnly:true}
+];
+window.__myPages=null;   // null = use the role's default pages
+function defaultPagesFor(role){
+  return PAGE_DEFS.filter(d=>{
+    if(role==='admin') return true;
+    if(d.adminOnly) return false;
+    if(role==='viewer' && (d.k==='patients'||d.k==='procurement')) return false;
+    return true;
+  }).map(d=>d.k);
+}
+function pageAllowed(k){
+  if(!currentUser) return false;
+  if(currentUser.hidden) return true;
+  const def=PAGE_DEFS.find(d=>d.k===k); if(!def) return true;
+  if(def.adminOnly && currentUser.role!=='admin') return false;
+  const list=Array.isArray(window.__myPages)?window.__myPages:defaultPagesFor(currentUser.role);
+  return list.includes(k);
+}
+function tabAllowed(t){
+  if(t==='home'||t==='users'||!currentUser) return true;
+  if(['report','monthlyreport','heparin','operational'].includes(t)) return pageAllowed('fac-truck')||pageAllowed('fac-kigumo');
+  return pageAllowed(t);
+}
+function applyPagePerms(){
+  if(!currentUser || currentUser.hidden) return;
+  if(!Array.isArray(window.__myPages)) return;   // no custom setting: role defaults already applied
+  PAGE_DEFS.forEach(d=>{
+    const ok=pageAllowed(d.k);
+    const tab=document.getElementById('tab-'+d.k); if(tab) tab.style.display=ok?'':'none';
+    const opt=document.getElementById('opt-'+d.k); if(opt) opt.hidden=!ok;
+    if(d.k==='fac-truck'||d.k==='fac-kigumo'){ const sub=document.getElementById('side-sub-'+d.k.replace('fac-','')); if(sub && !ok) sub.style.display='none'; }
+  });
+  const rep=pageAllowed('fac-truck')||pageAllowed('fac-kigumo');
+  ['report','monthlyreport','heparin'].forEach(k=>{ const o=document.getElementById('opt-'+k); if(o) o.hidden=!rep; });
+}
+async function loadMyPerms(){
+  window.__myPages=null;
+  if(!sessionToken || (currentUser&&currentUser.hidden)) return;
+  try{
+    const {data,error}=await db.rpc('rr_perms_get',{p_session:sessionToken});
+    if(!error && Array.isArray(data)) window.__myPages=data;
+  }catch(e){}
+}
+// Super admin: edit one user's pages
+let permsUserId=null;
+function openPerms(id){
+  if(!currentUser||!currentUser.hidden){ alert('Only the super admin can change page access.'); return; }
+  const u=(window.__usersList||[]).find(x=>String(x.id)===String(id)); if(!u) return;
+  permsUserId=String(u.id);
+  const saved=window.__permsMap&&window.__permsMap[permsUserId];
+  const on=Array.isArray(saved)?saved:defaultPagesFor(u.role);
+  document.getElementById('perms-user-sub').textContent=u.name+' · '+roleLabel(u.role);
+  document.getElementById('perms-list').innerHTML=PAGE_DEFS.filter(d=>!(d.adminOnly&&u.role!=='admin')).map(d=>
+    `<label class="perm-item ${on.includes(d.k)?'perm-on':''}"><input type="checkbox" value="${d.k}" ${on.includes(d.k)?'checked':''} onchange="this.parentElement.classList.toggle('perm-on',this.checked)"><i class="ti ${d.icon}"></i>${repEsc(d.label)}</label>`).join('');
+  document.getElementById('perms-error').classList.remove('show');
+  document.getElementById('perms-modal').classList.add('open');
+}
+function permsErr(error){
+  const m=(error&&error.message)||'';
+  document.getElementById('perms-error-msg').textContent=/does not exist|could not find|function/i.test(m)?'Page access has not been set up in the database yet. Run the file rr_permissions.sql in Supabase first.':'Could not save: '+m;
+  document.getElementById('perms-error').classList.add('show');
+}
+async function permsSave(){
+  if(!currentUser||!currentUser.hidden||!permsUserId) return;
+  const pages=[...document.querySelectorAll('#perms-list input:checked')].map(i=>i.value);
+  showLoading('Saving...');
+  const {error}=await db.rpc('rr_perms_set',{p_session:sessionToken,p_user_id:permsUserId,p_pages:pages});
+  hideLoading();
+  if(error){ permsErr(error); return; }
+  closeModal('perms-modal'); await renderUsers();
+}
+async function permsReset(){
+  if(!currentUser||!currentUser.hidden||!permsUserId) return;
+  showLoading('Resetting...');
+  const {error}=await db.rpc('rr_perms_set',{p_session:sessionToken,p_user_id:permsUserId,p_pages:null});
+  hideLoading();
+  if(error){ permsErr(error); return; }
+  closeModal('perms-modal'); await renderUsers();
+}
 </script>
 <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments);};</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>

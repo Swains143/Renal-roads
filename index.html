@@ -1025,13 +1025,8 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .side-legal i{font-size:17px;width:18px;text-align:center}
 .side-legal:hover{background:rgba(255,255,255,.1);color:#fff}
 @media(min-width:681px){.tabs.collapsed .side-legal{justify-content:center;padding:10px 0;gap:0}.tabs.collapsed .side-legal span{display:none}}
-.consent-head{margin-top:6px;padding-top:12px;border-top:1px solid var(--gray-200)}
-.consent-head h3{font-size:14px;color:var(--navy);margin:0 0 2px;font-family:'Lora',Georgia,serif}
-.consent-head .hint{font-size:12px;color:var(--gray-400)}
-.consent-head .hint a{color:var(--navy);font-weight:600}
 .minor-banner{display:flex;gap:8px;align-items:flex-start;background:#FFF4E0;border:1px solid #F5D9A6;color:#6B4200;border-radius:10px;padding:10px 12px;font-size:12.5px}
 .chip-minor{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#E8E8F8;color:#2E2D9F;border:1px solid #C9C9EE;margin-top:4px}
-.chip-noconsent{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#F1F1F5;color:#5A5A88;border:1px dashed #C9C9D6;margin-top:4px}
 .legal-modal{width:520px;max-width:94vw;padding:20px 22px}
 .legal-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--gray-200);margin-bottom:14px;padding-bottom:10px}
 .legal-tabs button{background:transparent;border:1.5px solid var(--gray-200);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit}
@@ -1049,12 +1044,6 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .legal-body h3{font-family:inherit;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .legal-body table{font-size:10.5px}
 .legal-body li{margin-bottom:3px}
-.dsr-due.overdue{color:#B0172F;font-weight:700}
-.dsr-due.soon{color:#8A5300;font-weight:700}
-.dsr-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:#EDEDF8;color:#2E2D9F}
-.dsr-status.completed{background:var(--green-pale);color:#1E1D70}
-.dsr-status.refused{background:#F1DCE0;color:#7A1F2B}
-.dsr-status.in_progress{background:#E0EEFF;color:#1B4F9C}
 </style>
 <style>
 /* ══ THEME: DARK MODE + TOGGLE ══ */
@@ -1159,15 +1148,8 @@ html[data-theme="dark"] .nc-empty{color:#9696B2}
 html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#9696B2}
 html[data-theme="dark"] .minor-banner{background:#453414;color:#FAD69B}
 html[data-theme="dark"] .chip-minor{background:#1F1F39;color:#8584D6}
-html[data-theme="dark"] .chip-noconsent{background:#26262D;color:#9797B7}
 html[data-theme="dark"] .legal-body .lg-note{background:#453414;color:#FAD69B}
 html[data-theme="dark"] .legal-body mark.lg-todo{background:#6C601F;color:#FBEBAE}
-html[data-theme="dark"] .dsr-due.overdue{color:#E67789}
-html[data-theme="dark"] .dsr-due.soon{color:#F9CC8A}
-html[data-theme="dark"] .dsr-status{background:#202034;color:#8584D6}
-html[data-theme="dark"] .dsr-status.completed{color:#A09FE2}
-html[data-theme="dark"] .dsr-status.refused{background:#41282D;color:#E099A3}
-html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3}
 }
 </style>
 </head>
@@ -1321,7 +1303,7 @@ html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3
           <input type="password" id="login-password" placeholder=" " autocomplete="current-password" required onkeydown="if(event.key==='Enter')doLogin()" onfocus="mascotCover(true);charGesturePassword(true)" onblur="mascotCover(false)"/>
           <span class="flabel">Password</span>
           <i class="uline"></i>
-          <button class="eye-btn" onclick="togglePwd()" type="button"><i class="ti ti-eye" id="eye-icon"></i></button>
+          <button class="eye-btn" onclick="togglePwd()" type="button" aria-label="Show or hide password"><i class="ti ti-eye" id="eye-icon"></i></button>
         </div>
       </div>
       <button class="btn-login" id="login-btn" onclick="doLogin()"><span id="login-btn-label"><i class="ti ti-login"></i>Sign in</span><svg class="btn-check" viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></button>
@@ -1421,7 +1403,6 @@ html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
-    <div class="tab" onclick="switchTab('datarequests')" id="tab-datarequests" style="display:none"><i class="ti ti-file-certificate" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Data Requests<span class="badge" id="dsr-badge" style="display:none"></span></div>
   </div>
   <div class="side-foot"><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
 </nav>
@@ -1433,7 +1414,6 @@ html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3
       <option value="procurement" id="opt-procurement">🛒 Procurement</option>
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
-      <option value="datarequests" id="opt-datarequests" hidden>📋 Data Requests</option>
       <option value="sha" id="opt-sha" hidden>🩺 SHA Cover</option>
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
       <option value="report" id="opt-report">📋 Weekly Report</option>
@@ -1687,26 +1667,6 @@ html[data-theme="dark"] .dsr-status.in_progress{background:#142A45;color:#84AAE3
 </div></div>
 
 <!-- Data request -->
-<div class="modal-bg" id="dsr-modal"><div class="modal">
-  <h2>Log a data request</h2><div class="modal-sub">Record every request from a patient or their representative, then handle it before the due date.</div>
-  <div class="form-grid">
-    <div class="form-group full"><label for="dsr-type">Request type *</label><select id="dsr-type" onchange="dsrTypeChanged()">
-      <option value="access">Access: a copy of their data (7 days)</option>
-      <option value="rectification">Correction of wrong data (14 days)</option>
-      <option value="erasure">Erasure / deletion (14 days)</option>
-      <option value="objection">Objection to processing (14 days)</option>
-      <option value="restriction">Restriction of processing (14 days)</option>
-      <option value="portability">Portability: data in a usable format (30 days)</option></select></div>
-    <div class="form-group"><label for="dsr-name">Requester name *</label><input id="dsr-name" autocomplete="off"></div>
-    <div class="form-group"><label for="dsr-contact">Phone or email *</label><input id="dsr-contact" autocomplete="off"></div>
-    <div class="form-group full"><label for="dsr-patient">Patient record (IP number)</label><input id="dsr-patient" list="dsr-patient-list" placeholder="Start typing an IP number or name" autocomplete="off"><datalist id="dsr-patient-list"></datalist></div>
-    <div class="form-group"><label for="dsr-received">Received on *</label><input type="date" id="dsr-received" onchange="dsrTypeChanged()"></div>
-    <div class="form-group"><label for="dsr-due">Due by *</label><input type="date" id="dsr-due"></div>
-    <div class="form-group full"><label for="dsr-details">Details</label><textarea id="dsr-details" rows="3" placeholder="What was asked for, and how the requester's identity was checked"></textarea></div>
-  </div>
-  <div class="modal-err" id="dsr-error"><i class="ti ti-alert-circle"></i><span id="dsr-error-msg"></span></div>
-  <div class="modal-footer"><button class="btn" onclick="closeModal('dsr-modal')">Cancel</button><button class="btn btn-primary" onclick="saveDataRequest()"><i class="ti ti-check"></i> Save request</button></div>
-</div></div>
 
 <!-- User Modal -->
 <div class="modal-bg" id="user-modal"><div class="modal">
@@ -1876,7 +1836,6 @@ let pendingMovement = null;
 let editingPatientId = null;
 let editingSupplyId = null;
 let patientFilter = {search:'',status:[],gender:[],station:[],death:[]};
-let consents = {}, consentSetupError = null, consentsAt = 0, consentsTok = null;   // consents are re-fetched at most every 2 minutes (and after a save)   // patient id -> consent record (see renal_roads_consent.sql)
 let deathPlaces = {}, deathSetupError = null;   // patient id -> 'facility' | 'outside'
 let patientFilterOpenDropdown = null; // 'status' | 'gender' | 'station' | null
 let supplyFilter = {search:''};

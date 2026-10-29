@@ -979,6 +979,16 @@ table tr.proc-closed td:first-child{box-shadow:inset 5px 0 0 var(--gray-200)}
 .perm-item i{color:var(--navy);font-size:16px}
 .perm-item.perm-on{border-color:#8CC63F;background:var(--green-pale)}
 @media(max-width:520px){.perm-list{grid-template-columns:1fr}}
+:root{--pill-a-bg:var(--amber-pale);--pill-a-fg:#7A4510;--pill-g-bg:var(--green-pale);--pill-g-fg:#1E1D70;--pill-r-bg:#FCEBEB;--pill-r-fg:#791F1F}
+.pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:12px 2px 4px}
+.pg-info{font-size:12.5px;color:var(--gray-600)}
+.pg-nav{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.pg-btn{min-width:34px;height:34px;padding:0 9px;border:1.5px solid var(--gray-200);border-radius:9px;background:var(--white);color:var(--gray-800);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.pg-btn:hover:not(:disabled){background:var(--gray-100)}
+.pg-btn:disabled{opacity:.4;cursor:default}
+.pg-btn.pg-on{background:var(--navy);border-color:var(--navy);color:#fff}
+.pg-gap{color:var(--gray-400);padding:0 2px}
+@media print{.pager{display:none!important}}
 /* ── NOTIFICATION CENTER ── */
 .nc-bell{position:relative;width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(255,255,255,.25);background:transparent;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-family:inherit}
 .nc-bell:hover{background:rgba(255,255,255,.12)}
@@ -1084,7 +1094,8 @@ html[data-theme="dark"]{color-scheme:dark;
   --navy:#6E6DF0;--navy-dark:#5655D6;--navy-light:#8F8EFF;--navy-pale:#26284F;
   --green-pale:#27381B;--green-dark:#A8D860;
   --red:#FF6F61;--red-pale:#3B1E28;--amber:#F3A04D;--amber-pale:#3A2B1B;
-  --shadow:0 4px 24px rgba(0,0,0,.35);--shadow-lg:0 8px 40px rgba(0,0,0,.5)}
+  --shadow:0 4px 24px rgba(0,0,0,.35);--shadow-lg:0 8px 40px rgba(0,0,0,.5);
+  --pill-a-bg:#3A2B1B;--pill-a-fg:#F3A04D;--pill-g-bg:#27381B;--pill-g-fg:#BDE08A;--pill-r-bg:#3B1E28;--pill-r-fg:#FF9A8F}
 /* brand surfaces keep the original deep blue */
 html[data-theme="dark"] .topbar,html[data-theme="dark"] .login-bg,html[data-theme="dark"] .blob,html[data-theme="dark"] .dash-hero,html[data-theme="dark"] .btn-login{--navy:#2E2D9F;--navy-dark:#1E1D70;--navy-light:#4A49C4}
 html[data-theme="dark"] #login-page{background:#1E1D70}
@@ -1101,6 +1112,25 @@ html[data-theme="dark"] .nc-head{border-bottom-color:var(--gray-200)}
 html[data-theme="dark"] .nc-head-actions button{color:var(--navy-light)}
 html[data-theme="dark"] .nc-head-actions button:hover{background:var(--gray-100)}
 html[data-theme="dark"] .modal-bg{background:rgba(5,5,25,.66)}
+html[data-theme="dark"] .proc-legend i[style*="#FDECEA"]{background:#3B1E28!important}
+html[data-theme="dark"] .proc-legend i[style*="background:#fff"]{background:var(--white)!important}
+/* heparin page + home charts (their cards are styled by a stylesheet the page injects at run time) */
+html[data-theme="dark"] .hep-card{background:var(--white)}
+html[data-theme="dark"] .hep-stat,html[data-theme="dark"] .hep-cal-cell{background:var(--gray-100)}
+html[data-theme="dark"] .hep-cal-cell.hep-cal-empty{background:transparent}
+html[data-theme="dark"] .hep-cal-cell.hep-cal-over{background:#3A2B1B}
+html[data-theme="dark"] .hep-cal-over .hep-cal-val{color:#F3A04D}
+html[data-theme="dark"] .hep-form input,html[data-theme="dark"] .hep-form select,html[data-theme="dark"] .hep-top select{background:var(--gray-50);color:var(--gray-800);border-color:var(--gray-200)}
+html[data-theme="dark"] .hep-hubtabs button:not(.active){background:var(--white);color:var(--gray-800);border-color:var(--gray-200)}
+html[data-theme="dark"] .hep-svg text[fill="#5A5A88"],html[data-theme="dark"] .hep-svg g[fill="#5A5A88"]{fill:#B7BADB}
+html[data-theme="dark"] .hep-svg line[stroke="#D8D8EE"]{stroke:#34376A}
+html[data-theme="dark"] .hep-svg line[stroke="#9898BB"]{stroke:#6E719E}
+html[data-theme="dark"] .hep-svg rect[fill="#4A49C4"]{fill:#7C7BF2}
+html[data-theme="dark"] .hep-svg line[stroke="#C0392B"]{stroke:#FF7B6E}
+html[data-theme="dark"] .hep-svg text[fill="#C0392B"]{fill:#FF7B6E}
+html[data-theme="dark"] .home-donut path[fill="#2E2D9F"],html[data-theme="dark"] span[style*="background:#2E2D9F"]{fill:#7C7BF2;background:#7C7BF2!important}
+html[data-theme="dark"] .home-donut path[fill="#0F6656"],html[data-theme="dark"] span[style*="background:#0F6656"]{fill:#2BB39A;background:#2BB39A!important}
+html[data-theme="dark"] .home-donut path[fill="#C0392B"],html[data-theme="dark"] span[style*="background:#C0392B"]{fill:#E5594A;background:#E5594A!important}
 html[data-theme="dark"] .topbar{color:#fff}
 html[data-theme="dark"] .user-avatar{color:#fff}
 html[data-theme="dark"] .btn-logout{color:#fff}
@@ -5383,6 +5413,11 @@ function renderPatientsView(){
   const isAdmin=currentUser&&currentUser.role==='admin';
   const f=patientFilter;
   const filtered=getFilteredPatients();
+  const _pfKey=JSON.stringify(f); if(window.__pfKey!==_pfKey){ window.__pfKey=_pfKey; patientPage=1; }
+  const totalPages=Math.max(1,Math.ceil(filtered.length/PATIENT_PAGE_SIZE));
+  if(patientPage>totalPages) patientPage=totalPages;
+  if(patientPage<1) patientPage=1;
+  const shownPatients=patientExpandAll?filtered:filtered.slice((patientPage-1)*PATIENT_PAGE_SIZE, patientPage*PATIENT_PAGE_SIZE);
   const active=patients.filter(p=>p.status==='Active').length;
   const discharged=patients.filter(p=>p.status==='Discharged').length;
   const transferred=patients.filter(p=>p.status==='Transferred').length;
@@ -5413,16 +5448,43 @@ function renderPatientsView(){
   <div class="table-wrapper"><table>
     <thead><tr><th>IP No.</th><th>Name</th><th>ID No.</th><th>Phone</th><th>Next of Kin</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Access</th><th>Sessions/wk</th><th>Comorbidities</th><th>Station</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
   if(!filtered.length)h+=`<tr><td colspan="14"><div class="empty"><i class="ti ti-users"></i>No patients found</div></td></tr>`;
-  else filtered.forEach(p=>{
+  else shownPatients.forEach(p=>{
     const rc=p.status==='Deceased'?'row-deceased':p.status==='Discharged'?'row-discharged':p.status==='Transferred'?'row-transferred':p.status==='Transplant'?'row-transplant':'';
     const sc=p.status==='Active'?'s-active':p.status==='Discharged'?'s-discharged':p.status==='Transferred'?'s-transferred':p.status==='Transplant'?'s-transplant':'s-deceased';
     h+=`<tr class="${rc}"><td><strong>${repEsc(p.ip)}</strong></td><td>${repEsc(p.name)}${consentChips(p)}</td><td>${repEsc(p.id_no)||'—'}</td><td>${repEsc(p.phone)||'—'}</td><td>${p.next_of_kin_name?`${repEsc(p.next_of_kin_name)}${p.next_of_kin_phone?`<div style="font-size:11px;color:var(--text-2,#666)">${repEsc(p.next_of_kin_phone)}</div>`:''}`:'—'}</td><td>${calcAge(p)}</td><td>${repEsc(p.gender)||'—'}</td><td>${repEsc(p.blood_group)||'—'}</td><td>${repEsc(p.dialysis_access)||'—'}</td><td>${p.sessions_per_week||'—'}</td><td>${repEsc(p.comorbidities)||'—'}</td><td>${repEsc(p.station)||'—'}</td>
       <td><span class="status-badge ${sc}">${p.status}</span>${p.status==='Deceased'?`<div style="margin-top:4px">${deathChip(p.id)}</div>`:''}</td>
       <td style="white-space:nowrap">${!isViewer?`<button class="btn btn-sm" onclick="openEditPatient('${p.id}')"><i class="ti ti-edit"></i> Edit</button> ${p.status!=='Deceased'?`<button class="btn btn-sm" onclick="openDischargeSummary('${p.id}')"><i class="ti ti-file-text"></i> Discharge Summary</button>`:''}`:''} ${isAdmin?`<button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="ti ti-trash"></i></button>`:''}</td></tr>`;
   });
-  h+=`</tbody></table></div>`;
+  h+=`</tbody></table></div>${patientPagerHtml(filtered.length,totalPages,shownPatients.length)}`;
   renderMainPreserveFocus(h);
 }
+
+// ── Patient list paging: 50 per page, with an Expand button to show everyone at once ──
+const PATIENT_PAGE_SIZE=50;
+let patientPage=1, patientExpandAll=false;
+function patientPagerHtml(total,totalPages,shownCount){
+  if(!total) return '';
+  const from=patientExpandAll?1:(patientPage-1)*PATIENT_PAGE_SIZE+1;
+  const to=patientExpandAll?total:from+shownCount-1;
+  let nums='';
+  if(!patientExpandAll && totalPages>1){
+    const set=new Set([1,totalPages,patientPage-1,patientPage,patientPage+1]);
+    let last=0;
+    [...set].filter(n=>n>=1&&n<=totalPages).sort((a,b)=>a-b).forEach(n=>{
+      if(n-last>1) nums+='<span class="pg-gap">…</span>';
+      nums+=`<button class="pg-btn ${n===patientPage?'pg-on':''}" onclick="patientGoPage(${n})" ${n===patientPage?'aria-current="page"':''}>${n}</button>`;
+      last=n;
+    });
+  }
+  const nav=(!patientExpandAll&&totalPages>1)?`<div class="pg-nav"><button class="pg-btn" onclick="patientGoPage(${patientPage-1})" ${patientPage<=1?'disabled':''} aria-label="Previous page"><i class="ti ti-chevron-left"></i></button>${nums}<button class="pg-btn" onclick="patientGoPage(${patientPage+1})" ${patientPage>=totalPages?'disabled':''} aria-label="Next page"><i class="ti ti-chevron-right"></i></button></div>`:'<div></div>';
+  const toggle=total>PATIENT_PAGE_SIZE?`<button class="btn btn-sm" onclick="patientToggleAll()"><i class="ti ${patientExpandAll?'ti-arrows-minimize':'ti-arrows-maximize'}"></i> ${patientExpandAll?'Back to pages of '+PATIENT_PAGE_SIZE:'Expand: show all '+total}</button>`:'';
+  return `<div class="pager"><div class="pg-info">Showing ${from}–${to} of ${total} patient${total===1?'':'s'}${(!patientExpandAll&&totalPages>1)?` · Page ${patientPage} of ${totalPages}`:''}</div>${nav}${toggle}</div>`;
+}
+function patientGoPage(n){
+  patientPage=n; patientExpandAll=false; renderPatientsView();
+  const w=document.querySelector('#main-content .table-wrapper'); if(w) w.scrollIntoView({block:'start'});
+}
+function patientToggleAll(){ patientExpandAll=!patientExpandAll; patientPage=1; renderPatientsView(); }
 
 function openAddPatient(){
   editingPatientId=null;
@@ -6335,7 +6397,7 @@ async function renderRequests(){
       done.forEach(r=>{
         const ok=r.status==='approved', partial=ok&&r.dispensed_qty!=null&&r.dispensed_qty<r.qty;
         const label=partial?'partially approved':r.status;
-        const col=partial?['var(--amber-pale)','#7A4510']:ok?['var(--green-pale)','#1E1D70']:['#FCEBEB','#791F1F'];
+        const col=partial?['var(--pill-a-bg)','var(--pill-a-fg)']:ok?['var(--pill-g-bg)','var(--pill-g-fg)']:['var(--pill-r-bg)','var(--pill-r-fg)'];
         const detail=[ok&&r.dispensed_qty!=null?'Dispensed: '+r.dispensed_qty+(r.dispensed_brand?' ('+repEsc(r.dispensed_brand)+')':''):'',r.resolved_by?(ok?'Approved':'Rejected')+' by '+repEsc(r.resolved_by):'',r.resolved_at?new Date(r.resolved_at).toLocaleString():'',r.resolved_note?'Note: '+repEsc(r.resolved_note):''].filter(Boolean).join(' · ');
         h+=`<div class="request-card ${r.status}"><div><div style="font-weight:700">${r.supplies?repEsc(r.supplies.name):'Unknown'}</div><div style="font-size:12px;color:var(--gray-600)">Qty: ${r.qty} · By: ${repEsc(r.requested_by)||'Unknown'} · ${new Date(r.created_at).toLocaleString()}</div>${detail?`<div style="font-size:11px;color:var(--gray-600);margin-top:2px">${detail}</div>`:''}</div><span style="font-size:12px;padding:4px 12px;border-radius:20px;font-weight:700;background:${col[0]};color:${col[1]}">${label}</span></div>`;
       });

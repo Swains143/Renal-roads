@@ -730,7 +730,9 @@ input, select, textarea { font-weight: 500; font-family: 'Inter', system-ui, san
   /* break-BEFORE on every page after the first (not break-after on every page): with break-after the next page's
      letterhead started on the last pixel row of the previous page and showed as a thin stray line when the browser
      printed on a paper size other than A4. */
-  .rep-print-page{position:relative;page-break-after:auto;break-after:auto;page-break-inside:avoid}
+  /* No break-inside:avoid on the page wrapper: if a page ever measured a hair too tall, browsers would push the
+     whole wrapper to the next sheet and leave the first one blank. Letting it flow is always safe. */
+  .rep-print-page{position:relative;page-break-after:auto;break-after:auto}
   .rep-print-page + .rep-print-page{page-break-before:always;break-before:page}
   .rep-print-watermark{position:absolute;top:138.5mm;left:95mm;transform:translate(-50%,-50%);width:104.5mm;height:auto;z-index:0;pointer-events:none}
   .rep-letterhead-header,.rep-print-page-body{position:relative;z-index:1}
@@ -1284,7 +1286,6 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
   });
   window.addEventListener('afterprint',function(){
     marked.forEach(function(m){m[0].classList.remove(m[1]);}); marked=[];
-    var r=document.getElementById('rr-print-root'); if(r) r.innerHTML='';
   });
 })();
 </script>
@@ -2971,25 +2972,49 @@ function repMeasureAndPack(blocks, scale, opts){
   const safetyBufferPx = 12 * pxPerMm; // slack for print-vs-screen font metrics AND for the browser's own default print header/footer (date/title/URL/page-number) if the person hasn't disabled it in the print dialog's "More settings"
   const availableContentPx = pageHeightPx - 2*marginPx - headerHeightPx - gapPx - safetyBufferPx;
 
-  // Measure each block's height individually.
-  const heights = blocks.map(html => { meas.innerHTML = html; return meas.getBoundingClientRect().height; });
+  // Pack blocks greedily. A block that does not fit in the space left on the page is SPLIT BY TABLE ROWS (the
+  // continuation repeats the column headings) instead of being pushed whole to the next page — otherwise a tall
+  // table (e.g. Outpatients with long remarks) leaves the first page holding only the title.
+  const measure = html => { meas.innerHTML = html; return meas.getBoundingClientRect().height; };
+  const splitBlock = (html, room) => {
+    const box = document.createElement('div'); box.innerHTML = html;
+    const table = box.querySelector('table.rep-print-table');
+    if(!table || !table.tBodies.length) return null;
+    const rows = Array.from(table.tBodies[0].rows);
+    if(rows.length < 2) return null;
+    const build = (from, to, withLead) => {
+      const c = box.cloneNode(true);
+      const t = c.querySelector('table.rep-print-table');
+      const rs = Array.from(t.tBodies[0].rows);
+      rs.forEach((r,i) => { if(i < from || i >= to) r.remove(); });
+      if(!withLead){ // continuation: keep only the table (with its heading row), drop the section title / lead-in
+        Array.from(c.children).forEach(ch => { if(ch !== t && !ch.contains(t)) ch.remove(); });
+      }
+      return c.innerHTML;
+    };
+    let k = 0;
+    for(let n = 1; n < rows.length; n++){ if(measure(build(0, n, true)) <= room) k = n; else break; }
+    if(k === 0) return null;
+    return { first: build(0, k, true), rest: build(k, rows.length, false) };
+  };
+  const pages = [];
+  let current = [], currentHeight = 0;
+  const queue = blocks.slice();
+  while(queue.length){
+    const html = queue.shift();
+    const h = measure(html);
+    const room = availableContentPx - currentHeight;
+    if(h <= room || (!current.length && h <= availableContentPx)){ current.push(html); currentHeight += h; continue; }
+    const sp = splitBlock(html, room > 0 ? room : 0);
+    if(sp){ current.push(sp.first); pages.push(current); current = []; currentHeight = 0; queue.unshift(sp.rest); continue; }
+    if(current.length){ pages.push(current); current = []; currentHeight = 0; queue.unshift(html); continue; }
+    // Alone on an empty page and still too tall with nothing to split: let it flow across pages.
+    current.push(html); currentHeight += h;
+  }
+  if(current.length) pages.push(current);
   document.body.removeChild(meas);
   if(prevScale) document.documentElement.style.setProperty('--print-scale', prevScale);
   else document.documentElement.style.removeProperty('--print-scale');
-
-  // Greedily pack blocks into pages.
-  const pages = [];
-  let current = [], currentHeight = 0;
-  blocks.forEach((html, i) => {
-    const h = heights[i];
-    if(current.length && currentHeight + h > availableContentPx){
-      pages.push(current);
-      current = []; currentHeight = 0;
-    }
-    current.push(html);
-    currentHeight += h;
-  });
-  if(current.length) pages.push(current);
   if(pages.length === 0) pages.push(['']);
   return pages;
 }

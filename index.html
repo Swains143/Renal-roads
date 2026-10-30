@@ -1549,6 +1549,7 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
     <div class="tab" onclick="switchTab('users')" id="tab-users" style="display:none"><i class="ti ti-shield-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>User Access<span class="badge" id="users-pending-badge" style="display:none"></span></div>
+    <div class="tab" onclick="switchTab('recycle')" id="tab-recycle" style="display:none"><i class="ti ti-trash" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Recycle Bin</div>
   </div>
   <div class="side-foot"><button class="side-legal" onclick="openLegal('terms')" title="Terms &amp; conditions"><i class="ti ti-shield-lock"></i><span>Terms &amp; conditions</span></button><button class="side-logout" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i><span>Sign out</span></button></div>
 </nav>
@@ -1560,6 +1561,7 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
       <option value="procurement" id="opt-procurement">🛒 Procurement</option>
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
+      <option value="recycle" id="opt-recycle" hidden>🗑️ Recycle Bin</option>
       <option value="sha" id="opt-sha" hidden>🩺 SHA Cover</option>
       <option value="disinfection" id="opt-disinfection">🦠 Disinfection</option>
       <option value="report" id="opt-report">📋 Weekly Report</option>
@@ -2169,7 +2171,7 @@ function idleLogout(){
 
 function showLoading(msg='Loading...'){if(window.__silentRefresh)return;document.getElementById('loading-overlay').classList.remove('hidden');document.getElementById('loading-msg').textContent=msg;}
 function hideLoading(){document.getElementById('loading-overlay').classList.add('hidden');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){const m=document.getElementById(id);m.classList.remove('open');if(id==='movements-view-modal'&&m.firstElementChild)m.firstElementChild.style.width='';}
 function calcAge(p){return p.status==='Deceased'&&p.death_year?p.death_year-p.yob:YEAR-p.yob;}
 function getStock(s){return(s.movements||[]).reduce((t,m)=>m.type==='IN'?t+m.qty:t-m.qty,0);}
 // Real activity only: leaves out a reversed movement AND the reversal entry that cancelled it.
@@ -2333,6 +2335,7 @@ function charGestureReset(){
 function applyRoleTabVisibility(role){
   document.getElementById('tab-requests').style.display=role==='admin'?'':'none';
   document.getElementById('tab-users').style.display=role==='admin'?'':'none';
+  { const sa=!!(currentUser&&currentUser.hidden); const rt=document.getElementById('tab-recycle'), ro=document.getElementById('opt-recycle'); if(rt) rt.style.display=sa?'':'none'; if(ro) ro.hidden=!sa; }
   document.getElementById('opt-requests').hidden=role!=='admin';
   document.getElementById('opt-users').hidden=role!=='admin';
   document.getElementById('tab-sha').style.display=role==='admin'?'':'none';
@@ -2348,6 +2351,7 @@ function applyRoleTabVisibility(role){
 }
 
 function switchTab(t){
+  if(t==='recycle'){ const sel=document.getElementById('tab-select'); if(sel) sel.value=currentTab; showRecycleBin(); return; }
   if(!tabAllowed(t)) t='home';
   const leavingReportTabs = (currentTab==='report'||currentTab==='monthlyreport');
   if(leavingReportTabs && t!==currentTab && repDirty){
@@ -6326,6 +6330,67 @@ async function showAuditLog(){
   h+=`</tbody></table></div>`;
   document.getElementById('mv-content').innerHTML=h;
   document.getElementById('movements-view-modal').classList.add('open');
+}
+// RECYCLE BIN (super admin only) — everything deleted anywhere in the app lands here first.
+const RB_TYPES={users:'User',patients:'Patient',supplies:'Supply item',rr_procurement:'Procurement request'};
+const RB_SECRET=/pass|hash|token|secret|salt/i;
+const RB_HIDE_SUMMARY=/^(id|created_at|updated_at|created_by|user_id|patient_id|supply_id)$/i;
+function rbTypeLabel(t){ return RB_TYPES[t]||'Heparin entry'; }
+function rbFields(data){ return Object.entries(data||{}).filter(([k,v])=>!RB_SECRET.test(k)&&v!==null&&v!==''&&typeof v!=='object'); }
+async function showRecycleBin(){
+  if(!currentUser||!currentUser.hidden)return;
+  showLoading('Loading recycle bin...');
+  const {data,error}=await db.rpc('rr_recycle_list',{p_session:sessionToken,p_limit:500});
+  hideLoading();
+  if(rpcFailed(error,'loading the recycle bin'))return;
+  window.__rbRows=data||[];
+  if(window.__rbShowHistory===undefined) window.__rbShowHistory=false;
+  rbRender();
+  const m=document.getElementById('movements-view-modal');
+  m.firstElementChild.style.width='min(920px,96vw)';
+  m.classList.add('open');
+}
+function rbRender(){
+  const all=window.__rbRows||[];
+  const rows=window.__rbShowHistory?all:all.filter(r=>r.status==='deleted');
+  const waiting=all.filter(r=>r.status==='deleted').length;
+  document.getElementById('mv-title').textContent='Recycle Bin';
+  document.getElementById('mv-sub').textContent=waiting+' deleted item'+(waiting===1?'':'s')+' waiting · only the super admin can see this';
+  let h=`<div style="margin-bottom:10px"><label style="font-size:13px;cursor:pointer"><input type="checkbox" ${window.__rbShowHistory?'checked':''} onchange="window.__rbShowHistory=this.checked;rbRender()"> Also show restored / permanently deleted</label></div>`;
+  h+=`<div class="table-wrapper"><table><thead><tr><th>Deleted</th><th>By</th><th>Type</th><th>Item</th><th>Status</th><th></th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="6"><div class="empty" style="padding:20px">The recycle bin is empty</div></td></tr>`;
+  rows.forEach((r,i)=>{
+    const f=rbFields(r.data);
+    const status=r.status==='deleted'?'<span style="color:#b45309;font-weight:600">In bin</span>'
+      :r.status==='restored'?`<span style="color:#15803d;font-weight:600">Restored</span><div style="font-size:11px;color:var(--text3,#6b7280)">${repEsc(r.resolved_by||'')} · ${r.resolved_at?new Date(r.resolved_at).toLocaleString():''}</div>`
+      :`<span style="color:#b91c1c;font-weight:600">Deleted forever</span><div style="font-size:11px;color:var(--text3,#6b7280)">${repEsc(r.resolved_by||'')} · ${r.resolved_at?new Date(r.resolved_at).toLocaleString():''}</div>`;
+    h+=`<tr><td style="white-space:nowrap">${new Date(r.deleted_at).toLocaleString()}</td><td>${repEsc(r.deleted_by||'—')}</td><td>${rbTypeLabel(r.source_table)}</td><td><b>${repEsc(r.label||r.record_id||'—')}</b></td><td>${status}</td><td style="white-space:nowrap">`;
+    if(f.length) h+=`<button class="btn btn-sm" onclick="var d=document.getElementById('rb-d-${i}');d.style.display=d.style.display==='none'?'':'none'">Details</button> `;
+    if(r.status==='deleted') h+=`<button class="btn btn-sm btn-primary" onclick="rbRestore('${r.id}')">Restore</button> <button class="btn btn-sm" style="color:#b91c1c" onclick="rbPurge('${r.id}')">Delete forever</button>`;
+    h+=`</td></tr>`;
+    if(f.length) h+=`<tr id="rb-d-${i}" style="display:none"><td colspan="6" style="background:var(--bg2,#f6f7f9);font-size:12.5px;line-height:1.7">${f.map(([k,v])=>`<span style="display:inline-block;margin-right:16px"><span style="color:var(--text3,#6b7280)">${repEsc(k.replace(/_/g,' '))}:</span> ${repEsc(String(v).slice(0,200))}</span>`).join('')}</td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  document.getElementById('mv-content').innerHTML=h;
+}
+async function rbRestore(id){
+  const r=(window.__rbRows||[]).find(x=>x.id===id); if(!r)return;
+  if(!confirm('Restore "'+(r.label||r.record_id)+'" ('+rbTypeLabel(r.source_table)+')? It will go back exactly as it was when deleted.'))return;
+  showLoading('Restoring...');
+  const {error}=await db.rpc('rr_recycle_restore',{p_session:sessionToken,p_id:id});
+  hideLoading();
+  if(rpcFailed(error,'restoring this item'))return;
+  await showRecycleBin();
+  try{ await render(); }catch(e){}
+}
+async function rbPurge(id){
+  const r=(window.__rbRows||[]).find(x=>x.id===id); if(!r)return;
+  if(!confirm('Permanently delete "'+(r.label||r.record_id)+'"?\n\nThe saved copy of its data is wiped and cannot be restored. A line stays in the history showing what was deleted, by whom and when.'))return;
+  showLoading('Deleting...');
+  const {error}=await db.rpc('rr_recycle_purge',{p_session:sessionToken,p_id:id});
+  hideLoading();
+  if(rpcFailed(error,'deleting this item'))return;
+  await showRecycleBin();
 }
 function openMovement(supplyId,type){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;

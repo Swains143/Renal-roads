@@ -1334,6 +1334,8 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
 .user-avatar,.side-avatar{cursor:pointer;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;overflow:hidden}
 .user-avatar.has-photo,.side-avatar.has-photo{color:transparent!important;font-size:0!important}
 .side-avatar.has-photo{background-image:var(--pp-img)!important;background-color:transparent!important}
+/* profile photo/avatar lives in the sidebar only; #uav stays in the DOM because the sidebar copies its initials */
+.topbar-right .user-avatar{display:none!important}
 .user-avatar.has-photo{background-image:var(--pp-img)!important}
 .pp-preview{width:120px;height:120px;border-radius:50%;margin:6px auto 12px;background:var(--green,#8cc63f) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:700;color:#1E1D70;overflow:hidden}
 </style>

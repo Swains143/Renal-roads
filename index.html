@@ -1299,6 +1299,41 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
   margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:#fff!important;filter:none!important;opacity:1!important}
 .rr-pa{display:block!important;position:static!important;width:auto!important;margin:0!important;padding:0!important}
 </style>
+<style id="em-style">
+/* Emergency Trolley: cleaner forms */
+.em-page .form-group{display:flex;flex-direction:column;gap:5px;margin:0 0 12px}
+.em-page .form-group label{font-size:11px;font-weight:700;color:var(--gray-600);letter-spacing:.04em;text-transform:uppercase;margin:0}
+.em-page input:not([type=checkbox]),.em-page select,.em-page textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--gray-200);border-radius:10px;background:var(--white);color:var(--gray-800);font-size:13.5px;outline:none;transition:border-color .15s,box-shadow .15s}
+.em-page input:not([type=checkbox]):focus,.em-page select:focus,.em-page textarea:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(46,45,159,.14)}
+.em-page textarea{resize:vertical;min-height:64px;font-family:inherit}
+.em-page input[type=checkbox]{width:18px;height:18px;accent-color:var(--navy);flex-shrink:0;cursor:pointer}
+.em-form{max-width:760px;background:var(--white);border:1px solid var(--gray-200);border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(30,29,112,.05)}
+.em-form>p{margin:0 0 10px;line-height:1.45}
+.em-grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;align-items:start}
+@media(max-width:700px){.em-grid2{grid-template-columns:1fr}}
+.em-grid2>.form-group{margin:0 0 4px}
+.em-page .form-group.em-row{flex-direction:row;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:5px 10px;border:1px solid var(--gray-200);border-radius:9px;background:var(--navy-pale)}
+.em-page .form-group.em-row label{font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--gray-800)}
+.em-page .form-group.em-row select{width:84px;flex-shrink:0;padding:5px 8px;font-weight:600;font-size:12.5px}
+.em-page select[data-v=yes]{border-color:#16a34a;background:#e7f6ec;color:#166534}
+.em-page select[data-v=no]{border-color:#dc2626;background:#fdeaea;color:#991b1b}
+.em-form input:not([type=checkbox]),.em-form select,.em-form textarea{padding:8px 10px;font-size:13px}
+.em-form textarea{min-height:44px}
+.em-form .form-group{margin:0 0 10px}
+.em-form .btn-primary{margin-top:2px}
+.em-page .em-confirm{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0;padding:9px 12px;border:1px dashed var(--gray-200);border-radius:10px;font-size:13px}
+.em-page .em-confirm input[type=checkbox]{margin:0}
+.em-page .em-confirm input:not([type=checkbox]){flex:1;width:auto;min-width:200px}
+.em-page .btn-primary{padding:10px 20px;border-radius:10px;font-weight:700}
+.em-page details{border:1px solid var(--gray-200);border-radius:12px;padding:10px 14px;background:var(--white)}
+.em-page details>summary{cursor:pointer;margin:0}
+.em-page table input:not([type=checkbox]){padding:7px 9px;border-radius:8px}
+  .em-page .em-branch-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 13px;border-radius:20px;background:var(--navy);color:#fff;font-size:14px;font-weight:700}
+/* sidebar: no dots in front of Kigumo / Mobile Truck under Emergency Trolley */
+#side-sub-emergency::before,#side-sub-emergency .side-sub-item::before{display:none!important}
+#side-sub-emergency .side-sub-item{padding-left:40px}
+#side-sub-emergency .side-sub-item.active{background:rgba(255,255,255,.12)}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -1545,6 +1580,11 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
   </div>
   <div class="side-group"><div class="side-label">Others</div>
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
+    <div class="tab side-fac" onclick="emSideToggle()" id="tab-emergency"><i class="ti ti-heartbeat" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Emergency Trolley<i class="ti ti-chevron-down side-chev"></i></div>
+    <div class="side-sub" id="side-sub-emergency">
+      <div class="side-sub-item" data-em="Mobile Truck" onclick="emSideOpen('Mobile Truck')"><i class="ti ti-truck" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>Mobile Truck</div>
+      <div class="side-sub-item" data-em="Kigumo" onclick="emSideOpen('Kigumo')"><i class="ti ti-building-hospital" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>Kigumo</div>
+    </div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
@@ -1560,6 +1600,7 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
       <option value="supplies" id="opt-supplies">📦 Supplies</option>
       <option value="procurement" id="opt-procurement">🛒 Procurement</option>
       <option value="requests" id="opt-requests" hidden>🔔 Requests</option>
+      <option value="emergency" id="opt-emergency">🚑 Emergency Trolley</option>
       <option value="users" id="opt-users" hidden>🛡️ User Access</option>
       <option value="recycle" id="opt-recycle" hidden>🗑️ Recycle Bin</option>
       <option value="sha" id="opt-sha" hidden>🩺 SHA Cover</option>
@@ -2603,6 +2644,7 @@ async function _renderInner(){
   else if(currentTab==='sha' && currentUser && currentUser.role==='admin') await renderSha();
   else if(currentTab==='procurement' && currentUser && currentUser.role!=='viewer') await renderProcurement();
   else if(currentTab==='disinfection') await renderDisinfection();
+  else if(currentTab==='emergency') await renderEmergency();
   else if(currentTab==='report') await renderReport();
   else if(currentTab==='monthlyreport') await renderMonthlyReportTab();
 }
@@ -3774,6 +3816,7 @@ async function repLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function repSaveReport(status, silent){
+  if(facReadOnly(repFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(repFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('rep-statusMsg');
   const periodStart = document.getElementById('rep-periodStart').value;
   const periodEnd = document.getElementById('rep-periodEnd').value;
@@ -4258,6 +4301,7 @@ async function moLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function moSaveReport(status, silent){
+  if(facReadOnly(moFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(moFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('mo-statusMsg');
   const periodStart = document.getElementById('mo-periodStart').value;
   const periodEnd = document.getElementById('mo-periodEnd').value;
@@ -4682,6 +4726,7 @@ async function opLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function opSaveReport(status, silent){
+  if(facReadOnly(opFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(opFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('op-statusMsg');
   const periodStart = document.getElementById('op-periodStart').value;
   const periodEnd = document.getElementById('op-periodEnd').value;
@@ -6331,6 +6376,290 @@ async function showAuditLog(){
   document.getElementById('mv-content').innerHTML=h;
   document.getElementById('movements-view-modal').classList.add('open');
 }
+// EMERGENCY DRUGS & CRASH TROLLEY MODULE — all data lives in the database (rr_em_* tables), never in the browser.
+const EM={branch:'Kigumo',view:'dash',d:null};
+const EM_BR=['Kigumo','Mobile Truck'];   // the truck carries ONE emergency kit and serves these stations:
+const EM_STATIONS=['Kirwara','Gatura','Maragua'];
+const emStationField=()=>'';   // no station dropdown any more (truck included)
+const emStation=()=>{const e=document.getElementById('em-station');return e?e.value:'';};
+const EM_CHECKS=[['trolley_present','Emergency trolley available'],['seal_intact','Trolley seal intact'],['drugs_present','All prescribed emergency drugs present'],['qty_ok','Quantities match the approved standard'],['expiry_ok','Expiry dates checked — none expired'],['storage_ok','Storage conditions correct'],['oxygen_ok','Oxygen available, pressure adequate'],['suction_ok','Suction machine working'],['defib_ok','Defibrillator available and ready'],['equipment_ok','Emergency equipment available']];
+// Per-branch read-only flag set by the super admin (page access: 'em-ro-kigumo' / 'em-ro-truck'). Super admin is never read-only.
+const emReadOnly=(br)=>{ if(!currentUser) return true; if(currentUser.hidden) return false; const k=(br||EM.branch)==='Kigumo'?'em-ro-kigumo':'em-ro-truck'; return Array.isArray(window.__myPages)&&window.__myPages.includes(k); };
+// Sundays: the facility is closed, so no inspection is expected or recorded.
+const emSun=(iso)=>new Date(String(iso).slice(0,10)+'T00:00:00').getDay()===0;
+const emLocalIso=()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');};
+const emCanWrite=()=>!!currentUser&&(currentUser.role!=='viewer'||currentUser.hidden)&&!emReadOnly();
+const emIsAdmin=()=>!!currentUser&&(currentUser.role==='admin'||currentUser.hidden)&&!emReadOnly();
+function emExp(d){ if(!d)return {c:'#6b7280',t:'—',n:null}; const n=Math.floor((new Date(d+'T00:00:00')-new Date(new Date().toDateString()))/864e5);
+  return n<0?{c:'#6b7280',t:'Expired',n}:n<90?{c:'#dc2626',t:n+'d left',n}:n<=180?{c:'#d97706',t:n+'d left',n}:{c:'#16a34a',t:Math.floor(n/30)+' mo left',n}; }
+const emPill=(c,t)=>`<span style="background:${c};color:#fff;border-radius:10px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap">${repEsc(t)}</span>`;
+const emSt={ready:['#16a34a','Ready'],not_ready:['#dc2626','NOT READY'],incomplete:['#d97706','Incomplete']};
+function emCsv(name,rows){ const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"'; const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'})); a.download=name+'_'+EM.branch+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); }
+async function renderEmergency(){
+  showLoading('Loading emergency trolley...');
+  const [o,rq]=await Promise.all([db.rpc('rr_em_overview',{p_session:sessionToken,p_branch:EM.branch}),db.rpc('rr_em_req_list',{p_session:sessionToken,p_branch:EM.branch})]);
+  hideLoading();
+  if(rpcFailed(o.error,'loading the emergency trolley module'))return;
+  EM.d=o.data; EM.reqs=rq.error?[]:(rq.data||[]); emDraw();
+}
+function emDraw(){
+  const d=EM.d, drugs=(d.drugs||[]).filter(x=>x.active), today=new Date().toISOString().slice(0,10);
+  const low=drugs.filter(x=>x.usable<x.min_level), exp90=drugs.flatMap(x=>(x.batches||[]).filter(b=>b.qty>0&&emExp(b.expiry).n!==null&&emExp(b.expiry).n>=0&&emExp(b.expiry).n<90)),
+        expired=drugs.flatMap(x=>(x.batches||[]).filter(b=>b.qty>0&&emExp(b.expiry).n<0)), tod=(d.daily||[]).find(x=>String(x.check_date)===today);
+  const wk=(d.weekly||[])[0], wkNow=wk&&(Date.now()-new Date(wk.created_at))<7*864e5;
+  const crit=drugs.filter(x=>x.critical&&x.usable<x.trolley_qty);
+  const nav=[['dash','Dashboard'],['daily','Daily check'],['use','Record usage'],['weekly','Weekly verification'],['req','Replenishment'],['stock','Drugs & stock'],['monthly','Monthly review'],['all','All branches'],['ledger','Ledger & reports']];
+  const card=(l,v,c)=>`<div style="flex:1;min-width:130px;background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-left:4px solid ${c};border-radius:10px;padding:10px 12px"><div style="font-size:22px;font-weight:700">${v}</div><div style="font-size:12px;color:var(--text3,#6b7280)">${l}</div></div>`;
+  let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px"><h2 style="margin:0 12px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="em-branch-pill"><i class="ti ${EM.branch==='Kigumo'?'ti-building-hospital':'ti-truck'}"></i> ${EM.branch}</span><span><i class="ti ti-heartbeat"></i> Emergency Trolley</span></h2>
+    <select onchange="EM.branch=this.value;renderEmergency()">${EM_BR.map(b=>`<option ${b===EM.branch?'selected':''}>${b}</option>`).join('')}</select>${emReadOnly()?emPill('#6b7280','View only'):''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${nav.map(([k,l])=>`<button class="btn ${EM.view===k?'btn-primary':''}" onclick="EM.view='${k}';emDraw()">${l}</button>`).join('')}</div>`;
+  if(crit.length) h+=`<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600"><i class="ti ti-alert-triangle"></i> CRITICAL drugs below trolley quantity: ${crit.map(x=>repEsc(x.name)+' ('+x.usable+'/'+x.trolley_qty+')').join(', ')} — trolley is NOT ready. Replenish now.</div>`;
+  if(EM.view==='dash'){
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">${card('Registered drugs',drugs.length,'#1e3a8a')}${card('Below minimum',low.length,low.length?'#dc2626':'#16a34a')}${card('Expiring < 90 days',exp90.length,exp90.length?'#d97706':'#16a34a')}${card('Expired (unusable)',expired.length,expired.length?'#6b7280':'#16a34a')}${card("Today's daily check",tod?(emSt[tod.status]||[0,tod.status])[1]:(emSun(emLocalIso())?'CLOSED (Sunday)':'NOT DONE'),tod&&tod.status==='ready'?'#16a34a':(!tod&&emSun(emLocalIso())?'#9ca3af':'#dc2626'))}${card('Open replenishment requests',(EM.reqs||[]).filter(emOpen).length,(EM.reqs||[]).filter(emOpen).length?'#d97706':'#16a34a')}${card('Weekly verification',wkNow?(wk.discrepancies?wk.discrepancies+' discrepancies':'Done'):'Due',wkNow&&!wk.discrepancies?'#16a34a':'#d97706')}</div>`;
+    h+=`<h3>Daily check — last 31 days</h3><div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px">${[...Array(31)].map((_,i)=>{const dt=new Date(Date.now()-(30-i)*864e5).toISOString().slice(0,10);const r=(d.daily||[]).filter(x=>String(x.check_date)===dt).sort((a,b)=>a.checked_at<b.checked_at?1:-1)[0];const sun=!r&&emSun(dt);const c=r?emSt[r.status][0]:(sun?'#bfdbfe':'#d1d5db');return `<span title="${new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}: ${r?emSt[r.status][1]:(sun?'closed (Sunday)':'no check')}" style="width:30px;height:34px;border-radius:5px;background:${c};color:${r?'#fff':'#374151'};font-size:10px;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:center"><b>${+dt.slice(8,10)}</b><span style="font-size:8px">${new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2)}</span></span>`;}).join('')}</div><div style="font-size:11.5px;color:var(--text3,#6b7280);margin-bottom:14px">Green ready · Red not ready · Amber incomplete · Grey no check recorded (a missed day stays visible) · Light blue Sunday, closed</div>`;
+    h+=`<h3>Emergency drugs</h3>`+emDrugTable(drugs);
+    h+=`<h3 style="margin-top:16px">Recent usage</h3><div class="table-wrapper"><table><thead><tr><th>When</th>${(d.usage||[]).some(u=>u.detail&&u.detail.station)?'<th>Station</th>':''}<th>Drug</th><th>Qty</th><th>By</th><th>Ref</th></tr></thead><tbody>${(d.usage||[]).map(u=>`<tr><td>${new Date(u.at).toLocaleString()}</td>${(d.usage||[]).some(x=>x.detail&&x.detail.station)?'<td>'+repEsc((u.detail&&u.detail.station)||'—')+'</td>':''}<td>${repEsc(u.name)}</td><td>${u.kind==='shortfall'?'<b style="color:#dc2626">shortfall</b>':-u.delta}</td><td>${repEsc(u.by_user)}</td><td>${repEsc(u.ref)}</td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">No usage recorded</div></td></tr>'}</tbody></table></div>`;
+    h+=`<h3 style="margin-top:16px">Recent daily checks</h3><div class="table-wrapper"><table><thead><tr><th>Date</th>${(d.daily||[]).some(r=>r.station)?'<th>Station</th>':''}<th>Nurse</th><th>Status</th><th>Flags</th></tr></thead><tbody>${(d.daily||[]).slice(0,10).map(r=>`<tr><td>${new Date(r.checked_at).toLocaleString()}</td>${(d.daily||[]).some(x=>x.station)?'<td>'+repEsc(r.station||'—')+'</td>':''}<td>${repEsc(r.nurse)}</td><td>${emPill(emSt[r.status][0],emSt[r.status][1])}</td><td style="font-size:12px">${(r.flags||[]).map(repEsc).join('; ')||'—'}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty" style="padding:14px">No checks yet</div></td></tr>'}</tbody></table></div>`;
+  } else if(EM.view==='daily'){
+    h+=emSun(emLocalIso())?'<div class="empty">Today is Sunday — the facility is closed, so no daily check is recorded. Checks resume on Monday.</div>':emCanWrite()?`<div class="em-form"><div style="font-weight:700;font-size:14px;margin-bottom:4px"><i class="ti ti-calendar"></i> ${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})} · ${EM.branch}</div><p style="color:var(--text3,#6b7280);font-size:12px">One record per inspection — it can never be edited or overwritten. Unanswered items make the check “Incomplete”.</p>
+      <div class="em-grid2">${EM_CHECKS.map(([k,l])=>`<div class="form-group em-row"><label>${l}</label><select id="emd-${k}" onchange="this.dataset.v=this.value"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select></div>`).join('')}</div>
+      <div class="em-grid2" style="margin-top:10px"><div class="form-group"><label>Seal number</label><input id="emd-seal_no"></div><div class="form-group"><label>Oxygen pressure</label><input id="emd-oxygen_pressure" placeholder="e.g. reading on gauge"></div>
+      <div class="form-group"><label>Missing, damaged or expired items</label><textarea id="emd-issues" rows="2"></textarea></div><div class="form-group"><label>Corrective actions</label><textarea id="emd-actions" rows="2"></textarea></div></div>
+      <div class="em-confirm"><input type="checkbox" id="emd-confirm"><label for="emd-confirm" style="cursor:pointer;font-size:13px">I confirm this inspection was done by me</label><input id="emd-signname" autocomplete="off" placeholder="Type your full name here *"></div>
+      <button class="btn btn-primary" onclick="emDailySubmit()">Submit daily check</button></div>`:'<div class="empty">Your role is view-only.</div>';
+  } else if(EM.view==='use'){
+    h+=emCanWrite()?`<div class="em-form"><p style="color:var(--text3,#6b7280);font-size:12px">Stock is taken from the batch expiring first (FEFO); expired and quarantined stock is never used. This form never blocks treatment — give the drug first, document after.</p>
+      <div class="em-grid2"><div class="form-group"><label>Drug *</label><select id="emu-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)} ${repEsc(x.strength||'')} — usable ${x.usable}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Quantity used *</label><input type="number" min="1" id="emu-qty"></div>
+      ${[['patient','Patient identification number'],['incident','Emergency incident reference'],['dose','Dose administered'],['route','Route'],['authoriser','Authorising clinician'],['docref','Clinical documentation reference']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emu-${k}"></div>`).join('')}</div>
+      <div class="form-group"><label>Remarks</label><input id="emu-remarks"></div>
+      <button class="btn btn-primary" onclick="emUse()">Record usage</button></div>`:'<div class="empty">Your role is view-only.</div>';
+  } else if(EM.view==='weekly'){
+    h+=emCanWrite()?`<p style="color:var(--text3,#6b7280);font-size:13px">Count what is physically on the trolley/store. The system quantity is fixed by the server; differences are flagged automatically.</p><div class="table-wrapper"><table><thead><tr><th>Drug</th><th>System qty</th><th>Physical count</th><th>Batch / expiry / condition notes</th></tr></thead><tbody>${drugs.map(x=>`<tr data-id="${x.id}"><td>${repEsc(x.name)} ${repEsc(x.strength||'')}</td><td>${x.onhand}</td><td><input type="number" min="0" style="width:90px" class="emw-ph"></td><td><input class="emw-note" style="width:100%"></td></tr>`).join('')||'<tr><td colspan="4"><div class="empty" style="padding:14px">No drugs registered</div></td></tr>'}</tbody></table></div>
+      <div class="form-group" style="margin-top:10px"><label>Verification comments</label><textarea id="emw-comments" rows="2"></textarea></div><div class="em-confirm"><input type="checkbox" id="emw-confirm"><label for="emw-confirm" style="cursor:pointer;font-size:13px">I confirm this count was done by me</label><input id="emw-signname" autocomplete="off" placeholder="Type your full name here *"></div><button class="btn btn-primary" onclick="emWeekly()">Submit weekly verification</button>
+      <h3 style="margin-top:16px">Previous verifications</h3><div class="table-wrapper"><table><thead><tr><th>Date</th><th>By</th><th>Discrepancies</th></tr></thead><tbody>${(d.weekly||[]).map(w=>`<tr><td>${new Date(w.created_at).toLocaleString()}</td><td>${repEsc(w.verified_by)}</td><td>${w.discrepancies?emPill('#dc2626',w.discrepancies+' found'):emPill('#16a34a','None')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Your role is view-only.</div>';
+  } else if(EM.view==='stock'){
+    h+=emIsAdmin()?`<details style="margin-bottom:12px"><summary class="btn">+ Add emergency drug</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px">${[['name','Drug name *'],['generic_name','Generic name'],['category','Category'],['strength','Strength'],['form','Dosage form'],['unit','Unit'],['min_level','Minimum stock'],['trolley_qty','Required trolley qty'],['storage','Storage requirements'],['location','Storage location']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emg-${k}"></div>`).join('')}<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="emg-critical"> Critical drug</label></div><p style="font-size:12px;color:var(--text3,#6b7280)">Drug list, minimums and quantities must come from the approved clinical protocol — nothing is pre-filled.</p><button class="btn btn-primary" onclick="emDrugAdd()">Save drug</button></details>
+      <details style="margin-bottom:12px"><summary class="btn">+ Receive stock (batch)</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px"><div class="form-group"><label>Drug *</label><select id="emr-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)}</option>`).join('')}</select></div><div class="form-group"><label>Batch no.</label><input id="emr-batch"></div><div class="form-group"><label>Expiry *</label><input type="date" id="emr-exp"></div><div class="form-group"><label>Quantity *</label><input type="number" min="1" id="emr-qty"></div><div class="form-group"><label>Manufacturer</label><input id="emr-man"></div><div class="form-group"><label>Supplier</label><input id="emr-sup"></div></div><button class="btn btn-primary" onclick="emReceive()">Record received stock</button></details>`:'';
+    h+=emDrugTable(drugs,true);
+  } else if(EM.view==='req'){ h+=emReqView();
+  } else if(EM.view==='monthly'){ h+=`<div class="form-group" style="display:flex;gap:8px;align-items:end"><div><label>Month</label><input type="month" id="em-month" value="${(EMM&&String(EMM.month).slice(0,7))||new Date().toISOString().slice(0,7)}"></div><button class="btn btn-primary" onclick="emMonthly()">Generate</button></div><div id="em-monthly"></div>`;
+  } else if(EM.view==='all'){ h+='<div id="em-all"></div>';
+  } else if(EM.view==='ledger'){
+    const m0=emRange();
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px"><div class="form-group" style="margin:0"><label>From</label><input type="date" id="em-from" value="${m0.from}"></div><div class="form-group" style="margin:0"><label>To</label><input type="date" id="em-to" value="${m0.to}"></div>
+      <button class="btn btn-primary" onclick="emDrugRegisterXlsx()"><i class="ti ti-file-spreadsheet"></i> Emergency Drug Register (Excel)</button><button class="btn btn-primary" onclick="emInspectionRegisterXlsx()"><i class="ti ti-file-spreadsheet"></i> Trolley Inspection Register (Excel)</button></div>
+      <p style="font-size:12px;color:var(--text3,#6b7280);margin:0 0 12px">Drug Register: drugs, batches, quantities, expiry, stock summary, movements and weekly counts. Inspection Register: every daily check with each item, seal, nurse and signature, plus a day-by-day compliance sheet (missed days are listed). The dates choose the reporting period.</p><div id="em-ledger"></div>`;
+  }
+  document.getElementById('main-content').innerHTML='<div class="em-page">'+h+'</div>';
+  if(EM.view==='ledger') emLedger();
+  if(EM.view==='monthly') emMonthly();
+  if(EM.view==='all') emAll();
+}
+function emDrugTable(drugs,manage){
+  let h=`<div class="table-wrapper"><table><thead><tr><th>Drug</th><th>Usable</th><th>Trolley qty</th><th>Min</th><th>Batches (FEFO order)</th><th>Status</th></tr></thead><tbody>`;
+  if(!drugs.length) h+=`<tr><td colspan="6"><div class="empty" style="padding:16px">No emergency drugs registered for this branch yet. The clinical lead adds them under “Drugs &amp; stock”.</div></td></tr>`;
+  drugs.forEach(x=>{ const short=x.usable<x.trolley_qty, low=x.usable<x.min_level;
+    h+=`<tr><td><b>${repEsc(x.name)}</b> ${x.critical?emPill('#991b1b','critical'):''}<div style="font-size:11.5px;color:var(--text3,#6b7280)">${repEsc([x.strength,x.form,x.location].filter(Boolean).join(' · '))}</div></td><td><b style="color:${short?'#dc2626':'inherit'}">${x.usable}</b></td><td>${x.trolley_qty}</td><td>${x.min_level}</td><td>${(x.batches||[]).map(b=>{const e=emExp(b.expiry);return `<div style="margin:2px 0">${emPill(b.quarantined?'#6b7280':e.c,b.quarantined?'Quarantined':e.t)} ${repEsc(b.batch_no||'no batch')} · ${b.qty} · ${b.expiry}${manage?` <a href="#" onclick="emBatchAct('${b.id}',${b.qty});return false">manage</a>`:''}</div>`}).join('')||'—'}</td><td>${low?emPill('#dc2626','Low stock'):short?emPill('#d97706','Below trolley qty'):emPill('#16a34a','OK')}</td></tr>`;});
+  return h+`</tbody></table></div>`;
+}
+async function emCall(fn,args,what,ok){ if(emReadOnly()){ alert('You have view-only access to the '+EM.branch+' emergency trolley.'); return null; } showLoading('Saving...'); const {data,error}=await db.rpc(fn,Object.assign({p_session:sessionToken},args)); hideLoading(); if(rpcFailed(error,what))return null; if(ok)alert(ok); return data===null?true:data; }
+async function emDailySubmit(){
+  if(emSun(emLocalIso())){alert('Closed on Sundays — no daily check is recorded.');return;}
+  const sign=(document.getElementById('emd-signname').value||'').trim();
+  if(!document.getElementById('emd-confirm').checked){alert('Please tick the box to confirm this inspection was done by you.');return;}
+  if(sign.length<3){alert('Please type your full name — it is required.');document.getElementById('emd-signname').focus();return;}
+  const a={signed_name:sign}; EM_CHECKS.forEach(([k])=>a[k]=document.getElementById('emd-'+k).value); a.seal_no=document.getElementById('emd-seal_no').value; a.oxygen_pressure=document.getElementById('emd-oxygen_pressure').value;
+  const r=await emCall('rr_em_daily_submit',{p_branch:EM.branch,p_answers:a,p_issues:document.getElementById('emd-issues').value,p_actions:document.getElementById('emd-actions').value,p_confirmed:document.getElementById('emd-confirm').checked},'saving the daily check');
+  if(!r)return; alert('Daily check saved: '+(emSt[r.status]||[0,r.status])[1].toUpperCase()+((r.flags||[]).length?'\n\n'+r.flags.join('\n'):'')); EM.view='dash'; renderEmergency();
+}
+async function emUse(){
+  const g=k=>document.getElementById('emu-'+k).value, q=parseInt(g('qty'),10); if(!g('drug')||!(q>0)){alert('Choose the drug and enter the quantity used.');return;}
+  const r=await emCall('rr_em_use',{p_drug:g('drug'),p_qty:q,p_detail:{station:emStation(),patient:g('patient'),incident:g('incident'),dose:g('dose'),route:g('route'),authoriser:g('authoriser'),doc_ref:g('docref'),remarks:g('remarks')}},'recording the usage');
+  if(!r)return; alert('Recorded ('+r.ref+'). '+r.deducted+' deducted from stock.'+(r.shortfall?'\n\nWARNING: '+r.shortfall+' more than usable stock was used — raise a replenishment/adjustment.':'')); EM.view='dash'; renderEmergency();
+}
+async function emWeekly(){
+  const lines=[...document.querySelectorAll('tr[data-id]')].map(tr=>({drug_id:tr.dataset.id,physical:tr.querySelector('.emw-ph').value,note:tr.querySelector('.emw-note').value}));
+  if(lines.some(l=>l.physical==='')){alert('Enter a physical count for every drug (0 if none).');return;}
+  const sign=(document.getElementById('emw-signname').value||'').trim();
+  if(!document.getElementById('emw-confirm').checked){alert('Please tick the box to confirm this count was done by you.');return;}
+  if(sign.length<3){alert('Please type your full name — it is required.');document.getElementById('emw-signname').focus();return;}
+  const cm=document.getElementById('emw-comments').value.trim();
+  const r=await emCall('rr_em_weekly_submit',{p_branch:EM.branch,p_lines:lines,p_comments:'Counted by (typed name): '+sign+(cm?'\n'+cm:''),p_confirmed:document.getElementById('emw-confirm').checked},'saving the weekly verification');
+  if(!r)return; alert(r.discrepancies?r.discrepancies+' stock discrepanc'+(r.discrepancies>1?'ies':'y')+' found — please investigate; an administrator can correct stock with a documented adjustment.':'Verification saved. Physical stock matches the system.'); EM.view='dash'; renderEmergency();
+}
+async function emDrugAdd(){
+  const g=k=>document.getElementById('emg-'+k).value, drug={branch:EM.branch,critical:document.getElementById('emg-critical').checked};
+  ['name','generic_name','category','strength','form','unit','min_level','trolley_qty','storage','location'].forEach(k=>drug[k]=g(k)); if(!drug.name.trim()){alert('Drug name is required.');return;}
+  if(await emCall('rr_em_drug_save',{p_drug:drug},'saving the drug')) renderEmergency();
+}
+async function emReceive(){
+  const g=k=>document.getElementById('emr-'+k).value; if(!g('exp')||!(parseInt(g('qty'),10)>0)){alert('Expiry date and quantity are required.');return;}
+  if(await emCall('rr_em_receive',{p_drug:g('drug'),p_batch:g('batch'),p_expiry:g('exp'),p_qty:parseInt(g('qty'),10),p_manufacturer:g('man'),p_supplier:g('sup')},'receiving stock')) renderEmergency();
+}
+async function emBatchAct(id,qty){
+  const c=prompt('Type: discard, adjust, quarantine or release'); if(!c)return; const why=prompt('Reason (required):'); if(!why||!why.trim())return;
+  let ok=null;
+  if(c==='discard'){ const n=parseInt(prompt('Quantity to discard (max '+qty+'):'),10); if(n>0) ok=await emCall('rr_em_discard',{p_batch:id,p_qty:n,p_reason:why},'discarding'); }
+  else if(c==='adjust'){ if(!emIsAdmin()){alert('Administrator only.');return;} const n=parseInt(prompt('Correct quantity for this batch:'),10); if(n>=0) ok=await emCall('rr_em_adjust',{p_batch:id,p_new_qty:n,p_reason:why},'adjusting'); }
+  else if(c==='quarantine'||c==='release') ok=await emCall('rr_em_batch_quarantine',{p_batch:id,p_on:c==='quarantine',p_reason:why},'updating the batch');
+  if(ok) renderEmergency();
+}
+async function emLedger(){
+  const {data,error}=await db.rpc('rr_em_ledger_list',{p_session:sessionToken,p_branch:EM.branch,p_from:null,p_to:null}); if(rpcFailed(error,'loading the ledger'))return;
+  EM.ledger=data||[]; const el=document.getElementById('em-ledger'); if(!el)return;
+  el.innerHTML=`<h3>Stock ledger (latest 2,000 movements)</h3><div class="table-wrapper"><table><thead><tr><th>When</th><th>Ref</th><th>Type</th><th>Drug</th><th>Batch</th><th>Change</th><th>By</th><th>Reason / details</th></tr></thead><tbody>${EM.ledger.map(l=>`<tr><td>${new Date(l.at).toLocaleString()}</td><td>${repEsc(l.ref)}</td><td>${l.kind}</td><td>${repEsc(l.drug||'')}</td><td>${repEsc(l.batch_no||'')}</td><td>${l.delta>0?'+':''}${l.delta}</td><td>${repEsc(l.by_user)}</td><td style="font-size:12px">${repEsc(l.reason||'')} ${l.detail&&l.detail.station?'· '+repEsc(l.detail.station)+' ':''}${l.detail&&l.detail.patient?'· patient '+repEsc(l.detail.patient):''} ${l.detail&&l.detail.incident?'· incident '+repEsc(l.detail.incident):''}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty" style="padding:14px">No movements yet</div></td></tr>'}</tbody></table></div>`;
+}
+// EXCEL REGISTERS — two styled workbooks: Emergency Drug Register and Emergency Trolley Inspection Register.
+const EM_NAVY='1E3A8A', EM_FILL={green:'C6F6D5',amber:'FEEBC8',red:'FED7D7',grey:'E5E7EB'};
+function emRange(){ const f=document.getElementById('em-from'),t=document.getElementById('em-to'); const d=new Date(); 
+  return {from:(f&&f.value)||new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10), to:(t&&t.value)||d.toISOString().slice(0,10)}; }
+function emCellFill(v){ const s=String(v==null?'':v);
+  if(/^(Ready|Yes)$/.test(s)) return s==='Yes'?null:EM_FILL.green; if(/NOT READY|^No$|NO CHECK|Failed|CRITICAL|Low stock/.test(s)) return EM_FILL.red;
+  if(/Incomplete|Not answered/.test(s)) return EM_FILL.amber; if(/^Expired|Quarantined/.test(s)) return EM_FILL.grey;
+  const m=s.match(/^(\d+)d left$/); if(m) return +m[1]<90?EM_FILL.red:EM_FILL.amber; if(/ mo left$/.test(s)) return EM_FILL.green; return null; }
+async function emBook(sheets,fn){
+  try{await needLib('xlsx');}catch(e){alert('The Excel export tool could not load. Check your internet connection and try again.');return;}
+  const wb=XLSX.utils.book_new(), thin={style:'thin',color:{rgb:'BFC5D2'}}, bd={top:thin,bottom:thin,left:thin,right:thin};
+  sheets.forEach(sh=>{
+    const meta=[['Benacare Renal Roads — '+sh.title],['Branch',EM.branch],['Reporting period',sh.period||'Current stock position'],['Generated',new Date().toLocaleString()],['Prepared by',(currentUser&&currentUser.name)||'']];
+    const aoa=[...meta,[],sh.headers,...sh.rows], hr=meta.length+1, ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=sh.headers.map((h,i)=>({wch:Math.min(48,Math.max(String(h).length+2,...sh.rows.slice(0,200).map(r=>String(r[i]==null?'':r[i]).length+2),10))}));
+    ws['A1'].s={font:{bold:true,sz:14,color:{rgb:EM_NAVY}}}; for(let r=1;r<meta.length;r++){const a=ws[XLSX.utils.encode_cell({r,c:0})]; if(a)a.s={font:{bold:true}};}
+    sh.headers.forEach((h,c)=>{ws[XLSX.utils.encode_cell({r:hr,c})].s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:EM_NAVY}},alignment:{wrapText:true,vertical:'center'},border:bd};});
+    sh.rows.forEach((row,ri)=>row.forEach((v,c)=>{const a=ws[XLSX.utils.encode_cell({r:hr+1+ri,c})]; if(!a)return; const f=emCellFill(v);
+      a.s={border:bd,alignment:{wrapText:true,vertical:'top'}}; if(f){a.s.fill={fgColor:{rgb:f}};a.s.font={bold:true};} }));
+    ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:hr,c:0},e:{r:hr+Math.max(sh.rows.length,1),c:sh.headers.length-1}})};
+    ws['!freeze']={xSplit:0,ySplit:hr+1,topLeftCell:'A'+(hr+2),activePane:'bottomLeft',state:'frozen'};
+    XLSX.utils.book_append_sheet(wb,ws,sh.name);
+  });
+  XLSX.writeFile(wb,fn);
+}
+const emYN=v=>v==='yes'?'Yes':v==='no'?'No':'Not answered';
+async function emDrugRegisterXlsx(){
+  const {from,to}=emRange(); showLoading('Preparing Emergency Drug Register...');
+  const [L,W]=await Promise.all([db.rpc('rr_em_ledger_list',{p_session:sessionToken,p_branch:EM.branch,p_from:from,p_to:null}),db.rpc('rr_em_weekly_list',{p_session:sessionToken,p_branch:EM.branch,p_from:from,p_to:to})]);
+  hideLoading(); if(rpcFailed(L.error,'loading the ledger')||rpcFailed(W.error,'loading weekly verifications'))return;
+  const drugs=EM.d.drugs||[], led=L.data||[], inRange=l=>l.at.slice(0,10)<=to, period=from+' to '+to;
+  const reg=[]; drugs.forEach(x=>{ const bs=(x.batches||[]).length?x.batches:[null]; bs.forEach(b=>{ const e=b?emExp(b.expiry):{t:'—',n:null};
+    reg.push([x.name,x.generic_name||'',x.category||'',x.strength||'',x.form||'',x.unit||'',b?b.batch_no||'':'',b?b.manufacturer||'':'',b?b.supplier||'':'',b?b.received_on||'':'',b?b.expiry:'',e.n==null?'':e.n,b&&b.quarantined?'Quarantined':e.t,b?b.qty:0,b&&!b.quarantined&&e.n>=0?'Yes':'No',x.usable,x.trolley_qty,x.min_level,x.usable<x.min_level?'Low stock':'OK',x.critical?'Yes':'',x.storage||'',x.location||'',x.active?'Active':'Inactive']); }); });
+  const sum=drugs.map(x=>{ const mine=led.filter(l=>l.drug===x.name), after=mine.reduce((t,l)=>t+l.delta,0), within=mine.filter(inRange), s=k=>within.filter(l=>l.kind===k).reduce((t,l)=>t+l.delta,0);
+    const open=x.onhand-after, rec=s('receive'), used=-s('use'), disc=-s('discard'), adj=s('adjust'); return [x.name,x.strength||'',open,rec,used,disc,adj,open+rec-used-disc+adj,x.usable,x.trolley_qty,x.min_level]; });
+  const mov=led.filter(inRange).map(l=>{const d=l.detail||{};return [new Date(l.at).toLocaleString(),l.ref,l.kind==='receive'?'Received':l.kind==='use'?'Administered':l.kind==='discard'?'Discarded':l.kind==='adjust'?'Adjustment':'Shortfall',l.drug||'',l.batch_no||'',l.delta,l.by_user,l.reason||'',d.station||'',d.patient||'',d.incident||'',d.dose||'',d.route||'',d.authoriser||'',d.doc_ref||'',d.remarks||''];});
+  const wk=[]; (W.data||[]).forEach(w=>(w.lines||[]).forEach(l=>wk.push([new Date(w.created_at).toLocaleString(),w.verified_by,l.drug,l.system,l.physical,l.diff,l.diff?'Discrepancy':'Match',l.note||'',w.comments||'',w.signed_by||''])));
+  await emBook([
+    {name:'Drug Register',title:'Emergency Drug Register',headers:['Drug','Generic name','Category','Strength','Dosage form','Unit','Batch no.','Manufacturer','Supplier','Date received','Expiry date','Days to expiry','Expiry status','Batch qty','Usable?','Total usable qty','Trolley qty required','Minimum stock','Stock status','Critical','Storage requirements','Storage location','Active'],rows:reg},
+    {name:'Stock Summary',title:'Emergency Drug Stock Summary (Closing = Opening + Received − Used − Discarded ± Adjustments)',period,headers:['Drug','Strength','Opening stock','Received','Used','Discarded','Adjustments','Closing stock','Usable now','Trolley qty required','Minimum stock'],rows:sum},
+    {name:'Stock Movements',title:'Emergency Drug Stock Movements',period,headers:['Date & time','Reference','Type','Drug','Batch','Change','Recorded by','Reason','Station','Patient no.','Incident ref','Dose','Route','Authorising clinician','Clinical doc ref','Remarks'],rows:mov},
+    {name:'Weekly Verifications',title:'Weekly Physical Stock Verifications',period,headers:['Date & time','Verified by','Drug','System qty','Physical qty','Difference','Result','Batch / condition notes','Comments','Signed by'],rows:wk}
+  ],'Emergency_Drug_Register_'+EM.branch.replace(/\s+/g,'_')+'_'+to+'.xlsx');
+}
+async function emInspectionRegisterXlsx(){
+  const {from,to}=emRange(); showLoading('Preparing Inspection Register...');
+  const {data,error}=await db.rpc('rr_em_daily_list',{p_session:sessionToken,p_branch:EM.branch,p_from:from,p_to:to});
+  hideLoading(); if(rpcFailed(error,'loading the inspection register'))return;
+  const rows=data||[], tr=EM.branch==='Mobile Truck'&&rows.some(r=>(r.answers||{}).station), period=from+' to '+to, st={ready:'Ready',not_ready:'NOT READY',incomplete:'Incomplete'};
+  const reg=rows.map(r=>{const a=r.answers||{};return [String(r.check_date),new Date(r.checked_at).toLocaleTimeString(),...(tr?[a.station||'']:[]),r.nurse,...EM_CHECKS.map(([k])=>emYN(a[k])),a.seal_no||'',a.oxygen_pressure||'',r.issues||'',r.actions||'',(r.flags||[]).join('; '),st[r.status]||r.status,r.signed_by||'NOT SIGNED'];});
+  const days=[]; for(let d=new Date(from+'T00:00:00');d<=new Date(to+'T00:00:00');d.setDate(d.getDate()+1)){ const k=new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10), mine=rows.filter(r=>String(r.check_date)===k), last=mine[mine.length-1];
+    days.push([k,d.toLocaleDateString('en-GB',{weekday:'short'}),mine.length,last?st[last.status]:(emSun(k)?'CLOSED (Sunday)':'NO CHECK'),last?last.nurse:'',last?(last.flags||[]).join('; '):'']); }
+  const openN=days.filter(d=>!emSun(d[0])).length, done=days.filter(d=>d[2]>0&&!emSun(d[0])).length, ready=days.filter(d=>d[3]==='Ready').length;
+  await emBook([
+    {name:'Inspection Register',title:'Emergency Trolley Inspection Register',period,headers:['Date','Time',...(tr?['Station']:[]),'Nurse on duty',...EM_CHECKS.map(c=>c[1]),'Seal number','Oxygen pressure','Missing / damaged / expired items','Corrective actions','System flags','Trolley status','Electronic signature'],rows:reg},
+    {name:'Daily Compliance',title:'Daily Inspection Compliance — '+done+' of '+openN+' open days checked (Sundays closed), '+ready+' ready',period,headers:['Date','Day','Checks recorded','Latest status','Nurse','Flags'],rows:days}
+  ],'Emergency_Trolley_Inspection_Register_'+EM.branch.replace(/\s+/g,'_')+'_'+to+'.xlsx');
+}
+// REPLENISHMENT WORKFLOW, MONTHLY REVIEW, ALL-BRANCH VIEW
+const EM_RS={requested:['#d97706','Requested'],reviewed:['#2563eb','Reviewed'],approved:['#16a34a','Approved'],rejected:['#dc2626','Rejected'],received:['#7c3aed','Stock received'],confirmed:['#15803d','Trolley replenished']};
+const emOpen=r=>!['confirmed','rejected'].includes(r.status);
+function emReqView(){
+  const drugs=(EM.d.drugs||[]).filter(x=>x.active), reqs=EM.reqs||[], pending=new Set(reqs.filter(emOpen).map(r=>r.drug_id));
+  const short=drugs.filter(x=>x.usable<x.trolley_qty&&!pending.has(x.id)), w=emCanWrite(), adm=emIsAdmin();
+  let h=`<p style="color:var(--text3,#6b7280);font-size:13px">Flow: nurse requests → nurse in charge reviews → administrator approves → stores records the stock received → nurse confirms the trolley is replenished.</p>`;
+  if(short.length&&w) h+=`<div style="background:#fff7ed;border:1px solid #d97706;border-radius:10px;padding:10px 14px;margin-bottom:12px"><b>Suggested requests</b> (below trolley quantity, no open request)<div style="margin-top:6px">${short.map(x=>`<div style="margin:3px 0">${repEsc(x.name)} — usable ${x.usable}/${x.trolley_qty} <button class="btn btn-sm" onclick="emReqNew('${x.id}',${x.trolley_qty-x.usable})">Request ${x.trolley_qty-x.usable}</button></div>`).join('')}</div></div>`;
+  if(w&&drugs.length) h+=`<button class="btn" style="margin-bottom:12px" onclick="emReqNew()">+ Manual request</button>`;
+  h+=`<div class="table-wrapper"><table><thead><tr><th>Ref / date</th><th>Drug</th><th>Qty</th><th>Reason</th><th>Status</th><th>Trail</th><th></th></tr></thead><tbody>`+(reqs.map(r=>{const s=EM_RS[r.status],btn=[];
+    if(r.status==='requested'&&w)btn.push(`<button class="btn btn-sm btn-primary" onclick="emReqAct('review','${r.id}')">Review</button>`);
+    if(r.status==='reviewed'&&adm)btn.push(`<button class="btn btn-sm btn-primary" onclick="emReqAct('approve','${r.id}')">Approve</button> <button class="btn btn-sm" style="color:#b91c1c" onclick="emReqAct('reject','${r.id}')">Reject</button>`);
+    if(r.status==='approved'&&adm)btn.push(`<button class="btn btn-sm btn-primary" onclick="emReqAct('receive','${r.id}',${r.qty})">Record stock received</button>`);
+    if(r.status==='received'&&w)btn.push(`<button class="btn btn-sm btn-primary" onclick="emReqAct('confirm','${r.id}')">Confirm trolley replenished</button>`);
+    const t=[['Requested',r.requested_by,r.requested_at],['Reviewed',r.reviewed_by,r.reviewed_at],[r.status==='rejected'?'Rejected':'Approved',r.decided_by,r.decided_at],['Received',r.received_by,r.received_at],['Confirmed',r.confirmed_by,r.confirmed_at]].filter(x=>x[1]).map(x=>`${x[0]}: ${repEsc(x[1])} ${new Date(x[2]).toLocaleDateString()}`).join('<br>');
+    return `<tr><td style="white-space:nowrap">${repEsc(r.ref||'')}<div style="font-size:11.5px;color:var(--text3,#6b7280)">${new Date(r.requested_at).toLocaleDateString()}</div></td><td>${repEsc(r.drug)} ${repEsc(r.strength||'')}</td><td>${r.qty}</td><td style="font-size:12px">${repEsc(r.reason||'')}${r.decision_note?'<br><i>'+repEsc(r.decision_note)+'</i>':''}</td><td>${emPill(s[0],s[1])}</td><td style="font-size:11.5px">${t}</td><td>${btn.join('')}</td></tr>`;}).join('')||'<tr><td colspan="7"><div class="empty" style="padding:14px">No replenishment requests</div></td></tr>')+`</tbody></table></div>`;
+  return h;
+}
+// The person doing a step must TYPE their own name (never pre-filled); the step is cancelled if they don't.
+function emAskName(what){
+  for(;;){ const n=prompt('Type your full name to '+what+' (required):'); if(n===null)return null;
+    if(n.trim().length>=3&&/[A-Za-z]/.test(n)) return n.trim(); alert('Please type your full name — it cannot be left blank.'); }
+}
+// Replenishment request form (one screen: drug dropdown, quantity, reason, your typed name)
+function emReqNew(drug,qty){
+  const drugs=(EM.d.drugs||[]).filter(x=>x.active); if(!drugs.length){alert('No emergency drugs are registered for this branch yet.');return;}
+  let m=document.getElementById('em-req-modal');
+  if(!m){ m=document.createElement('div'); m.className='modal-bg'; m.id='em-req-modal'; document.body.appendChild(m); }
+  const reasons=['Used during an emergency','Expired','Damaged or compromised','Below trolley quantity','Stock discrepancy','Other'];
+  m.innerHTML=`<div class="modal" style="width:min(480px,94vw)"><h2>Replenishment request</h2><div class="modal-sub">${repEsc(EM.branch)} — goes to the nurse in charge for review, then to the administrator for approval.</div>
+    <div class="form-group"><label>Drug *</label><select id="emq-drug">${drugs.map(x=>`<option value="${x.id}" ${x.id===drug?'selected':''}>${repEsc(x.name)} ${repEsc(x.strength||'')} — usable ${x.usable}/${x.trolley_qty}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Quantity needed *</label><input type="number" min="1" id="emq-qty" value="${qty>0?qty:''}"></div>
+    <div class="form-group"><label>Reason *</label><select id="emq-reason">${reasons.map(r=>`<option ${r===(drug?'Below trolley quantity':'')?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Details (optional)</label><input id="emq-note" placeholder="e.g. used on patient at Gatura station"></div>
+    <div class="form-group"><label>Your full name * <span style="font-weight:400;color:var(--text3,#6b7280)">(type it yourself)</span></label><input id="emq-name" autocomplete="off"></div>
+    <div id="emq-err" style="color:#b91c1c;font-size:13px;min-height:18px"></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('em-req-modal')">Cancel</button><button class="btn btn-primary" id="emq-go" onclick="emReqSubmit()">Submit request</button></div></div>`;
+  m.classList.add('open'); setTimeout(()=>{const e=document.getElementById(drug?'emq-qty':'emq-drug'); if(e)e.focus();},50);
+}
+async function emReqSubmit(){
+  const g=k=>document.getElementById('emq-'+k).value, q=parseInt(g('qty'),10), nm=g('name').trim(), err=document.getElementById('emq-err');
+  if(!(q>0)){err.textContent='Enter the quantity needed.';return;}
+  if(nm.length<3||!/[A-Za-z]/.test(nm)){err.textContent='Type your full name — it cannot be left blank.';return;}
+  const why=g('reason')+(g('note').trim()?': '+g('note').trim():'');
+  const ok=await emCall('rr_em_req_create',{p_branch:EM.branch,p_drug:g('drug'),p_qty:q,p_reason:why,p_name:nm},'creating the request');
+  if(ok){ closeModal('em-req-modal'); EM.view='req'; renderEmergency(); }
+}
+async function emReqAct(a,id,qty){
+  let ok=null;
+  if(a==='review'){ const nm=emAskName('record that you reviewed this request'); if(!nm)return; ok=await emCall('rr_em_req_review',{p_id:id,p_name:nm},'reviewing'); }
+  else if(a==='approve'||a==='reject'){ const n=prompt(a==='approve'?'Approval note (optional):':'Reason for rejecting:')||''; if(a==='reject'&&!n.trim())return; const nm=emAskName(a==='approve'?'approve this request':'reject this request'); if(!nm)return; ok=await emCall('rr_em_req_decide',{p_id:id,p_approve:a==='approve',p_note:n,p_name:nm},'saving the decision'); }
+  else if(a==='receive'){ const b=prompt('Batch number:'); if(b===null)return; const e=prompt('Expiry date (YYYY-MM-DD):'); if(!/^\d{4}-\d{2}-\d{2}$/.test(e||'')){alert('Enter the expiry as YYYY-MM-DD.');return;} const q=parseInt(prompt('Quantity received:',qty),10); if(!(q>0))return;
+    const nm=emAskName('record this stock as received'); if(!nm)return;
+    ok=await emCall('rr_em_req_receive',{p_id:id,p_batch:b,p_expiry:e,p_qty:q,p_manufacturer:'',p_supplier:'',p_name:nm},'recording received stock'); }
+  else if(a==='confirm'){ const nm=emAskName('confirm the trolley has been replenished'); if(!nm)return; ok=await emCall('rr_em_req_confirm',{p_id:id,p_name:nm},'confirming'); }
+  if(ok) renderEmergency();
+}
+// ---- charts (plain SVG, no library) ----
+function emBars(items,color){ if(!items.length)return '<div class="empty" style="padding:12px">No data</div>'; const mx=Math.max(1,...items.map(i=>i[1])), w=Math.max(520,items.length*60);
+  return `<div style="overflow-x:auto"><svg width="${w}" height="190" role="img">${items.map((i,k)=>{const bh=Math.round(i[1]/mx*130),x=k*60+10;return `<rect x="${x}" y="${150-bh}" width="38" height="${bh}" rx="4" fill="${color}"/><text x="${x+19}" y="${144-bh}" text-anchor="middle" font-size="11" fill="currentColor">${i[1]}</text><text x="${x+19}" y="168" text-anchor="middle" font-size="10.5" fill="currentColor">${repEsc(String(i[0]).slice(0,9))}</text>`;}).join('')}</svg></div>`; }
+let EMM=null;
+async function emMonthly(){
+  const el=document.getElementById('em-monthly'); const mi=document.getElementById('em-month'); const month=(mi&&mi.value)||new Date().toISOString().slice(0,7);
+  showLoading('Building monthly review...'); const {data,error}=await db.rpc('rr_em_monthly',{p_session:sessionToken,p_branch:EM.branch,p_month:month+'-01'}); hideLoading(); if(rpcFailed(error,'building the monthly review'))return; EMM=data;
+  const dr=data.drugs||[], days=data.days, by={}; (data.daily||[]).forEach(x=>by[String(x.d).slice(8,10)]=x.s);
+  const low=dr.filter(x=>x.usable<x.min_level), card=(l,v,c)=>`<div style="flex:1;min-width:140px;background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-left:4px solid ${c};border-radius:10px;padding:10px 12px"><div style="font-size:21px;font-weight:700">${v}</div><div style="font-size:12px;color:var(--text3,#6b7280)">${l}</div></div>`;
+  const mp=String(data.month).slice(0,7), isSun=k=>emSun(mp+'-'+k), openDays=[...Array(days)].filter((_,i)=>!isSun(String(i+1).padStart(2,'0'))).length;
+  const wkExp=Math.ceil(days/7), checked=Object.keys(by).filter(k=>!isSun(k)).length, ready=Object.values(by).filter(s=>s==='ready').length, ls=data.last_status;
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button class="btn btn-primary" onclick="emMonthlyXlsx()"><i class="ti ti-file-spreadsheet"></i> Monthly Management Report (Excel)</button></div>
+   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">${card('Drugs registered',dr.length,'#1e3a8a')}${card('Daily checks (Sundays closed)',checked+' / '+openDays+' open days',checked>=openDays?'#16a34a':'#d97706')}${card('Days trolley ready',ready,'#16a34a')}${card('Weekly verifications',data.weekly_done+' / '+wkExp,data.weekly_done>=wkExp?'#16a34a':'#d97706')}${card('Stock discrepancies',data.weekly_disc,data.weekly_disc?'#dc2626':'#16a34a')}${card('Low stock',low.length,low.length?'#dc2626':'#16a34a')}${card('Expiring < 90 d',(data.expiring||[]).length,(data.expiring||[]).length?'#d97706':'#16a34a')}${card('Expired',(data.expired||[]).length,(data.expired||[]).length?'#6b7280':'#16a34a')}${card('Open requests',data.open_requests,data.open_requests?'#d97706':'#16a34a')}${card('Trolley status now',ls?emSt[ls][1]:'No check',ls==='ready'?'#16a34a':'#dc2626')}</div>
+   <h3>Daily inspection compliance</h3><div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:14px">${[...Array(days)].map((_,i)=>{const k=String(i+1).padStart(2,'0'),s=by[k],sun=!s&&isSun(k);return `<span title="${k}: ${s?emSt[s][1]:(sun?'closed (Sunday)':'no check')}" style="width:26px;height:26px;border-radius:5px;background:${s?emSt[s][0]:(sun?'#bfdbfe':'#d1d5db')};color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center">${i+1}</span>`;}).join('')}</div>
+   <h3>Drugs administered this month</h3>${emBars(dr.map(x=>[x.name,x.used]),'#1e3a8a')}
+   <h3 style="margin-top:14px">Stock movement</h3><div class="table-wrapper"><table><thead><tr><th>Drug</th><th>Opening</th><th>Received</th><th>Used</th><th>Discarded</th><th>Adjust.</th><th>Closing</th><th>Usable</th></tr></thead><tbody>${dr.map(x=>`<tr><td>${repEsc(x.name)} ${repEsc(x.strength||'')}</td><td>${x.opening}</td><td>${x.received}</td><td>${x.used}</td><td>${x.discarded}</td><td>${x.adjust}</td><td><b>${x.closing}</b></td><td>${x.usable}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty" style="padding:14px">No drugs registered</div></td></tr>'}</tbody></table></div>`;
+}
+async function emMonthlyXlsx(){ if(!EMM)return; const d=EMM, p=String(d.month).slice(0,7), st={ready:'Ready',not_ready:'NOT READY',incomplete:'Incomplete'}, by={}; (d.daily||[]).forEach(x=>by[String(x.d)]=x.s);
+  const dd=[...Array(d.days)].map((_,i)=>{const k=p+'-'+String(i+1).padStart(2,'0');return [k,by[k]?st[by[k]]:(emSun(k)?'CLOSED (Sunday)':'NO CHECK')];}), dr=d.drugs||[], openDays=dd.filter(x=>!emSun(x[0])).length, checked=Object.keys(by).filter(k=>!emSun(k)).length, ready=Object.values(by).filter(s=>s==='ready').length, wkExp=Math.ceil(d.days/7);
+  await emBook([
+   {name:'Summary',title:'Monthly Emergency Drug Management Review',period:p,headers:['Measure','Value'],rows:[['Emergency drugs registered',dr.length],['Daily inspections completed (Sundays closed)',checked+' of '+openDays+' open days'],['Days trolley was ready',ready],['Weekly verifications completed',d.weekly_done+' of '+wkExp],['Stock discrepancies found',d.weekly_disc],['Low-stock items',dr.filter(x=>x.usable<x.min_level).length],['Drugs expiring within 90 days',(d.expiring||[]).length],['Expired drugs on hand',(d.expired||[]).length],['Outstanding replacement requests',d.open_requests],['Latest trolley readiness',d.last_status?st[d.last_status]:'NO CHECK']]},
+   {name:'Stock Movement',title:'Monthly Stock Movement (Closing = Opening + Received − Used − Discarded ± Adjustments)',period:p,headers:['Drug','Strength','Opening stock','Received','Used','Discarded','Adjustments','Closing stock','Usable now','Trolley qty required','Minimum stock','Stock status'],rows:dr.map(x=>[x.name,x.strength||'',x.opening,x.received,x.used,x.discarded,x.adjust,x.closing,x.usable,x.trolley_qty,x.min_level,x.usable<x.min_level?'Low stock':'OK'])},
+   {name:'Expiring & Expired',title:'Drugs Requiring Replacement',period:'Position at '+new Date().toLocaleDateString(),headers:['Drug','Batch','Expiry date','Qty','Status'],rows:[...(d.expired||[]).map(x=>[x.drug,x.batch||'',x.expiry,x.qty,'Expired']),...(d.expiring||[]).map(x=>[x.drug,x.batch||'',x.expiry,x.qty,emExp(x.expiry).t])]},
+   {name:'Daily Compliance',title:'Daily Inspection Compliance',period:p,headers:['Date','Latest status'],rows:dd}
+  ],'Emergency_Monthly_Review_'+EM.branch.replace(/\s+/g,'_')+'_'+p+'.xlsx'); }
+async function emAll(){
+  const el=document.getElementById('em-all'); showLoading('Loading all branches...'); const out=[];
+  for(const b of EM_BR){ const [o,r]=await Promise.all([db.rpc('rr_em_overview',{p_session:sessionToken,p_branch:b}),db.rpc('rr_em_req_list',{p_session:sessionToken,p_branch:b})]); if(rpcFailed(o.error,'loading '+b))break; out.push([b,o.data,r.data||[]]); }
+  hideLoading(); const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="table-wrapper"><table><thead><tr><th>Branch</th><th>Today's check</th><th>Trolley readiness</th><th>Drugs</th><th>Below min</th><th>Short of trolley qty</th><th>Expiring &lt;90d</th><th>Expired</th><th>Open requests</th></tr></thead><tbody>`+out.map(([b,d,rq])=>{const dr=(d.drugs||[]).filter(x=>x.active),t=(d.daily||[]).find(x=>String(x.check_date)===today),last=(d.daily||[])[0],bs=dr.flatMap(x=>x.batches||[]).filter(x=>x.qty>0),crit=dr.some(x=>x.critical&&x.usable<x.trolley_qty);
+    const ready=last&&last.status==='ready'&&!crit; const n=(f)=>bs.filter(x=>{const e=emExp(x.expiry).n;return f(e);}).length;
+    return `<tr><td><b>${b}</b></td><td>${t?emPill(emSt[t.status][0],emSt[t.status][1]):(emSun(emLocalIso())?emPill('#9ca3af','CLOSED (Sunday)'):emPill('#dc2626','NOT DONE'))}</td><td>${ready?emPill('#16a34a','Ready'):emPill('#dc2626',crit?'Critical drug short':'Not ready')}</td><td>${dr.length}</td><td>${dr.filter(x=>x.usable<x.min_level).length}</td><td>${dr.filter(x=>x.usable<x.trolley_qty).length}</td><td>${n(e=>e>=0&&e<90)}</td><td>${n(e=>e<0)}</td><td>${rq.filter(emOpen).length}</td></tr>`;}).join('')+`</tbody></table></div><p style="font-size:12px;color:var(--text3,#6b7280)">Mobile Truck covers Kirwara, Gatura and Maragua stations. Switch branch above to see the detail.</p>`;
+}
+
 // RECYCLE BIN (super admin only) — everything deleted anywhere in the app lands here first.
 const RB_TYPES={users:'User',patients:'Patient',supplies:'Supply item',rr_procurement:'Procurement request'};
 const RB_SECRET=/pass|hash|token|secret|salt/i;
@@ -7464,7 +7793,7 @@ async function renderHeparin(){
   showLoading('Loading heparin data...');
   await Promise.all([hepLoadHub(hepState.hub), hepLoadEntries(hepState.hub)]);
   hideLoading();
-  const mc=document.getElementById('main-content'), isAdmin=currentUser&&currentUser.role==='admin', viewer=currentUser&&currentUser.role==='viewer';
+  const mc=document.getElementById('main-content'), ro=facReadOnly(hepState.hub), isAdmin=currentUser&&currentUser.role==='admin'&&!ro, viewer=(currentUser&&currentUser.role==='viewer')||ro;
   const hubLabel=(HEP_HUBS.find(h=>h.key===hepState.hub)||{}).label||'';
   const hubTabs=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px"><div><h2 style="margin:0 0 2px;font-size:17px;font-family:'Lora',serif;color:var(--navy)">Heparin usage</h2><div style="font-size:12px;color:var(--gray-400)">${hubLabel} · daily usage log, trend &amp; forecast</div></div><span class="rep-fac-pill">${hubLabel}</span></div>`;
   if(hepSetupError){
@@ -7501,6 +7830,7 @@ async function renderHeparin(){
      </div>${hepEntriesCard()}</div>`;
 }
 async function hepSave(){
+  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const hub=hepState.hub, g=id=>document.getElementById(id).value.trim();
   const date=g('hep-date'),qty=parseInt(g('hep-qty')),note=g('hep-note'),today=hepLocalToday();
   const limit=hepLimits[hub]||null;
@@ -7518,6 +7848,7 @@ async function hepSave(){
   await renderHeparin();
 }
 async function hepSaveLimit(){
+  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const v=document.getElementById('hep-daily-limit').value;
   hepLimits[hepState.hub]=v?parseInt(v):null;
   showLoading('Saving...');
@@ -7794,7 +8125,7 @@ async function hepLoadEntries(hub){
   hepEntries[hub]=(data&&data.rows)||[];
 }
 function hepEntriesCard(){
-  if(!(currentUser&&currentUser.role==='admin')) return '';
+  if(!(currentUser&&currentUser.role==='admin')||facReadOnly(hepState.hub)) return '';
   if(hepEntriesErr) return `<div class="hep-card"><h2>Recorded entries</h2><div style="font-size:12px;color:var(--red)">Editing isn't set up yet. Run <code>heparin_edit_setup.sql</code> once in the Supabase SQL Editor, then reload.<br><span style="opacity:.8">${repEsc(hepEntriesErr)}</span></div></div>`;
   const rows=(hepEntries[hepState.hub]||[]).slice(0,40);
   const body=rows.length?rows.map(r=>{
@@ -7815,6 +8146,7 @@ function hepEditOpen(id){
   document.getElementById('hep-edit-modal').classList.add('open');
 }
 async function hepEditSave(){
+  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const err=m=>{document.getElementById('hep-edit-error-msg').textContent=m;document.getElementById('hep-edit-error').classList.add('show');};
   const date=document.getElementById('hep-edit-date').value, qty=parseInt(document.getElementById('hep-edit-qty').value), note=document.getElementById('hep-edit-note').value.trim();
   if(!date||date>hepLocalToday()){err('Choose today or an earlier date.');return;}
@@ -7827,6 +8159,7 @@ async function hepEditSave(){
   await renderHeparin();
 }
 async function hepDelete(id){
+  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const r=(hepEntries[hepState.hub]||[]).find(x=>String(x[hepEntriesPk])===id); if(!r) return;
   if(!confirm(`Delete the entry of ${r.qty} vials on ${String(r.usage_date).slice(0,10)}? This cannot be undone.`)) return;
   showLoading('Deleting...');
@@ -8245,6 +8578,35 @@ function sideSyncReports(){
   sideSyncReports();
 })();
 
+
+// ── Sidebar: Emergency Trolley with a Kigumo / Mobile Truck dropdown ──
+function emSideToggle(){
+  const sb=document.getElementById('app-sidebar');
+  if(sb&&sb.classList.contains('collapsed')&&window.innerWidth>680&&typeof toggleSidebarCollapse==='function') toggleSidebarCollapse();
+  const h=document.getElementById('tab-emergency'); if(!h) return;
+  h.classList.toggle('is-open');
+  setTimeout(()=>{if(typeof moveSideIndicator==='function')moveSideIndicator(true);},30);
+}
+function emSideOpen(branch){
+  if(typeof closeSidebar==='function') closeSidebar();
+  if(currentTab==='emergency'){ if(EM.branch!==branch){ EM.branch=branch; renderEmergency(); } return; }
+  const prev=EM.branch; EM.branch=branch; EM.view='dash'; switchTab('emergency');
+  if(currentTab!=='emergency') EM.branch=prev;
+}
+let emSideWasOn=false;
+function emSideSync(){
+  const on=currentTab==='emergency', h=document.getElementById('tab-emergency');
+  document.querySelectorAll('#side-sub-emergency .side-sub-item').forEach(it=>it.classList.toggle('active',on&&it.dataset.em===EM.branch));
+  if(h&&on&&!emSideWasOn) h.classList.add('is-open');   // auto-open on entering; never re-open after you close it
+  emSideWasOn=on;
+}
+(function(){
+  const h=document.getElementById('tab-emergency'); if(h) new MutationObserver(emSideSync).observe(h,{attributes:true,attributeFilter:['class']});
+  const orig=window.renderEmergency;
+  if(typeof orig==='function') window.renderEmergency=async function(){ const r=await orig.apply(this,arguments); emSideSync(); return r; };
+  emSideSync();
+})();
+
 // ── Sidebar: profile card, menu search, group visibility ──
 function sideRefreshGroups(){
   document.querySelectorAll('#app-sidebar .side-group').forEach(g=>{
@@ -8581,13 +8943,59 @@ const PAGE_DEFS=[
   {k:'fac-kigumo',label:'Kigumo reports',icon:'ti-building-hospital'},
   {k:'doctorreport',label:"Doctor's Report",icon:'ti-stethoscope'},
   {k:'disinfection',label:'Disinfection',icon:'ti-virus'},
+  {k:'emergency',label:'Emergency Trolley',icon:'ti-heartbeat'},
+  {k:'fac-ro-kigumo',label:'Kigumo reports & heparin VIEW ONLY (no editing)',icon:'ti-eye'},
+  {k:'fac-ro-truck',label:'Mobile Truck reports & heparin VIEW ONLY (no editing)',icon:'ti-eye'},
+  {k:'em-ro-kigumo',label:'Emergency Trolley: Kigumo VIEW ONLY (no editing)',icon:'ti-eye'},
+  {k:'em-ro-truck',label:'Emergency Trolley: Mobile Truck VIEW ONLY (no editing)',icon:'ti-eye'},
   {k:'sha',label:'SHA Cover',icon:'ti-shield-check',adminOnly:true}
 ];
+
+// ── View-only access per facility for reports & heparin (page access 'fac-ro-kigumo' / 'fac-ro-truck') ──
+function facLabel(f){ return f==='kigumo'?'Kigumo':'Mobile Truck'; }
+function facReadOnly(f){
+  if(!currentUser) return true; if(currentUser.hidden) return false;
+  return Array.isArray(window.__myPages)&&window.__myPages.includes('fac-ro-'+f);
+}
+function facCurrent(){
+  if(currentTab==='monthlyreport') return moFacility;
+  if(currentTab==='report'){ if(repKind==='operational') return opFacility; if(repKind==='clinical') return repFacility; if(repKind==='monthly') return moFacility; }
+  return null;
+}
+function facApplyRO(){
+  const body=document.getElementById('rep-kind-body'); if(!body) return;
+  const f=facCurrent(), ro=!!f&&facReadOnly(f);
+  const keep=el=>/pastReportSelect|backToCurrentBtn/.test(el.id||'')||el.closest('#rep-facility-toggle,#mo-facility-toggle,#op-facility-toggle')||/Export|Print/.test(el.getAttribute('onclick')||'');
+  body.querySelectorAll('.rep-card input,.rep-card textarea,.rep-card select,.rep-card button').forEach(el=>{
+    if(ro){ if(!keep(el)&&!el.disabled){ el.disabled=true; el.dataset.roDis='1'; } }
+    else if(el.dataset.roDis){ el.disabled=false; delete el.dataset.roDis; }
+  });
+  ['rep','mo','op'].forEach(p=>['SaveDraftBtn','SubmitBtn'].forEach(b=>{ const e=document.getElementById(p+'-'+(b==='SaveDraftBtn'?'saveDraftBtn':'submitBtn')); if(e&&ro){ e.disabled=true; e.dataset.roDis='1'; } }));
+  let bn=document.getElementById('fac-ro-banner');
+  if(ro&&!bn){ bn=document.createElement('div'); bn.id='fac-ro-banner'; bn.className='alert alert-info'; bn.style.marginBottom='10px';
+    bn.innerHTML='<i class="ti ti-eye"></i><div><b>View only.</b> You can read the '+facLabel(f)+' reports but not edit or submit them.</div>'; body.insertBefore(bn,body.firstChild); }
+  else if(!ro&&bn) bn.remove();
+  else if(ro&&bn) bn.lastChild.innerHTML='<b>View only.</b> You can read the '+facLabel(f)+' reports but not edit or submit them.';
+}
+(function(){
+  let t=null; const later=()=>{ clearTimeout(t); t=setTimeout(facApplyRO,30); };
+  const mc=document.getElementById('main-content'); if(mc) new MutationObserver(later).observe(mc,{childList:true,subtree:true});
+  ['repSetKind','repSetFacility','opSetFacility','moSetFacility'].forEach(n=>{
+    const orig=window[n]; if(typeof orig!=='function') return;
+    window[n]=function(){ const r=orig.apply(this,arguments); later(); setTimeout(facApplyRO,400); return r; };
+  });
+  [['repSetFormEditable',()=>repFacility],['opSetFormEditable',()=>opFacility],['moSetFormEditable',()=>moFacility]].forEach(([n,get])=>{
+    const orig=window[n]; if(typeof orig!=='function') return;
+    window[n]=function(ed){ return orig.call(this, ed&&!facReadOnly(get())); };
+  });
+})();
+
 window.__myPages=null;   // null = use the role's default pages
 function defaultPagesFor(role){
   return PAGE_DEFS.filter(d=>{
     if(role==='admin') return true;
     if(d.adminOnly) return false;
+    if(d.k.indexOf('em-ro-')===0||d.k.indexOf('fac-ro-')===0) return false;   // read-only flags are off by default
     if(role==='viewer' && (d.k==='patients'||d.k==='procurement')) return false;
     return true;
   }).map(d=>d.k);
@@ -8612,6 +9020,7 @@ function applyPagePerms(){
     const ok=pageAllowed(d.k);
     const tab=document.getElementById('tab-'+d.k); if(tab) tab.style.display=ok?'':'none';
     const opt=document.getElementById('opt-'+d.k); if(opt) opt.hidden=!ok;
+    if(d.k==='emergency'){ const sub=document.getElementById('side-sub-emergency'); if(sub) sub.style.display=ok?'':'none'; }
     if(d.k==='fac-truck'||d.k==='fac-kigumo'){ const sub=document.getElementById('side-sub-'+d.k.replace('fac-','')); if(sub && !ok) sub.style.display='none'; }
   });
   const rep=pageAllowed('fac-truck')||pageAllowed('fac-kigumo');

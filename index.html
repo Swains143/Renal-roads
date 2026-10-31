@@ -1080,7 +1080,7 @@ input::placeholder,textarea::placeholder{color:#62628A;opacity:1}
 .btn-green,.tabs .tab.active{background:var(--green-ui)!important}
 .btn-green,.tabs .tab.active,.tabs .tab.active i,.side-avatar{color:#1E1D70!important}
 .side-indicator{background:var(--green-ui)!important}
-.side-avatar{background:var(--green-ui)!important}
+.side-avatar{background-color:var(--green-ui)!important}
 .side-label{color:rgba(255,255,255,.68)}
 .tabs.collapsed .side-label{color:transparent}
 .opt-hint{font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0}
@@ -1333,6 +1333,8 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
 <style id="profile-photo-style">
 .user-avatar,.side-avatar{cursor:pointer;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;overflow:hidden}
 .user-avatar.has-photo,.side-avatar.has-photo{color:transparent!important;font-size:0!important}
+.side-avatar.has-photo{background-image:var(--pp-img)!important;background-color:transparent!important}
+.user-avatar.has-photo{background-image:var(--pp-img)!important}
 .pp-preview{width:120px;height:120px;border-radius:50%;margin:6px auto 12px;background:var(--green,#8cc63f) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:700;color:#1E1D70;overflow:hidden}
 </style>
 </head>
@@ -8680,12 +8682,16 @@ function sideSearchKey(e){
 const PP_AVATARS=['uav','sp-av'];
 function ppApply(url){
   PP_AVATARS.forEach(id=>{ const el=document.getElementById(id); if(!el) return;
-    if(url){ el.style.backgroundImage='url("'+url+'")'; el.classList.add('has-photo'); }
-    else { el.style.backgroundImage=''; el.classList.remove('has-photo'); } });
+    if(url){ el.style.setProperty('--pp-img','url("'+url+'")'); el.classList.add('has-photo'); }
+    else { el.style.removeProperty('--pp-img'); el.classList.remove('has-photo'); } });
   window.__myPhoto=url||null;
 }
 async function ppLoad(){
-  try{ const {data,error}=await db.rpc('rr_my_photo_get',{p_session:sessionToken}); if(error) return; ppApply(typeof data==='string'&&data.startsWith('data:image/')?data:null); }catch(e){}
+  try{ const {data,error}=await db.rpc('rr_my_photo_get',{p_session:sessionToken});
+    if(error){ console.warn('rr_my_photo_get failed:',error); return; }
+    const v=Array.isArray(data)?(data[0]&&Object.values(data[0])[0]):data;
+    ppApply(typeof v==='string'&&v.startsWith('data:image/')?v:null);
+  }catch(e){ console.warn('ppLoad',e); }
 }
 function ppOpen(){
   if(!currentUser) return;

@@ -1330,6 +1330,11 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
 .em-page table input:not([type=checkbox]){padding:7px 9px;border-radius:8px}
   .em-page .em-branch-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 13px;border-radius:20px;background:var(--navy);color:#fff;font-size:14px;font-weight:700}
 </style>
+<style id="profile-photo-style">
+.user-avatar,.side-avatar{cursor:pointer;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;overflow:hidden}
+.user-avatar.has-photo,.side-avatar.has-photo{color:transparent!important;font-size:0!important}
+.pp-preview{width:120px;height:120px;border-radius:50%;margin:6px auto 12px;background:var(--green,#8cc63f) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:700;color:#1E1D70;overflow:hidden}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -2500,7 +2505,7 @@ async function doLogin(){
     await new Promise(r=>setTimeout(r,650));
     document.getElementById('tbu').textContent=data.name;
     document.getElementById('tbr').textContent=roleLabel(data.role);
-    document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); ppLoad();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
     await loadMyPerms();
@@ -2540,6 +2545,7 @@ function prefetchTabData(){
 }
 function doLogout(){
   window.__myPages=null;
+  try{ ppApply(null); }catch(e){}
   try{ const _p=document.getElementById('nc-panel'); if(_p) _p.style.display='none'; }catch(e){}
   Object.keys(tabHtmlCache).forEach(k=>delete tabHtmlCache[k]);   // never show one user's cached screens to the next
   window.__loaded={};
@@ -2597,7 +2603,7 @@ async function restoreSession(){
     startRequestNotifyMonitor();
     document.getElementById('tbu').textContent=data.name;
     document.getElementById('tbr').textContent=roleLabel(data.role);
-    document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); ppLoad();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
     await loadMyPerms();
@@ -8669,6 +8675,52 @@ function sideSearchKey(e){
   if(typeof origRole==='function') window.applyRoleTabVisibility=function(r){origRole.apply(this,arguments);sideRefreshGroups();};
   sideRefreshGroups();
 })();
+
+// ── Profile photo: each signed-in user can set, change or remove their OWN photo (stored in the database) ──
+const PP_AVATARS=['uav','sp-av'];
+function ppApply(url){
+  PP_AVATARS.forEach(id=>{ const el=document.getElementById(id); if(!el) return;
+    if(url){ el.style.backgroundImage='url("'+url+'")'; el.classList.add('has-photo'); }
+    else { el.style.backgroundImage=''; el.classList.remove('has-photo'); } });
+  window.__myPhoto=url||null;
+}
+async function ppLoad(){
+  try{ const {data,error}=await db.rpc('rr_my_photo_get',{p_session:sessionToken}); if(error) return; ppApply(typeof data==='string'&&data.startsWith('data:image/')?data:null); }catch(e){}
+}
+function ppOpen(){
+  if(!currentUser) return;
+  let m=document.getElementById('pp-modal');
+  if(!m){ m=document.createElement('div'); m.className='modal-bg'; m.id='pp-modal'; document.body.appendChild(m); }
+  const ini=(currentUser.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  window.__ppNew=undefined;
+  m.innerHTML=`<div class="modal" style="width:min(380px,94vw)"><h2>Profile photo</h2><div class="modal-sub">Only you can change your own photo.</div>
+    <div class="pp-preview" id="pp-prev" ${window.__myPhoto?`style="background-image:url('${window.__myPhoto}');font-size:0"`:''}>${window.__myPhoto?'':repEsc(ini)}</div>
+    <div class="form-group"><input type="file" id="pp-file" accept="image/*" onchange="ppPick(this)"></div>
+    <div id="pp-err" style="color:#b91c1c;font-size:12.5px;min-height:16px"></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('pp-modal')">Cancel</button>${window.__myPhoto?'<button class="btn" style="color:#b91c1c" onclick="ppSave(null)">Remove photo</button>':''}<button class="btn btn-primary" id="pp-save" onclick="ppSave()">Save photo</button></div></div>`;
+  m.classList.add('open');
+}
+function ppPick(inp){
+  const err=document.getElementById('pp-err'); err.textContent=''; const f=inp.files&&inp.files[0]; if(!f) return;
+  if(!f.type.startsWith('image/')){ err.textContent='Please choose a photo (an image file).'; inp.value=''; return; }
+  const r=new FileReader(); r.onerror=()=>{err.textContent='Could not read that file.';};
+  r.onload=()=>{ const img=new Image(); img.onerror=()=>{err.textContent='Could not open that image.';};
+    img.onload=()=>{ const side=Math.min(img.width,img.height), c=document.createElement('canvas'); c.width=c.height=256;   // centred square crop, 256 px
+      c.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,256,256);
+      window.__ppNew=c.toDataURL('image/jpeg',0.82); const pv=document.getElementById('pp-prev'); pv.style.backgroundImage='url("'+window.__ppNew+'")'; pv.style.fontSize='0'; pv.textContent=''; };
+    img.src=r.result; };
+  r.readAsDataURL(f);
+}
+async function ppSave(remove){
+  const err=document.getElementById('pp-err'); const photo=remove===null?null:window.__ppNew;
+  if(remove!==null&&!photo){ err.textContent='Choose a photo first.'; return; }
+  const b=document.getElementById('pp-save'); if(b) b.disabled=true;
+  const {error}=await db.rpc('rr_my_photo_set',{p_session:sessionToken,p_photo:photo});
+  if(b) b.disabled=false;
+  if(error){ err.textContent=/rr_my_photo_set|function|42883|PGRST202/i.test((error.message||'')+(error.code||''))?'Profile photos are not set up in the database yet. Ask the administrator to run profile_photo_setup.sql in the Supabase SQL Editor.':(typeof authMsg==='function'?authMsg(error):'Could not save the photo. Please try again.'); return; }
+  ppApply(photo); closeModal('pp-modal');
+}
+(function(){ PP_AVATARS.forEach(id=>{ const el=document.getElementById(id); if(el){ el.title='Change profile photo'; el.setAttribute('role','button'); el.onclick=ppOpen; } }); })();
 
 // ══════════════════════════════════════════════
 // AUTO-REFRESH SETTINGS — change these numbers to refresh faster or slower.

@@ -1329,10 +1329,6 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
 .em-page details>summary{cursor:pointer;margin:0}
 .em-page table input:not([type=checkbox]){padding:7px 9px;border-radius:8px}
   .em-page .em-branch-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 13px;border-radius:20px;background:var(--navy);color:#fff;font-size:14px;font-weight:700}
-/* sidebar: no dots in front of Kigumo / Mobile Truck under Emergency Trolley */
-#side-sub-emergency::before,#side-sub-emergency .side-sub-item::before{display:none!important}
-#side-sub-emergency .side-sub-item{padding-left:40px}
-#side-sub-emergency .side-sub-item.active{background:rgba(255,255,255,.12)}
 </style>
 </head>
 <body>
@@ -1582,8 +1578,8 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
     <div class="tab" onclick="switchTab('disinfection')" id="tab-disinfection"><i class="ti ti-virus-off" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Disinfection<span id="disinfection-alert-dot" style="display:none;background:#E24B4A;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;line-height:1.4;margin-left:3px;vertical-align:middle"></span></div>
     <div class="tab side-fac" onclick="emSideToggle()" id="tab-emergency"><i class="ti ti-heartbeat" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Emergency Trolley<i class="ti ti-chevron-down side-chev"></i></div>
     <div class="side-sub" id="side-sub-emergency">
-      <div class="side-sub-item" data-em="Mobile Truck" onclick="emSideOpen('Mobile Truck')"><i class="ti ti-truck" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>Mobile Truck</div>
-      <div class="side-sub-item" data-em="Kigumo" onclick="emSideOpen('Kigumo')"><i class="ti ti-building-hospital" style="font-size:14px;vertical-align:-2px;margin-right:6px"></i>Kigumo</div>
+      <div class="side-sub-item" data-em="Mobile Truck" onclick="emSideOpen('Mobile Truck')">Mobile Truck</div>
+      <div class="side-sub-item" data-em="Kigumo" onclick="emSideOpen('Kigumo')">Kigumo</div>
     </div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
@@ -1874,7 +1870,7 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
     <div class="form-group"><label>Full name *</label><input id="u-name" placeholder="Display name"></div>
     <div class="form-group"><label>Username *</label><input id="u-username" placeholder="Login username"></div>
     <div class="form-group"><label>Password *</label><input id="u-password" type="password" placeholder="Set password"></div>
-    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
+    <div class="form-group"><label>Role</label><select id="u-role"><option value="staff">Nurse</option><option value="incharge">Nurse in charge</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></div>
   </div>
   <div class="modal-err" id="user-error"><i class="ti ti-alert-circle"></i><span id="user-error-msg"></span></div>
   <div class="modal-footer"><button class="btn" onclick="closeModal('user-modal')">Cancel</button><button class="btn btn-primary" onclick="saveUser()"><i class="ti ti-check"></i> Register</button></div>
@@ -6380,7 +6376,7 @@ async function showAuditLog(){
 const EM={branch:'Kigumo',view:'dash',d:null};
 const EM_BR=['Kigumo','Mobile Truck'];   // the truck carries ONE emergency kit and serves these stations:
 const EM_STATIONS=['Kirwara','Gatura','Maragua'];
-const emStationField=()=>'';   // no station dropdown any more (truck included)
+const emStationField=()=>EM.branch==='Mobile Truck'?`<div class="form-group"><label>Station *</label><select id="em-station"><option value="">— select station —</option>${EM_STATIONS.map(x=>`<option>${x}</option>`).join('')}</select></div>`:'';   // Record usage only: which station the truck was at when the drug was used
 const emStation=()=>{const e=document.getElementById('em-station');return e?e.value:'';};
 const EM_CHECKS=[['trolley_present','Emergency trolley available'],['seal_intact','Trolley seal intact'],['drugs_present','All prescribed emergency drugs present'],['qty_ok','Quantities match the approved standard'],['expiry_ok','Expiry dates checked — none expired'],['storage_ok','Storage conditions correct'],['oxygen_ok','Oxygen available, pressure adequate'],['suction_ok','Suction machine working'],['defib_ok','Defibrillator available and ready'],['equipment_ok','Emergency equipment available']];
 // Per-branch read-only flag set by the super admin (page access: 'em-ro-kigumo' / 'em-ro-truck'). Super admin is never read-only.
@@ -6390,6 +6386,7 @@ const emSun=(iso)=>new Date(String(iso).slice(0,10)+'T00:00:00').getDay()===0;
 const emLocalIso=()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');};
 const emCanWrite=()=>!!currentUser&&(currentUser.role!=='viewer'||currentUser.hidden)&&!emReadOnly();
 const emIsAdmin=()=>!!currentUser&&(currentUser.role==='admin'||currentUser.hidden)&&!emReadOnly();
+const emCanAddDrug=()=>emCanWrite();   // administrators, Nurse in charge and nurses (not viewers, not view-only branches)
 function emExp(d){ if(!d)return {c:'#6b7280',t:'—',n:null}; const n=Math.floor((new Date(d+'T00:00:00')-new Date(new Date().toDateString()))/864e5);
   return n<0?{c:'#6b7280',t:'Expired',n}:n<90?{c:'#dc2626',t:n+'d left',n}:n<=180?{c:'#d97706',t:n+'d left',n}:{c:'#16a34a',t:Math.floor(n/30)+' mo left',n}; }
 const emPill=(c,t)=>`<span style="background:${c};color:#fff;border-radius:10px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap">${repEsc(t)}</span>`;
@@ -6412,7 +6409,7 @@ function emDraw(){
   const nav=[['dash','Dashboard'],['daily','Daily check'],['use','Record usage'],['weekly','Weekly verification'],['req','Replenishment'],['stock','Drugs & stock'],['monthly','Monthly review'],['all','All branches'],['ledger','Ledger & reports']];
   const card=(l,v,c)=>`<div style="flex:1;min-width:130px;background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-left:4px solid ${c};border-radius:10px;padding:10px 12px"><div style="font-size:22px;font-weight:700">${v}</div><div style="font-size:12px;color:var(--text3,#6b7280)">${l}</div></div>`;
   let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px"><h2 style="margin:0 12px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="em-branch-pill"><i class="ti ${EM.branch==='Kigumo'?'ti-building-hospital':'ti-truck'}"></i> ${EM.branch}</span><span><i class="ti ti-heartbeat"></i> Emergency Trolley</span></h2>
-    <select onchange="EM.branch=this.value;renderEmergency()">${EM_BR.map(b=>`<option ${b===EM.branch?'selected':''}>${b}</option>`).join('')}</select>${emReadOnly()?emPill('#6b7280','View only'):''}</div>
+    ${emReadOnly()?emPill('#6b7280','View only'):''}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${nav.map(([k,l])=>`<button class="btn ${EM.view===k?'btn-primary':''}" onclick="EM.view='${k}';emDraw()">${l}</button>`).join('')}</div>`;
   if(crit.length) h+=`<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600"><i class="ti ti-alert-triangle"></i> CRITICAL drugs below trolley quantity: ${crit.map(x=>repEsc(x.name)+' ('+x.usable+'/'+x.trolley_qty+')').join(', ')} — trolley is NOT ready. Replenish now.</div>`;
   if(EM.view==='dash'){
@@ -6432,7 +6429,9 @@ function emDraw(){
     h+=emCanWrite()?`<div class="em-form"><p style="color:var(--text3,#6b7280);font-size:12px">Stock is taken from the batch expiring first (FEFO); expired and quarantined stock is never used. This form never blocks treatment — give the drug first, document after.</p>
       <div class="em-grid2"><div class="form-group"><label>Drug *</label><select id="emu-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)} ${repEsc(x.strength||'')} — usable ${x.usable}</option>`).join('')}</select></div>
       <div class="form-group"><label>Quantity used *</label><input type="number" min="1" id="emu-qty"></div>
-      ${[['patient','Patient identification number'],['incident','Emergency incident reference'],['dose','Dose administered'],['route','Route'],['authoriser','Authorising clinician'],['docref','Clinical documentation reference']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emu-${k}"></div>`).join('')}</div>
+      ${emStationField()}
+      ${[['patient','Patient identification number'],['incident','Emergency incident reference'],['dose','Dose administered'],['route','Route'],['authoriser','Authorising clinician'],['docref','Clinical documentation reference']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emu-${k}"></div>`).join('')}
+      <div class="form-group"><label>Attach file (only if the documentation needs one)</label><input type="file" id="emu-file" accept="image/*,application/pdf"><span style="font-size:11.5px;color:var(--text3,#6b7280)">Photo or PDF. Photos are shrunk automatically; PDFs up to 1 MB.</span></div></div>
       <div class="form-group"><label>Remarks</label><input id="emu-remarks"></div>
       <button class="btn btn-primary" onclick="emUse()">Record usage</button></div>`:'<div class="empty">Your role is view-only.</div>';
   } else if(EM.view==='weekly'){
@@ -6440,8 +6439,8 @@ function emDraw(){
       <div class="form-group" style="margin-top:10px"><label>Verification comments</label><textarea id="emw-comments" rows="2"></textarea></div><div class="em-confirm"><input type="checkbox" id="emw-confirm"><label for="emw-confirm" style="cursor:pointer;font-size:13px">I confirm this count was done by me</label><input id="emw-signname" autocomplete="off" placeholder="Type your full name here *"></div><button class="btn btn-primary" onclick="emWeekly()">Submit weekly verification</button>
       <h3 style="margin-top:16px">Previous verifications</h3><div class="table-wrapper"><table><thead><tr><th>Date</th><th>By</th><th>Discrepancies</th></tr></thead><tbody>${(d.weekly||[]).map(w=>`<tr><td>${new Date(w.created_at).toLocaleString()}</td><td>${repEsc(w.verified_by)}</td><td>${w.discrepancies?emPill('#dc2626',w.discrepancies+' found'):emPill('#16a34a','None')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Your role is view-only.</div>';
   } else if(EM.view==='stock'){
-    h+=emIsAdmin()?`<details style="margin-bottom:12px"><summary class="btn">+ Add emergency drug</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px">${[['name','Drug name *'],['generic_name','Generic name'],['category','Category'],['strength','Strength'],['form','Dosage form'],['unit','Unit'],['min_level','Minimum stock'],['trolley_qty','Required trolley qty'],['storage','Storage requirements'],['location','Storage location']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emg-${k}"></div>`).join('')}<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="emg-critical"> Critical drug</label></div><p style="font-size:12px;color:var(--text3,#6b7280)">Drug list, minimums and quantities must come from the approved clinical protocol — nothing is pre-filled.</p><button class="btn btn-primary" onclick="emDrugAdd()">Save drug</button></details>
-      <details style="margin-bottom:12px"><summary class="btn">+ Receive stock (batch)</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px"><div class="form-group"><label>Drug *</label><select id="emr-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)}</option>`).join('')}</select></div><div class="form-group"><label>Batch no.</label><input id="emr-batch"></div><div class="form-group"><label>Expiry *</label><input type="date" id="emr-exp"></div><div class="form-group"><label>Quantity *</label><input type="number" min="1" id="emr-qty"></div><div class="form-group"><label>Manufacturer</label><input id="emr-man"></div><div class="form-group"><label>Supplier</label><input id="emr-sup"></div></div><button class="btn btn-primary" onclick="emReceive()">Record received stock</button></details>`:'';
+    h+=emCanAddDrug()?`<details style="margin-bottom:12px"><summary class="btn">+ Add emergency drug</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px">${[['name','Drug name *'],['generic_name','Generic name'],['category','Category'],['strength','Strength'],['form','Dosage form'],['unit','Unit'],['min_level','Minimum stock'],['trolley_qty','Required trolley qty'],['storage','Storage requirements'],['location','Storage location']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emg-${k}"></div>`).join('')}<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="emg-critical"> Critical drug</label></div><p style="font-size:12px;color:var(--text3,#6b7280)">Drug list, minimums and quantities must come from the approved clinical protocol — nothing is pre-filled.</p><button class="btn btn-primary" onclick="emDrugAdd()">Save drug</button></details></details>`:'';
+    h+=emIsAdmin()?`<details style="margin-bottom:12px"><summary class="btn">+ Receive stock (batch)</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px"><div class="form-group"><label>Drug *</label><select id="emr-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)}</option>`).join('')}</select></div><div class="form-group"><label>Batch no.</label><input id="emr-batch"></div><div class="form-group"><label>Expiry *</label><input type="date" id="emr-exp"></div><div class="form-group"><label>Quantity *</label><input type="number" min="1" id="emr-qty"></div><div class="form-group"><label>Manufacturer</label><input id="emr-man"></div><div class="form-group"><label>Supplier</label><input id="emr-sup"></div></div><button class="btn btn-primary" onclick="emReceive()">Record received stock</button></details>`:'';
     h+=emDrugTable(drugs,true);
   } else if(EM.view==='req'){ h+=emReqView();
   } else if(EM.view==='monthly'){ h+=`<div class="form-group" style="display:flex;gap:8px;align-items:end"><div><label>Month</label><input type="month" id="em-month" value="${(EMM&&String(EMM.month).slice(0,7))||new Date().toISOString().slice(0,7)}"></div><button class="btn btn-primary" onclick="emMonthly()">Generate</button></div><div id="em-monthly"></div>`;
@@ -6474,9 +6473,23 @@ async function emDailySubmit(){
   const r=await emCall('rr_em_daily_submit',{p_branch:EM.branch,p_answers:a,p_issues:document.getElementById('emd-issues').value,p_actions:document.getElementById('emd-actions').value,p_confirmed:document.getElementById('emd-confirm').checked},'saving the daily check');
   if(!r)return; alert('Daily check saved: '+(emSt[r.status]||[0,r.status])[1].toUpperCase()+((r.flags||[]).length?'\n\n'+r.flags.join('\n'):'')); EM.view='dash'; renderEmergency();
 }
+function emReadFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('read failed')); r.readAsDataURL(f); }); }
+async function emPrepFile(f){   // returns {name,type,data} or null; images are compressed, PDFs limited to 1 MB
+  if(!f) return null;
+  if(f.type==='application/pdf'){ if(f.size>1048576) throw new Error('The PDF is larger than 1 MB. Please attach a smaller file or a photo.'); return {name:f.name,type:f.type,data:await emReadFile(f)}; }
+  if(!f.type.startsWith('image/')) throw new Error('Only photos and PDF files can be attached.');
+  const src=await emReadFile(f); const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('Could not read the image.')); i.src=src; });
+  const sc=Math.min(1,1400/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height); return {name:f.name.replace(/\.[^.]+$/,'')+'.jpg',type:'image/jpeg',data:c.toDataURL('image/jpeg',0.72)};
+}
+function emViewFile(i){ const f=(EM.ledger[i]||{}).detail&&EM.ledger[i].detail.doc_file; if(!f||!f.data) return;
+  const b=atob(f.data.split(',')[1]), u=new Uint8Array(b.length); for(let k=0;k<b.length;k++)u[k]=b.charCodeAt(k);
+  window.open(URL.createObjectURL(new Blob([u],{type:f.type})),'_blank'); }
 async function emUse(){
   const g=k=>document.getElementById('emu-'+k).value, q=parseInt(g('qty'),10); if(!g('drug')||!(q>0)){alert('Choose the drug and enter the quantity used.');return;}
-  const r=await emCall('rr_em_use',{p_drug:g('drug'),p_qty:q,p_detail:{station:emStation(),patient:g('patient'),incident:g('incident'),dose:g('dose'),route:g('route'),authoriser:g('authoriser'),doc_ref:g('docref'),remarks:g('remarks')}},'recording the usage');
+  if(EM.branch==='Mobile Truck'&&!emStation()){alert('Select the station where the drug was used.');return;}
+  let file=null; try{ file=await emPrepFile((document.getElementById('emu-file')||{}).files&&document.getElementById('emu-file').files[0]); }catch(e){ alert(e.message); return; }
+  const r=await emCall('rr_em_use',{p_drug:g('drug'),p_qty:q,p_detail:{station:emStation(),patient:g('patient'),incident:g('incident'),dose:g('dose'),route:g('route'),authoriser:g('authoriser'),doc_ref:g('docref'),remarks:g('remarks'),doc_file:file}},'recording the usage');
   if(!r)return; alert('Recorded ('+r.ref+'). '+r.deducted+' deducted from stock.'+(r.shortfall?'\n\nWARNING: '+r.shortfall+' more than usable stock was used — raise a replenishment/adjustment.':'')); EM.view='dash'; renderEmergency();
 }
 async function emWeekly(){
@@ -6509,7 +6522,7 @@ async function emBatchAct(id,qty){
 async function emLedger(){
   const {data,error}=await db.rpc('rr_em_ledger_list',{p_session:sessionToken,p_branch:EM.branch,p_from:null,p_to:null}); if(rpcFailed(error,'loading the ledger'))return;
   EM.ledger=data||[]; const el=document.getElementById('em-ledger'); if(!el)return;
-  el.innerHTML=`<h3>Stock ledger (latest 2,000 movements)</h3><div class="table-wrapper"><table><thead><tr><th>When</th><th>Ref</th><th>Type</th><th>Drug</th><th>Batch</th><th>Change</th><th>By</th><th>Reason / details</th></tr></thead><tbody>${EM.ledger.map(l=>`<tr><td>${new Date(l.at).toLocaleString()}</td><td>${repEsc(l.ref)}</td><td>${l.kind}</td><td>${repEsc(l.drug||'')}</td><td>${repEsc(l.batch_no||'')}</td><td>${l.delta>0?'+':''}${l.delta}</td><td>${repEsc(l.by_user)}</td><td style="font-size:12px">${repEsc(l.reason||'')} ${l.detail&&l.detail.station?'· '+repEsc(l.detail.station)+' ':''}${l.detail&&l.detail.patient?'· patient '+repEsc(l.detail.patient):''} ${l.detail&&l.detail.incident?'· incident '+repEsc(l.detail.incident):''}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty" style="padding:14px">No movements yet</div></td></tr>'}</tbody></table></div>`;
+  el.innerHTML=`<h3>Stock ledger (latest 2,000 movements)</h3><div class="table-wrapper"><table><thead><tr><th>When</th><th>Ref</th><th>Type</th><th>Drug</th><th>Batch</th><th>Change</th><th>By</th><th>Reason / details</th></tr></thead><tbody>${EM.ledger.map(l=>`<tr><td>${new Date(l.at).toLocaleString()}</td><td>${repEsc(l.ref)}</td><td>${l.kind}</td><td>${repEsc(l.drug||'')}</td><td>${repEsc(l.batch_no||'')}</td><td>${l.delta>0?'+':''}${l.delta}</td><td>${repEsc(l.by_user)}</td><td style="font-size:12px">${repEsc(l.reason||'')} ${l.detail&&l.detail.station?'· '+repEsc(l.detail.station)+' ':''}${l.detail&&l.detail.patient?'· patient '+repEsc(l.detail.patient):''} ${l.detail&&l.detail.incident?'· incident '+repEsc(l.detail.incident):''} ${l.detail&&l.detail.doc_file?`· <a href="#" onclick="emViewFile(${EM.ledger.indexOf(l)});return false">📎 attachment</a>`:''}</td></tr>`).join('')||'<tr><td colspan="8"><div class="empty" style="padding:14px">No movements yet</div></td></tr>'}</tbody></table></div>`;
 }
 // EXCEL REGISTERS — two styled workbooks: Emergency Drug Register and Emergency Trolley Inspection Register.
 const EM_NAVY='1E3A8A', EM_FILL={green:'C6F6D5',amber:'FEEBC8',red:'FED7D7',grey:'E5E7EB'};
@@ -7142,7 +7155,7 @@ async function renderUsers(){
   if(currentTab!=='users') return;
   const users=(data||[]).filter(u=>!u.hidden);
   window.__usersList=users;
-  const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Nurse</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
+  const pendingPanel=(isHiddenAdmin&&pendingReqs.length)?`<div class="pending-panel"><h3><i class="ti ti-user-question"></i> Pending access requests (${pendingReqs.length})</h3><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Requested</th><th>Assign role</th><th>Actions</th></tr></thead><tbody>${pendingReqs.map(r=>`<tr><td>${repEsc(r.name)}</td><td><code style="background:var(--gray-100);padding:2px 8px;border-radius:5px;font-size:12px">${repEsc(r.username)}</code></td><td>${repEsc(r.email)}</td><td>${repEsc(new Date(r.created_at).toLocaleString())}</td><td><select id="sr-role-${repEsc(r.id)}"><option value="">Select role…</option><option value="staff">Nurse</option><option value="incharge">Nurse in charge</option><option value="doctor">Doctor</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></td><td style="white-space:nowrap"><button class="btn btn-sm btn-green" onclick="approveSignup('${repEsc(r.id)}')"><i class="ti ti-check"></i> Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectSignup('${repEsc(r.id)}')"><i class="ti ti-x"></i> Reject</button></td></tr>`).join('')}</tbody></table></div></div>`:'';
   const au=users.filter(u=>u.active).length;
   let h=`<div class="metrics">
     <div class="metric"><div class="num">${users.length}</div><div class="lbl">Total</div></div>
@@ -7210,7 +7223,7 @@ async function saveResetPassword(){
 
 // ===== SELF SIGN-UP, APPROVAL, EMAIL PASSWORD RESET =====
 // Display names for stored role values (the stored value 'staff' is kept so permissions and the database are untouched)
-function roleLabel(r){return r==='staff'?'Nurse':r;}
+function roleLabel(r){return r==='staff'?'Nurse':r==='incharge'?'Nurse in charge':r;}
 function setUsersPendingBadge(n){
   const b=document.getElementById('users-pending-badge'); if(!b) return;
   if(n>0){b.textContent=n;b.style.display='inline';}else{b.style.display='none';}

@@ -6472,7 +6472,7 @@ function emDrugTable(drugs,manage){
   let h=`<div class="table-wrapper"><table><thead><tr><th>Drug</th><th>Usable</th><th>Trolley qty</th><th>Min</th><th>Batches (FEFO order)</th><th>Status</th></tr></thead><tbody>`;
   if(!drugs.length) h+=`<tr><td colspan="6"><div class="empty" style="padding:16px">No emergency drugs registered for this branch yet. The clinical lead adds them under “Drugs &amp; stock”.</div></td></tr>`;
   drugs.forEach(x=>{ const short=x.usable<x.trolley_qty, low=x.usable<x.min_level;
-    h+=`<tr><td><b>${repEsc(x.name)}</b> ${x.critical?emPill('#991b1b','critical'):''}<div style="font-size:11.5px;color:var(--text3,#6b7280)">${repEsc([x.strength,x.form,x.location].filter(Boolean).join(' · '))}</div></td><td><b style="color:${short?'#dc2626':'inherit'}">${x.usable}</b></td><td>${x.trolley_qty}</td><td>${x.min_level}</td><td>${(x.batches||[]).map(b=>{const e=emExp(b.expiry);return `<div style="margin:2px 0">${emPill(b.quarantined?'#6b7280':e.c,b.quarantined?'Quarantined':e.t)} ${repEsc(b.batch_no||'no batch')} · ${b.qty} · ${b.expiry}${manage?` <a href="#" onclick="emBatchAct('${b.id}',${b.qty});return false">manage</a>`:''}</div>`}).join('')||'—'}</td><td>${low?emPill('#dc2626','Low stock'):short?emPill('#d97706','Below trolley qty'):emPill('#16a34a','OK')}</td></tr>`;});
+    h+=`<tr><td><b>${repEsc(x.name)}</b> ${x.critical?emPill('#991b1b','critical'):''}<div style="font-size:11.5px;color:var(--text3,#6b7280)">${repEsc([x.strength,x.form,x.location].filter(Boolean).join(' · '))}</div>${(manage&&currentUser&&currentUser.hidden)?`<button class="btn btn-sm" style="margin-top:6px;color:#b91c1c" onclick="emDrugDelete('${x.id}')"><i class="ti ti-trash"></i> Delete drug</button>`:''}</td><td><b style="color:${short?'#dc2626':'inherit'}">${x.usable}</b></td><td>${x.trolley_qty}</td><td>${x.min_level}</td><td>${(x.batches||[]).map(b=>{const e=emExp(b.expiry);return `<div style="margin:2px 0">${emPill(b.quarantined?'#6b7280':e.c,b.quarantined?'Quarantined':e.t)} ${repEsc(b.batch_no||'no batch')} · ${b.qty} · ${b.expiry}${manage?` <a href="#" onclick="emBatchAct('${b.id}',${b.qty});return false">manage</a>`:''}</div>`}).join('')||'—'}</td><td>${low?emPill('#dc2626','Low stock'):short?emPill('#d97706','Below trolley qty'):emPill('#16a34a','OK')}</td></tr>`;});
   return h+`</tbody></table></div>`;
 }
 async function emCall(fn,args,what,ok){ if(emReadOnly()){ alert('You have view-only access to the '+EM.branch+' emergency trolley.'); return null; } showLoading('Saving...'); const {data,error}=await db.rpc(fn,Object.assign({p_session:sessionToken},args)); hideLoading(); if(rpcFailed(error,what))return null; if(ok)alert(ok); return data===null?true:data; }
@@ -6513,6 +6513,13 @@ async function emWeekly(){
   const cm=document.getElementById('emw-comments').value.trim();
   const r=await emCall('rr_em_weekly_submit',{p_branch:EM.branch,p_lines:lines,p_comments:'Counted by (typed name): '+sign+(cm?'\n'+cm:''),p_confirmed:document.getElementById('emw-confirm').checked},'saving the weekly verification');
   if(!r)return; alert(r.discrepancies?r.discrepancies+' stock discrepanc'+(r.discrepancies>1?'ies':'y')+' found — please investigate; an administrator can correct stock with a documented adjustment.':'Verification saved. Physical stock matches the system.'); EM.view='dash'; renderEmergency();
+}
+async function emDrugDelete(id){
+  if(!currentUser||!currentUser.hidden){ alert('Only the super admin can delete a drug.'); return; }
+  const x=((EM.d&&EM.d.drugs)||[]).find(d=>String(d.id)===String(id)); if(!x) return;
+  if(!confirm('Delete "'+x.name+'" from the '+EM.branch+' emergency trolley?\n\nIt will disappear from all lists. Its past stock and usage records are kept for audit.')) return;
+  const why=prompt('Reason for deleting (required):')||''; if(!why.trim()){ alert('A reason is required.'); return; }
+  if(await emCall('rr_em_drug_delete',{p_drug:id,p_reason:why.trim()},'deleting the drug')) renderEmergency();
 }
 async function emDrugAdd(){
   const g=k=>document.getElementById('emg-'+k).value, drug={branch:EM.branch,critical:document.getElementById('emg-critical').checked};

@@ -6396,7 +6396,7 @@ const emSun=(iso)=>new Date(String(iso).slice(0,10)+'T00:00:00').getDay()===0;
 const emLocalIso=()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');};
 const emCanWrite=()=>!!currentUser&&(currentUser.role!=='viewer'||currentUser.hidden)&&!emReadOnly();
 const emIsAdmin=()=>!!currentUser&&(currentUser.role==='admin'||currentUser.hidden)&&!emReadOnly();
-const emCanAddDrug=()=>emCanWrite();   // administrators, Nurse in charge and nurses (not viewers, not view-only branches)
+const emCanAddDrug=()=>emCanWrite()&&(emIsAdmin()||pageAllowed('em-add-drug'));   // administrators always; nurses/doctors only when the super admin ticks 'can ADD new drugs' in Page access
 function emExp(d){ if(!d)return {c:'#6b7280',t:'—',n:null}; const n=Math.floor((new Date(d+'T00:00:00')-new Date(new Date().toDateString()))/864e5);
   return n<0?{c:'#6b7280',t:'Expired',n}:n<90?{c:'#dc2626',t:n+'d left',n}:n<=180?{c:'#d97706',t:n+'d left',n}:{c:'#16a34a',t:Math.floor(n/30)+' mo left',n}; }
 const emPill=(c,t)=>`<span style="background:${c};color:#fff;border-radius:10px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap">${repEsc(t)}</span>`;
@@ -6515,6 +6515,7 @@ async function emWeekly(){
 async function emDrugAdd(){
   const g=k=>document.getElementById('emg-'+k).value, drug={branch:EM.branch,critical:document.getElementById('emg-critical').checked};
   ['name','generic_name','category','strength','form','unit','min_level','trolley_qty','storage','location'].forEach(k=>drug[k]=g(k)); if(!drug.name.trim()){alert('Drug name is required.');return;}
+  ['min_level','trolley_qty'].forEach(k=>{ const n=parseInt(drug[k],10); drug[k]=(Number.isFinite(n)&&n>=0)?n:0; });   // blank number fields would reach the database as "" and fail the integer cast
   if(await emCall('rr_em_drug_save',{p_drug:drug},'saving the drug')) renderEmergency();
 }
 async function emReceive(){
@@ -9021,6 +9022,7 @@ const PAGE_DEFS=[
   {k:'fac-ro-truck',label:'Mobile Truck reports & heparin VIEW ONLY (no editing)',icon:'ti-eye'},
   {k:'em-ro-kigumo',label:'Emergency Trolley: Kigumo VIEW ONLY (no editing)',icon:'ti-eye'},
   {k:'em-ro-truck',label:'Emergency Trolley: Mobile Truck VIEW ONLY (no editing)',icon:'ti-eye'},
+  {k:'em-add-drug',label:'Emergency Trolley: can ADD new drugs',icon:'ti-pill'},
   {k:'sha',label:'SHA Cover',icon:'ti-shield-check',adminOnly:true}
 ];
 
@@ -9068,7 +9070,7 @@ function defaultPagesFor(role){
   return PAGE_DEFS.filter(d=>{
     if(role==='admin') return true;
     if(d.adminOnly) return false;
-    if(d.k.indexOf('em-ro-')===0||d.k.indexOf('fac-ro-')===0) return false;   // read-only flags are off by default
+    if(d.k.indexOf('em-ro-')===0||d.k.indexOf('fac-ro-')===0||d.k==='em-add-drug') return false;   // read-only flags and 'add drug' are off by default (super admin grants them)
     if(role==='viewer' && (d.k==='patients'||d.k==='procurement')) return false;
     return true;
   }).map(d=>d.k);

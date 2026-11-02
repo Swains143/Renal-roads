@@ -6410,7 +6410,46 @@ async function renderEmergency(){
   const [o,rq]=await Promise.all([db.rpc('rr_em_overview',{p_session:sessionToken,p_branch:EM.branch}),db.rpc('rr_em_req_list',{p_session:sessionToken,p_branch:EM.branch})]);
   hideLoading();
   if(rpcFailed(o.error,'loading the emergency trolley module'))return;
-  EM.d=o.data; EM.reqs=rq.error?[]:(rq.data||[]); emDraw();
+  EM.d=o.data; EM.mc={}; EM.reqs=rq.error?[]:(rq.data||[]); emDraw();
+}
+// ---- Dashboard: daily checks for one month, with Previous / Next month ----
+function emMonthKey(){ return EM.month||emLocalIso().slice(0,7); }
+function emMonthShift(n){
+  const [y,m]=emMonthKey().split('-').map(Number), dt=new Date(y,m-1+n,1);
+  const k=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+  if(k>emLocalIso().slice(0,7)) return;            // no future months
+  EM.month=k; emMonthPaint();
+}
+async function emMonthPaint(){
+  const box=document.getElementById('em-month-box'); if(!box) return;
+  const key=emMonthKey(), [y,m]=key.split('-').map(Number), lastDay=new Date(y,m,0).getDate();
+  const from=key+'-01', to=key+'-'+String(lastDay).padStart(2,'0'), ck=EM.branch+'|'+key;
+  EM.mc=EM.mc||{};
+  let rows=EM.mc[ck];
+  if(!rows){
+    box.innerHTML='<div style="font-size:13px;color:var(--text3,#6b7280);padding:8px 0">Loading daily checks…</div>';
+    const {data,error}=await db.rpc('rr_em_daily_list',{p_session:sessionToken,p_branch:EM.branch,p_from:from,p_to:to});
+    if(!document.getElementById('em-month-box')||emMonthKey()!==key) return;   // user moved on while loading
+    rows=error?((EM.d&&EM.d.daily)||[]).filter(r=>String(r.check_date).slice(0,7)===key):(data||[]);
+    if(!error) EM.mc[ck]=rows;
+  }
+  const today=emLocalIso(), isNow=key>=today.slice(0,7);
+  const latest={}; rows.slice().sort((a,b)=>a.checked_at<b.checked_at?-1:1).forEach(r=>{ latest[String(r.check_date).slice(0,10)]=r; });
+  const offset=(new Date(y,m-1,1).getDay()+6)%7;
+  let cells='', open=0, done=0, ready=0;
+  for(let i=0;i<offset;i++) cells+='<span></span>';
+  for(let d=1;d<=lastDay;d++){
+    const dt=key+'-'+String(d).padStart(2,'0'), r=latest[dt], sun=emSun(dt), future=dt>today;
+    if(!sun&&!future){ open++; if(r){ done++; if(r.status==='ready') ready++; } }
+    const bg=r?emSt[r.status][0]:(sun?'#bfdbfe':(future?'#f3f4f6':'#d1d5db'));
+    const tip=new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+': '+(r?emSt[r.status][1]+(r.nurse?' · '+r.nurse:''):(sun?'closed (Sunday)':(future?'upcoming':'no check')));
+    cells+=`<span title="${repEsc(tip)}" style="height:38px;border-radius:6px;background:${bg};color:${r?'#fff':'#374151'};font-size:12px;display:flex;align-items:center;justify-content:center;${dt===today?'outline:2px solid #1E1D70;outline-offset:1px;':''}"><b>${d}</b></span>`;
+  }
+  const label=new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  box.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:6px 0 8px"><h3 style="margin:0">Daily check — ${label}</h3><div style="display:flex;gap:6px;align-items:center"><button class="btn btn-sm" onclick="emMonthShift(-1)"><i class="ti ti-chevron-left"></i> Previous month</button><button class="btn btn-sm" onclick="emMonthShift(1)" ${isNow?'disabled style="opacity:.45;cursor:not-allowed"':''}>Next month <i class="ti ti-chevron-right"></i></button></div></div>
+  <div style="display:grid;grid-template-columns:repeat(7,minmax(34px,1fr));gap:4px;max-width:420px;margin-bottom:6px"><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Mon</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Tue</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Wed</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Thu</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Fri</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Sat</b><b style="font-size:11px;text-align:center;color:var(--text3,#6b7280)">Sun</b>${cells}</div>
+  <div style="font-size:13px;margin-bottom:4px"><b>${done}</b> of <b>${open}</b> open days checked · <b>${ready}</b> ready</div>
+  <div style="font-size:11.5px;color:var(--text3,#6b7280);margin-bottom:14px">Green ready · Red not ready · Amber incomplete · Grey no check recorded (a missed day stays visible) · Light blue Sunday, closed</div>`;
 }
 function emDraw(){
   const d=EM.d, drugs=(d.drugs||[]).filter(x=>x.active), today=new Date().toISOString().slice(0,10);
@@ -6426,7 +6465,7 @@ function emDraw(){
   if(crit.length) h+=`<div style="background:#fee2e2;border:1px solid #dc2626;color:#991b1b;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600"><i class="ti ti-alert-triangle"></i> CRITICAL drugs below trolley quantity: ${crit.map(x=>repEsc(x.name)+' ('+x.usable+'/'+x.trolley_qty+')').join(', ')} — trolley is NOT ready. Replenish now.</div>`;
   if(EM.view==='dash'){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">${card('Registered drugs',drugs.length,'#1e3a8a')}${card('Below minimum',low.length,low.length?'#dc2626':'#16a34a')}${card('Expiring < 90 days',exp90.length,exp90.length?'#d97706':'#16a34a')}${card('Expired (unusable)',expired.length,expired.length?'#6b7280':'#16a34a')}${card("Today's daily check",tod?(emSt[tod.status]||[0,tod.status])[1]:(emSun(emLocalIso())?'CLOSED (Sunday)':'NOT DONE'),tod&&tod.status==='ready'?'#16a34a':(!tod&&emSun(emLocalIso())?'#9ca3af':'#dc2626'))}${card('Open replenishment requests',(EM.reqs||[]).filter(emOpen).length,(EM.reqs||[]).filter(emOpen).length?'#d97706':'#16a34a')}${card('Weekly verification',wkNow?(wk.discrepancies?wk.discrepancies+' discrepancies':'Done'):'Due',wkNow&&!wk.discrepancies?'#16a34a':'#d97706')}</div>`;
-    h+=`<h3>Daily check — last 31 days</h3><div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px">${[...Array(31)].map((_,i)=>{const dt=new Date(Date.now()-(30-i)*864e5).toISOString().slice(0,10);const r=(d.daily||[]).filter(x=>String(x.check_date)===dt).sort((a,b)=>a.checked_at<b.checked_at?1:-1)[0];const sun=!r&&emSun(dt);const c=r?emSt[r.status][0]:(sun?'#bfdbfe':'#d1d5db');return `<span title="${new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}: ${r?emSt[r.status][1]:(sun?'closed (Sunday)':'no check')}" style="width:30px;height:34px;border-radius:5px;background:${c};color:${r?'#fff':'#374151'};font-size:10px;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:center"><b>${+dt.slice(8,10)}</b><span style="font-size:8px">${new Date(dt+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'}).slice(0,2)}</span></span>`;}).join('')}</div><div style="font-size:11.5px;color:var(--text3,#6b7280);margin-bottom:14px">Green ready · Red not ready · Amber incomplete · Grey no check recorded (a missed day stays visible) · Light blue Sunday, closed</div>`;
+    h+='<div id="em-month-box"></div>';   // month view of daily checks, painted by emMonthPaint()
     h+=`<h3>Emergency drugs</h3>`+emDrugTable(drugs);
     h+=`<h3 style="margin-top:16px">Recent usage</h3><div class="table-wrapper"><table><thead><tr><th>When</th>${(d.usage||[]).some(u=>u.detail&&u.detail.station)?'<th>Station</th>':''}<th>Drug</th><th>Qty</th><th>By</th><th>Ref</th></tr></thead><tbody>${(d.usage||[]).map(u=>`<tr><td>${new Date(u.at).toLocaleString()}</td>${(d.usage||[]).some(x=>x.detail&&x.detail.station)?'<td>'+repEsc((u.detail&&u.detail.station)||'—')+'</td>':''}<td>${repEsc(u.name)}</td><td>${u.kind==='shortfall'?'<b style="color:#dc2626">shortfall</b>':-u.delta}</td><td>${repEsc(u.by_user)}</td><td>${repEsc(u.ref)}</td></tr>`).join('')||'<tr><td colspan="6"><div class="empty" style="padding:14px">No usage recorded</div></td></tr>'}</tbody></table></div>`;
     h+=`<h3 style="margin-top:16px">Recent daily checks</h3><div class="table-wrapper"><table><thead><tr><th>Date</th>${(d.daily||[]).some(r=>r.station)?'<th>Station</th>':''}<th>Nurse</th><th>Status</th><th>Flags</th></tr></thead><tbody>${(d.daily||[]).slice(0,10).map(r=>`<tr><td>${new Date(r.checked_at).toLocaleString()}</td>${(d.daily||[]).some(x=>x.station)?'<td>'+repEsc(r.station||'—')+'</td>':''}<td>${repEsc(r.nurse)}</td><td>${emPill(emSt[r.status][0],emSt[r.status][1])}</td><td style="font-size:12px">${(r.flags||[]).map(repEsc).join('; ')||'—'}</td></tr>`).join('')||'<tr><td colspan="5"><div class="empty" style="padding:14px">No checks yet</div></td></tr>'}</tbody></table></div>`;
@@ -6464,6 +6503,7 @@ function emDraw(){
       <p style="font-size:12px;color:var(--text3,#6b7280);margin:0 0 12px">Drug Register: drugs, batches, quantities, expiry, stock summary, movements and weekly counts. Inspection Register: every daily check with each item, seal, nurse and signature, plus a day-by-day compliance sheet (missed days are listed). The dates choose the reporting period.</p><div id="em-ledger"></div>`;
   }
   document.getElementById('main-content').innerHTML='<div class="em-page">'+h+'</div>';
+  if(EM.view==='dash') emMonthPaint();
   if(EM.view==='ledger') emLedger();
   if(EM.view==='monthly') emMonthly();
   if(EM.view==='all') emAll();
@@ -7591,7 +7631,8 @@ function exportRequests(){
 // rep = weekly clinical, doc = doctor, op = operational, mo = monthly).
 // Editing keeps the SAME database row (same id) and keeps status 'submitted',
 // so nothing turns back into a draft. Autosave stays off while editing (the
-// Back button is visible), and the reporting period is locked.
+// Back button is visible). The reporting dates CAN be corrected (e.g. a week that
+// was recorded under the wrong dates); changing them keeps the report's content.
 // =====================================================================
 const REP_ADMIN_KINDS = ['rep','doc','op','mo'];
 let repAdminEditing = { rep:false, doc:false, op:false, mo:false };
@@ -7621,11 +7662,11 @@ function repAdminAfterLoad(p,id){
 function repAdminEditStart(p){
   if(!repAdminIsAdmin()) return;
   const sel=document.getElementById(p+'-pastReportSelect'); const id=sel&&sel.value; if(!id) return;
-  if(!confirm('Edit this SUBMITTED report as admin?\n\nYour changes will replace what the nurses submitted. Make sure you save when done.')) return;
+  if(!confirm('Edit this SUBMITTED report as admin?\n\nYour changes will replace what the nurses submitted. You can also correct the report dates. Make sure you save when done.')) return;
   repAdminSetDraftId(p,id);
   window[p+'SetFormEditable'](true);
-  // Lock the reporting period so a correction can't move the report to a different week/month
-  [p+'-periodStart',p+'-periodEnd',p+'-month'].forEach(x=>{ const el=document.getElementById(x); if(el) el.disabled=true; });
+  // The reporting dates stay editable so a wrongly dated week/month can be corrected (see the date-change guard below)
+  [p+'-periodStart',p+'-periodEnd',p+'-month'].forEach(x=>{ const el=document.getElementById(x); if(el) el.disabled=false; });
   repAdminEditing[p]=true;
   const draftBtn=document.getElementById(p+'-saveDraftBtn'), submitBtn=document.getElementById(p+'-submitBtn');
   if(draftBtn) draftBtn.style.display='none'; // never turn a submitted report back into a draft
@@ -7641,6 +7682,12 @@ function repAdminEditStart(p){
 }
 async function repAdminEditSave(p){
   const id=document.getElementById(p+'-pastReportSelect').value; if(!id) return;
+  { const ps=(document.getElementById(p+'-periodStart')||{}).value, pe=(document.getElementById(p+'-periodEnd')||{}).value;
+    if(!ps||!pe){ alert('Please set both report dates.'); return; }
+    if(ps>pe){ alert('The "From" date must be on or before the "To" date.'); return; }
+    const sel=document.getElementById(p+'-pastReportSelect'), want=ps+' to '+pe;
+    const clash=sel&&[...sel.options].some(o=>o.value&&o.value!==id&&(o.textContent||'').trim()===want);
+    if(clash && !confirm('Another submitted report already exists for '+want+'.\n\nSave these dates anyway?')) return; }
   repDirty=true;                              // the save functions clear this only on success
   await window[p+'SaveReport']('submitted');  // same id + status 'submitted' => updates the existing row in place
   if(repDirty){ return; }                     // failed — the save function already showed the error; stay in edit mode
@@ -7662,6 +7709,84 @@ REP_ADMIN_KINDS.forEach(p=>{
     return r;
   };
 });
+// While an admin is correcting a submitted report, changing its dates must NOT reload a draft for those dates
+// (that would blank the form). It only marks the report as changed; "Save corrections" stores the new dates.
+function repAdminDatesChanged(p){
+  repDirty=true;
+  const msg=document.getElementById(p+'-statusMsg');
+  if(msg){ msg.textContent='Editing submitted report (admin) — dates changed; click "Save corrections" to apply them.'; msg.classList.remove('saved'); msg.classList.add('dirty'); }
+}
+REP_ADMIN_KINDS.forEach(p=>{
+  const name=p+'LoadDraftForCurrentSelection', orig=window[name];
+  if(typeof orig!=='function') return;
+  window[name]=function(){
+    if(repAdminEditing[p]){ repAdminDatesChanged(p); return; }
+    return orig.apply(this,arguments);
+  };
+});
+(function(){
+  const orig=window.moOnMonthChange; if(typeof orig!=='function') return;
+  window.moOnMonthChange=function(val){
+    if(repAdminEditing.mo){
+      const m=/^(\d{4})-(\d{2})$/.exec(val||'');
+      if(!m){ const ps=document.getElementById('mo-periodStart').value; document.getElementById('mo-month').value=ps.slice(0,7); return; }
+      const r=moMonthRange(parseInt(m[1],10),parseInt(m[2],10));
+      document.getElementById('mo-periodStart').value=r.start; document.getElementById('mo-periodEnd').value=r.end;
+      repAdminDatesChanged('mo'); return;
+    }
+    return orig.apply(this,arguments);
+  };
+})();
+
+
+// =====================================================================
+// AUTO-SUBMIT: when a report still has an unsubmitted draft and the nurse moves to
+// ANOTHER week (or month), that draft is submitted automatically under the week it
+// belongs to, so a forgotten week is never left as a draft.
+// =====================================================================
+const repAutoLast={}, repAutoBusy={rep:false,op:false,doc:false,mo:false};
+function repAutoDraftId(p){ return p==='rep'?repDraftId:p==='doc'?docDraftId:p==='mo'?moDraftId:opDraftId; }
+function repAutoCan(p){
+  if(!currentUser || (currentUser.role==='viewer'&&!currentUser.hidden)) return false;
+  if(repAdminEditing[p] || repAutoBusy[p]) return false;
+  const back=document.getElementById(p+'-backToCurrentBtn'); if(back && back.style.display!=='none') return false;   // viewing a past report
+  const fac=p==='rep'?repFacility:p==='op'?opFacility:p==='mo'?moFacility:null; if(fac && facReadOnly(fac)) return false;
+  return !!(repAutoDraftId(p) || repDirty);
+}
+async function repAutoSubmit(p, oldStart, oldEnd){
+  const sEl=document.getElementById(p+'-periodStart'), eEl=document.getElementById(p+'-periodEnd'); if(!sEl||!eEl) return false;
+  const nowS=sEl.value, nowE=eEl.value;
+  sEl.value=oldStart; eEl.value=oldEnd;            // submit under the OLD dates, then put the new ones back
+  repAutoBusy[p]=true; repDirty=true;              // the save clears repDirty only on success
+  try{ await window[p+'SaveReport']('submitted', true); } finally { repAutoBusy[p]=false; sEl.value=nowS; eEl.value=nowE; }
+  const ok=!repDirty;
+  if(ok){ repAdminSetDraftId(p,null); try{ showToast('Report submitted automatically','The unsubmitted draft for '+oldStart+' to '+oldEnd+' was submitted when you moved to another period.','approved'); }catch(e){} }
+  else { try{ showToast('Draft not submitted','The draft for '+oldStart+' to '+oldEnd+' could not be submitted automatically. Open that week and submit it.','rejected'); }catch(e){} }
+  return ok;
+}
+['rep','op','doc'].forEach(p=>{
+  const name=p+'LoadDraftForCurrentSelection', orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=async function(){
+    const sEl=document.getElementById(p+'-periodStart'), eEl=document.getElementById(p+'-periodEnd');
+    const prev=repAutoLast[p];
+    if(sEl && eEl && prev && prev.start && (prev.start!==sEl.value || prev.end!==eEl.value) && repAutoCan(p)){
+      await repAutoSubmit(p, prev.start, prev.end);
+    }
+    const r=await orig.apply(this,arguments);
+    if(sEl && eEl) repAutoLast[p]={start:sEl.value,end:eEl.value};
+    return r;
+  };
+});
+(function(){
+  const orig=window.moOnMonthChange; if(typeof orig!=='function') return;
+  window.moOnMonthChange=async function(val){
+    const sEl=document.getElementById('mo-periodStart'), eEl=document.getElementById('mo-periodEnd');
+    if(sEl && eEl && /^\d{4}-\d{2}$/.test(val||'') && val!==sEl.value.slice(0,7) && repAutoCan('mo')){
+      await repAutoSubmit('mo', sEl.value, eEl.value);   // inputs still hold the old month here
+    }
+    return orig.apply(this,arguments);
+  };
+})();
 
 
 // =====================================================================

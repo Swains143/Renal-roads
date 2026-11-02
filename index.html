@@ -2010,6 +2010,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const db = supabase.createClient(SB_URL, SB_KEY);
 
 let currentUser = null;
+const isInch=()=>!!(currentUser&&currentUser.realRole==='incharge');   // Nurse in charge: admin-like, but no User Access, SHA Cover, Requests, procurement approvals or stock receiving
 let sessionToken = null;
 let currentTab = 'home';
 let patients = [];
@@ -2379,13 +2380,14 @@ function charGestureReset(){
 
 // Shows/hides role-restricted tabs (both the tab bar and the dropdown options stay in sync)
 function applyRoleTabVisibility(role){
-  document.getElementById('tab-requests').style.display=role==='admin'?'':'none';
-  document.getElementById('tab-users').style.display=role==='admin'?'':'none';
+  document.getElementById('tab-requests').style.display=(role==='admin'&&!isInch())?'':'none';
+  const noUsers=!!(currentUser&&currentUser.realRole==='incharge');   // Nurse in charge never sees User Access
+  document.getElementById('tab-users').style.display=(role==='admin'&&!noUsers)?'':'none';
   { const sa=!!(currentUser&&currentUser.hidden); const rt=document.getElementById('tab-recycle'), ro=document.getElementById('opt-recycle'); if(rt) rt.style.display=sa?'':'none'; if(ro) ro.hidden=!sa; }
-  document.getElementById('opt-requests').hidden=role!=='admin';
-  document.getElementById('opt-users').hidden=role!=='admin';
-  document.getElementById('tab-sha').style.display=role==='admin'?'':'none';
-  document.getElementById('opt-sha').hidden=role!=='admin';
+  document.getElementById('opt-requests').hidden=(role!=='admin'||isInch());
+  document.getElementById('opt-users').hidden=(role!=='admin'||noUsers);
+  document.getElementById('tab-sha').style.display=(role==='admin'&&!isInch())?'':'none';
+  document.getElementById('opt-sha').hidden=(role!=='admin'||isInch());
   document.getElementById('tab-procurement').style.display=role==='viewer'?'none':'';
   document.getElementById('opt-procurement').hidden=role==='viewer';
   // Viewer: hide patients tab (sensitive data) - only Home & Supplies
@@ -2499,7 +2501,7 @@ async function doLogin(){
     }
     if(!data)throw new Error('wrong_password');
     if(!data.active)throw new Error('inactive');
-    currentUser=data;
+    currentUser=data; if(currentUser.role==='incharge'){ currentUser.realRole='incharge'; currentUser.role='admin'; }   // Nurse in charge works like an admin everywhere except User Access
     sessionToken=data.session_token;
     // Celebrate: confident thumbs-up from the greeter, button glow + checkmark, mascot jump/clap/spin.
     label.innerHTML='<i class="ti ti-check"></i> Welcome!';
@@ -2508,7 +2510,7 @@ async function doLogin(){
     charGestureSuccess();
     await new Promise(r=>setTimeout(r,650));
     document.getElementById('tbu').textContent=data.name;
-    document.getElementById('tbr').textContent=roleLabel(data.role);
+    document.getElementById('tbr').textContent=roleLabel(data.realRole||data.role);
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); ppLoad();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
@@ -2519,7 +2521,7 @@ async function doLogin(){
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
-    if(data.role==='admin') shaInit();
+    if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
     localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
@@ -2601,12 +2603,12 @@ async function restoreSession(){
       localStorage.removeItem('rr_last_activity');
       return false;
     }
-    currentUser=data;
+    currentUser=data; if(currentUser.role==='incharge'){ currentUser.realRole='incharge'; currentUser.role='admin'; }   // Nurse in charge works like an admin everywhere except User Access
     sessionToken=token;
     startIdleMonitor();
     startRequestNotifyMonitor();
     document.getElementById('tbu').textContent=data.name;
-    document.getElementById('tbr').textContent=roleLabel(data.role);
+    document.getElementById('tbr').textContent=roleLabel(data.realRole||data.role);
     document.getElementById('uav').textContent=data.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); ppLoad();
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('app-page').classList.add('visible');
@@ -2617,7 +2619,7 @@ async function restoreSession(){
     document.getElementById('tab-home').classList.add('active');
     document.getElementById('tab-select').value='home';
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
-    if(data.role==='admin') shaInit();
+    if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
@@ -2647,7 +2649,7 @@ async function _renderInner(){
   else if(currentTab==='supplies') await renderSupplies();
   else if(currentTab==='requests') await renderRequests();
   else if(currentTab==='users') await renderUsers();
-  else if(currentTab==='sha' && currentUser && currentUser.role==='admin') await renderSha();
+  else if(currentTab==='sha' && currentUser && currentUser.role==='admin' && !isInch()) await renderSha();
   else if(currentTab==='procurement' && currentUser && currentUser.role!=='viewer') await renderProcurement();
   else if(currentTab==='disinfection') await renderDisinfection();
   else if(currentTab==='emergency') await renderEmergency();
@@ -5515,7 +5517,7 @@ function homePatientCharts(patients){
 }
 
 async function renderHome(){
-  const isAdmin = currentUser&&currentUser.role==='admin';
+  const isAdmin = currentUser&&currentUser.role==='admin'&&!isInch();
   const isViewer = currentUser&&currentUser.role==='viewer';
   const now = new Date();
   const timeStr = now.toLocaleDateString('en-KE',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -6450,7 +6452,7 @@ function emDraw(){
       <h3 style="margin-top:16px">Previous verifications</h3><div class="table-wrapper"><table><thead><tr><th>Date</th><th>By</th><th>Discrepancies</th></tr></thead><tbody>${(d.weekly||[]).map(w=>`<tr><td>${new Date(w.created_at).toLocaleString()}</td><td>${repEsc(w.verified_by)}</td><td>${w.discrepancies?emPill('#dc2626',w.discrepancies+' found'):emPill('#16a34a','None')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Your role is view-only.</div>';
   } else if(EM.view==='stock'){
     h+=emCanAddDrug()?`<details style="margin-bottom:12px"><summary class="btn">+ Add emergency drug</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px">${[['name','Drug name *'],['generic_name','Generic name'],['category','Category'],['strength','Strength'],['form','Dosage form'],['unit','Unit'],['min_level','Minimum stock'],['trolley_qty','Required trolley qty'],['storage','Storage requirements'],['location','Storage location']].map(([k,l])=>`<div class="form-group"><label>${l}</label><input id="emg-${k}"></div>`).join('')}<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="emg-critical"> Critical drug</label></div><p style="font-size:12px;color:var(--text3,#6b7280)">Drug list, minimums and quantities must come from the approved clinical protocol — nothing is pre-filled.</p><button class="btn btn-primary" onclick="emDrugAdd()">Save drug</button></details></details>`:'';
-    h+=emIsAdmin()?`<details style="margin-bottom:12px"><summary class="btn">+ Receive stock (batch)</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px"><div class="form-group"><label>Drug *</label><select id="emr-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)}</option>`).join('')}</select></div><div class="form-group"><label>Batch no.</label><input id="emr-batch"></div><div class="form-group"><label>Expiry *</label><input type="date" id="emr-exp"></div><div class="form-group"><label>Quantity *</label><input type="number" min="1" id="emr-qty"></div><div class="form-group"><label>Manufacturer</label><input id="emr-man"></div><div class="form-group"><label>Supplier</label><input id="emr-sup"></div></div><button class="btn btn-primary" onclick="emReceive()">Record received stock</button></details>`:'';
+    h+=(emCanAddDrug()&&!isInch())?`<details style="margin-bottom:12px"><summary class="btn">+ Receive stock (batch)</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px"><div class="form-group"><label>Drug *</label><select id="emr-drug">${drugs.map(x=>`<option value="${x.id}">${repEsc(x.name)}</option>`).join('')}</select></div><div class="form-group"><label>Batch no.</label><input id="emr-batch"></div><div class="form-group"><label>Expiry *</label><input type="date" id="emr-exp"></div><div class="form-group"><label>Quantity *</label><input type="number" min="1" id="emr-qty"></div><div class="form-group"><label>Manufacturer</label><input id="emr-man"></div><div class="form-group"><label>Supplier</label><input id="emr-sup"></div></div><button class="btn btn-primary" onclick="emReceive()">Record received stock</button></details>`:'';
     h+=emDrugTable(drugs,true);
   } else if(EM.view==='req'){ h+=emReqView();
   } else if(EM.view==='monthly'){ h+=`<div class="form-group" style="display:flex;gap:8px;align-items:end"><div><label>Month</label><input type="month" id="em-month" value="${(EMM&&String(EMM.month).slice(0,7))||new Date().toISOString().slice(0,7)}"></div><button class="btn btn-primary" onclick="emMonthly()">Generate</button></div><div id="em-monthly"></div>`;
@@ -6598,7 +6600,7 @@ const EM_RS={requested:['#d97706','Requested'],reviewed:['#2563eb','Reviewed'],a
 const emOpen=r=>!['confirmed','rejected'].includes(r.status);
 function emReqView(){
   const drugs=(EM.d.drugs||[]).filter(x=>x.active), reqs=EM.reqs||[], pending=new Set(reqs.filter(emOpen).map(r=>r.drug_id));
-  const short=drugs.filter(x=>x.usable<x.trolley_qty&&!pending.has(x.id)), w=emCanWrite(), adm=emIsAdmin();
+  const short=drugs.filter(x=>x.usable<x.trolley_qty&&!pending.has(x.id)), w=emCanWrite(), adm=emIsAdmin()&&!isInch();
   let h=`<p style="color:var(--text3,#6b7280);font-size:13px">Flow: nurse requests → nurse in charge reviews → administrator approves → stores records the stock received → nurse confirms the trolley is replenished.</p>`;
   if(short.length&&w) h+=`<div style="background:#fff7ed;border:1px solid #d97706;border-radius:10px;padding:10px 14px;margin-bottom:12px"><b>Suggested requests</b> (below trolley quantity, no open request)<div style="margin-top:6px">${short.map(x=>`<div style="margin:3px 0">${repEsc(x.name)} — usable ${x.usable}/${x.trolley_qty} <button class="btn btn-sm" onclick="emReqNew('${x.id}',${x.trolley_qty-x.usable})">Request ${x.trolley_qty-x.usable}</button></div>`).join('')}</div></div>`;
   if(w&&drugs.length) h+=`<button class="btn" style="margin-bottom:12px" onclick="emReqNew()">+ Manual request</button>`;
@@ -8211,19 +8213,19 @@ async function procLoad(){
 function procPendingCount(){return procData.filter(r=>r.status==='pending').length;}
 function procUpdateBadge(){
   const b=document.getElementById('proc-badge'); if(!b) return;
-  const n=(currentUser&&currentUser.role==='admin')?procPendingCount():0;
+  const n=(currentUser&&currentUser.role==='admin'&&!isInch())?procPendingCount():0;
   if(n>0){b.style.display='inline';b.textContent=n;}else b.style.display='none';
 }
 async function procInit(){
   await procLoad(); procUpdateBadge();
   const n=procPendingCount();
-  if(n&&!procToastShown){procToastShown=true;showToast('Procurement requests',`${n} restock request${n>1?'s are':' is'} waiting for your approval. Open the <b>Procurement</b> tab.`,'rejected');}
+  if(n&&!procToastShown&&!isInch()){procToastShown=true;showToast('Procurement requests',`${n} restock request${n>1?'s are':' is'} waiting for your approval. Open the <b>Procurement</b> tab.`,'rejected');}
   let prev=procPendingCount();
   if(procPollTimer) clearInterval(procPollTimer);
   procPollTimer=setInterval(async()=>{
     await procLoad(); procUpdateBadge();
     const now=procPendingCount();
-    if(now>prev) showToast('New procurement request',`${now-prev} new restock request${now-prev>1?'s':''} waiting for approval.`,'rejected');
+    if(now>prev&&!isInch()) showToast('New procurement request',`${now-prev} new restock request${now-prev>1?'s':''} waiting for approval.`,'rejected');
     prev=now;
   },PROC_POLL_MS);
 }
@@ -8236,7 +8238,7 @@ async function renderProcurement(){
   procRender();
 }
 function procRender(){
-  const isAdmin=currentUser&&currentUser.role==='admin';
+  const isAdmin=currentUser&&currentUser.role==='admin'&&!isInch();
   const f=procFilter;
   let rows=procData.slice();
   const counts={pending:0,approved:0,ordered:0,received:0,declined:0};
@@ -9022,7 +9024,7 @@ const PAGE_DEFS=[
   {k:'fac-ro-truck',label:'Mobile Truck reports & heparin VIEW ONLY (no editing)',icon:'ti-eye'},
   {k:'em-ro-kigumo',label:'Emergency Trolley: Kigumo VIEW ONLY (no editing)',icon:'ti-eye'},
   {k:'em-ro-truck',label:'Emergency Trolley: Mobile Truck VIEW ONLY (no editing)',icon:'ti-eye'},
-  {k:'em-add-drug',label:'Emergency Trolley: can ADD new drugs',icon:'ti-pill'},
+  {k:'em-add-drug',label:'Emergency Trolley: can ADD drugs & receive stock (batch / expiry)',icon:'ti-pill'},
   {k:'sha',label:'SHA Cover',icon:'ti-shield-check',adminOnly:true}
 ];
 
@@ -9079,11 +9081,12 @@ function pageAllowed(k){
   if(!currentUser) return false;
   if(currentUser.hidden) return true;
   const def=PAGE_DEFS.find(d=>d.k===k); if(!def) return true;
-  if(def.adminOnly && currentUser.role!=='admin') return false;
+  if(def.adminOnly && (currentUser.role!=='admin'||isInch())) return false;
   const list=Array.isArray(window.__myPages)?window.__myPages:defaultPagesFor(currentUser.role);
   return list.includes(k);
 }
 function tabAllowed(t){
+  if(t==='users'&&currentUser&&currentUser.realRole==='incharge') return false;
   if(t==='home'||t==='users'||!currentUser) return true;
   if(['report','monthlyreport','heparin','operational'].includes(t)) return pageAllowed('fac-truck')||pageAllowed('fac-kigumo');
   return pageAllowed(t);

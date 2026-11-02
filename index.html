@@ -6694,7 +6694,7 @@ async function emAll(){
 }
 
 // RECYCLE BIN (super admin only) — everything deleted anywhere in the app lands here first.
-const RB_TYPES={users:'User',patients:'Patient',supplies:'Supply item',rr_procurement:'Procurement request'};
+const RB_TYPES={users:'User',patients:'Patient',supplies:'Supply item',rr_procurement:'Procurement request',rr_em_drug:'Emergency drug'};
 const RB_SECRET=/pass|hash|token|secret|salt/i;
 const RB_HIDE_SUMMARY=/^(id|created_at|updated_at|created_by|user_id|patient_id|supply_id)$/i;
 function rbTypeLabel(t){ return RB_TYPES[t]||'Heparin entry'; }
@@ -6728,7 +6728,7 @@ function rbRender(){
       :`<span style="color:#b91c1c;font-weight:600">Deleted forever</span><div style="font-size:11px;color:var(--text3,#6b7280)">${repEsc(r.resolved_by||'')} · ${r.resolved_at?new Date(r.resolved_at).toLocaleString():''}</div>`;
     h+=`<tr><td style="white-space:nowrap">${new Date(r.deleted_at).toLocaleString()}</td><td>${repEsc(r.deleted_by||'—')}</td><td>${rbTypeLabel(r.source_table)}</td><td><b>${repEsc(r.label||r.record_id||'—')}</b></td><td>${status}</td><td style="white-space:nowrap">`;
     if(f.length) h+=`<button class="btn btn-sm" onclick="var d=document.getElementById('rb-d-${i}');d.style.display=d.style.display==='none'?'':'none'">Details</button> `;
-    if(r.status==='deleted') h+=`<button class="btn btn-sm btn-primary" onclick="rbRestore('${r.id}')">Restore</button> <button class="btn btn-sm" style="color:#b91c1c" onclick="rbPurge('${r.id}')">Delete forever</button>`;
+    if(r.status==='deleted') h+=`<button class="btn btn-sm btn-primary" onclick="rbRestore('${r.id}')">Restore</button> ${r.source_table==='rr_em_drug'?'':`<button class="btn btn-sm" style="color:#b91c1c" onclick="rbPurge('${r.id}')">Delete forever</button>`}`;
     h+=`</td></tr>`;
     if(f.length) h+=`<tr id="rb-d-${i}" style="display:none"><td colspan="6" style="background:var(--bg2,#f6f7f9);font-size:12.5px;line-height:1.7">${f.map(([k,v])=>`<span style="display:inline-block;margin-right:16px"><span style="color:var(--text3,#6b7280)">${repEsc(k.replace(/_/g,' '))}:</span> ${repEsc(String(v).slice(0,200))}</span>`).join('')}</td></tr>`;
   });
@@ -6747,6 +6747,7 @@ async function rbRestore(id){
 }
 async function rbPurge(id){
   const r=(window.__rbRows||[]).find(x=>x.id===id); if(!r)return;
+  if(r.source_table==='rr_em_drug'){ alert('Emergency drugs can be restored but never deleted forever.'); return; }
   if(!confirm('Permanently delete "'+(r.label||r.record_id)+'"?\n\nThe saved copy of its data is wiped and cannot be restored. A line stays in the history showing what was deleted, by whom and when.'))return;
   showLoading('Deleting...');
   const {error}=await db.rpc('rr_recycle_purge',{p_session:sessionToken,p_id:id});

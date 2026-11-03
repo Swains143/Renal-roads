@@ -2009,6 +2009,57 @@ const SB_URL = 'https://vagsqfyedfxfvzzcgoqt.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhZ3NxZnllZGZ4ZnZ6emNnb3F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyOTkzNjQsImV4cCI6MjA5Nzg3NTM2NH0.gc98UvxrcjoIHhjCt8a5Gj2AuksOkvdiyYap8J_Vf8Y';
 const db = supabase.createClient(SB_URL, SB_KEY);
 
+// =====================================================================
+// ONE LOOK FOR EVERY POP-UP: styled replacements for the browser's alert / confirm / prompt.
+//   uiAlert(msg)            -> resolves when closed
+//   await uiConfirm(msg)    -> true / false
+//   await uiPrompt(msg,def) -> the typed text, or null when cancelled
+// Pop-ups are queued, so several in a row show one after another.
+// =====================================================================
+const uiQ=[]; let uiBusy=false;
+function uiTone(msg,kind){
+  const t=String(msg==null?'':msg);
+  if(/could not|couldn.t|failed|error|forbidden|not recorded|unable|went wrong|not allowed|denied/i.test(t)) return 'danger';
+  if(kind==='confirm') return /delete|permanently|discard|remove|cannot be undone|can.t be undone|wipe|reverse|overwrite|archive|reject/i.test(t)?'danger':'info';
+  if(kind==='alert' && /saved|submitted|sent|restored|recorded|success|approved|copied|exported|done/i.test(t)) return 'success';
+  return 'info';
+}
+function uiDialog(o){ return new Promise(res=>{ uiQ.push({o,res}); uiNext(); }); }
+function uiNext(){
+  if(uiBusy||!uiQ.length) return;
+  uiBusy=true;
+  const {o,res}=uiQ.shift();
+  let el=document.getElementById('ui-dlg');
+  if(!el){ el=document.createElement('div'); el.id='ui-dlg'; el.className='modal-bg'; el.style.zIndex='2000'; document.body.appendChild(el); }
+  const tone=o.tone||'info', kind=o.kind||'alert';
+  const TN={info:['#e0e7ff','#1E1D70','ti-info-circle'],danger:['#fee2e2','#b91c1c','ti-alert-triangle'],success:['#dcfce7','#15803d','ti-circle-check']}[tone]||['#e0e7ff','#1E1D70','ti-info-circle'];
+  const title=o.title||(kind==='prompt'?'Enter details':kind==='confirm'?(tone==='danger'?'Are you sure?':'Please confirm'):(tone==='danger'?'Something went wrong':tone==='success'?'Done':'Notice'));
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const okLabel=o.okText||(kind==='confirm'?(tone==='danger'?'Yes, continue':'Confirm'):'OK');
+  el.innerHTML=`<div class="modal" role="dialog" aria-modal="true" style="width:min(440px,94vw)">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+      <span style="flex:none;width:44px;height:44px;border-radius:12px;background:${TN[0]};color:${TN[1]};display:flex;align-items:center;justify-content:center;font-size:23px"><i class="ti ${TN[2]}"></i></span>
+      <h2 style="margin:0;font-size:18px">${esc(title)}</h2>
+    </div>
+    <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.55">${esc(o.message)}</div>
+    ${kind==='prompt'?`<div class="form-group" style="margin:14px 0 0"><input id="ui-dlg-in" type="text" autocomplete="off" value="${esc(o.value)}"></div>`:''}
+    <div class="modal-footer" style="margin-top:18px">${kind==='alert'?'':'<button class="btn" id="ui-dlg-no">Cancel</button>'}<button class="btn btn-primary" id="ui-dlg-yes" ${tone==='danger'&&kind==='confirm'?'style="background:#dc2626;border-color:#dc2626"':''}>${esc(okLabel)}</button></div>
+  </div>`;
+  const inp=el.querySelector('#ui-dlg-in');
+  const done=ok=>{ el.classList.remove('open'); document.removeEventListener('keydown',onKey,true); uiBusy=false; res({ok,value:inp?inp.value:null}); setTimeout(uiNext,40); };
+  const onKey=e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); done(kind==='alert'); } else if(e.key==='Enter'&&(!e.target||e.target.tagName!=='BUTTON')){ e.preventDefault(); e.stopPropagation(); done(true); } };
+  el.querySelector('#ui-dlg-yes').onclick=()=>done(true);
+  const no=el.querySelector('#ui-dlg-no'); if(no) no.onclick=()=>done(false);
+  el.onclick=e=>{ if(e.target===el) done(kind==='alert'); };
+  document.addEventListener('keydown',onKey,true);
+  el.classList.add('open');
+  setTimeout(()=>{ const f=inp||el.querySelector('#ui-dlg-yes'); if(f){ f.focus(); if(inp) inp.select(); } },30);
+}
+function uiConfirm(msg,o){ return uiDialog(Object.assign({kind:'confirm',message:msg,tone:uiTone(msg,'confirm')},o||{})).then(r=>r.ok); }
+function uiPrompt(msg,def,o){ return uiDialog(Object.assign({kind:'prompt',message:msg,value:def==null?'':String(def),tone:'info'},o||{})).then(r=>r.ok?r.value:null); }
+function uiAlert(msg,o){ return uiDialog(Object.assign({kind:'alert',message:msg,tone:uiTone(msg,'alert')},o||{})).then(()=>undefined); }
+window.alert=function(m){ uiAlert(m); };   // anything that still calls the browser alert gets the same look
+
 let currentUser = null;
 const isInch=()=>!!(currentUser&&currentUser.realRole==='incharge');   // Nurse in charge: admin-like, but no User Access, SHA Cover, Requests, procurement approvals or stock receiving
 let sessionToken = null;
@@ -2259,12 +2310,12 @@ function rpcFailed(error, what){
   // Defer so the loading spinner is actually repainted away before the blocking alert appears
   setTimeout(()=>{
     if(isExpired){
-      alert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.\n\n(Server said: '+raw+')');
+      uiAlert('Your session has expired, so this was NOT saved. Please sign in again and re-enter it.\n\n(Server said: '+raw+')');
       doLogout();
     } else if(isSignature){
-      alert('Could not save — '+what+' was NOT recorded.\n\nThe database function does not match what the app is sending (this is a server-side setup problem, not your login):\n\n'+msg+'\n\nCode: '+(code||'n/a'));
+      uiAlert('Could not save — '+what+' was NOT recorded.\n\nThe database function does not match what the app is sending (this is a server-side setup problem, not your login):\n\n'+msg+'\n\nCode: '+(code||'n/a'));
     } else {
-      alert('Could not save — '+what+' was NOT recorded.\n\n'+msg+(code?'\n\nCode: '+code:''));
+      uiAlert('Could not save — '+what+' was NOT recorded.\n\n'+msg+(code?'\n\nCode: '+code:''));
     }
   },60);
   return true;
@@ -2398,12 +2449,12 @@ function applyRoleTabVisibility(role){
   try{ applyPagePerms(); }catch(e){}
 }
 
-function switchTab(t){
+async function switchTab(t){
   if(t==='recycle'){ const sel=document.getElementById('tab-select'); if(sel) sel.value=currentTab; showRecycleBin(); return; }
   if(!tabAllowed(t)) t='home';
   const leavingReportTabs = (currentTab==='report'||currentTab==='monthlyreport');
   if(leavingReportTabs && t!==currentTab && repDirty){
-    if(!confirm('You have unsaved changes in this report. Leave without saving?\n\n(Tip: changes are also autosaved as a draft periodically.)')){
+    if(!(await uiConfirm('You have unsaved changes in this report. Leave without saving?\n\n(Tip: changes are also autosaved as a draft periodically.)'))){
       const sel=document.getElementById('tab-select');
       if(sel) sel.value=currentTab;
       return;
@@ -2928,9 +2979,9 @@ async function disSaveRinse(hub) {
   const date    = document.getElementById('dis-'+hub+'-rinse-date').value;
   const status  = document.getElementById('dis-'+hub+'-rinse-status').value;
   const reason  = document.getElementById('dis-'+hub+'-rinse-reason') ? document.getElementById('dis-'+hub+'-rinse-reason').value : '';
-  if (!status) { alert('Please select a status (Completed or Missed).'); return; }
-  if (status === 'Missed' && !reason.trim()) { alert('Please provide a reason for the missed rinse.'); return; }
-  if (status === 'Completed' && !date) { alert('Please select the date the rinse was done.'); return; }
+  if (!status) { uiAlert('Please select a status (Completed or Missed).'); return; }
+  if (status === 'Missed' && !reason.trim()) { uiAlert('Please provide a reason for the missed rinse.'); return; }
+  if (status === 'Completed' && !date) { uiAlert('Please select the date the rinse was done.'); return; }
   showLoading('Saving rinse...');
   const notes = JSON.stringify({ status, reason: status==='Missed' ? reason.trim() : '' });
   await saveDisRecord(hub, slotKey, date||null, notes);
@@ -3257,9 +3308,9 @@ function repHideLiveUpdateBanner(){
   repPendingRemoteRow = null;
   ['rep-liveUpdateBanner','op-liveUpdateBanner','doc-liveUpdateBanner','mo-liveUpdateBanner'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
-function repApplyPendingRemoteRow(){
+async function repApplyPendingRemoteRow(){
   if(!repPendingRemoteRow) return;
-  if(!confirm('Reload the latest saved version? This discards your unsaved changes here.')) return;
+  if(!(await uiConfirm('Reload the latest saved version? This discards your unsaved changes here.'))) return;
   repApplyRemoteRow(repPendingRemoteRow);
 }
 
@@ -3311,8 +3362,8 @@ async function renderReport(){
   else await renderClinicalReport();
   repStartAutoSave();
 }
-function repSetKind(kind){
-  if(repDirty && !confirm('You have unsaved changes in this report. Switch report type and discard them?')) return;
+async function repSetKind(kind){
+  if(repDirty && !(await uiConfirm('You have unsaved changes in this report. Switch report type and discard them?'))) return;
   repDirty = false;
   repKind = kind;
   renderReport();
@@ -3526,8 +3577,8 @@ async function repRenderHeparinUsage(){
     {item:r[0], date:r[1], expected:r[2], used:r[3], over_by:r[4], reason:r[5]}));
 }
 
-function repSetFacility(facility){
-  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+async function repSetFacility(facility){
+  if(repDirty && !(await uiConfirm('You have unsaved changes in this report. Switch facility and discard them?'))) return;
   repDirty = false;
   repFacility = facility;
   { const fb=document.getElementById('rep-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
@@ -3824,7 +3875,7 @@ async function repLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function repSaveReport(status, silent){
-  if(facReadOnly(repFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(repFacility)+' reports.'); return; }
+  if(facReadOnly(repFacility)){ if(!silent) uiAlert('You have view-only access to the '+facLabel(repFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('rep-statusMsg');
   const periodStart = document.getElementById('rep-periodStart').value;
   const periodEnd = document.getElementById('rep-periodEnd').value;
@@ -3888,7 +3939,7 @@ async function repOnPastReportChange(id){
     await repLoadDraftForCurrentSelection();
     return;
   }
-  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !(await uiConfirm('You have unsaved changes in the current draft. Discard them to view a past report?'))){
     document.getElementById('rep-pastReportSelect').value='';
     return;
   }
@@ -4141,7 +4192,7 @@ async function moRecalculateFromWeekly(silent){
   const statusMsg = document.getElementById('mo-statusMsg');
   if(!periodStart || !periodEnd){ statusMsg.textContent = 'Please choose a month first.'; return; }
   const hasExisting = MO_FIELDS.some(([id])=>repFilled(document.getElementById('mo-'+id).value));
-  if(hasExisting && !silent && !confirm('This will overwrite the current totals with the sum of submitted weekly reports for this period. Continue?')) return;
+  if(hasExisting && !silent && !(await uiConfirm('This will overwrite the current totals with the sum of submitted weekly reports for this period. Continue?'))) return;
   statusMsg.textContent = 'Summing submitted weekly reports...';
   const { sums, count, error } = await moComputeWeeklySums(facility, periodStart, periodEnd);
   if(error){ statusMsg.textContent = 'Could not sum weekly reports: '+error; return; }
@@ -4225,10 +4276,10 @@ async function renderMonthlyReport(){
   await Promise.all([_draftP, moPopulatePastReportsDropdown()]);
 }
 
-function moOnMonthChange(val){
+async function moOnMonthChange(val){
   const m = /^(\d{4})-(\d{2})$/.exec(val||'');
   if(!m){ const cur = repCurrentMonthRange(); document.getElementById('mo-month').value = cur.start.slice(0,7); return moOnMonthChange(cur.start.slice(0,7)); }
-  if(repDirty && !confirm('You have unsaved changes in this report. Switch month and discard them?')){
+  if(repDirty && !(await uiConfirm('You have unsaved changes in this report. Switch month and discard them?'))){
     const ps = document.getElementById('mo-periodStart').value; document.getElementById('mo-month').value = ps.slice(0,7); return;
   }
   const r = moMonthRange(parseInt(m[1],10), parseInt(m[2],10));
@@ -4237,8 +4288,8 @@ function moOnMonthChange(val){
   repDirty = false;
   moLoadDraftForCurrentSelection();
 }
-function moSetFacility(facility){
-  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+async function moSetFacility(facility){
+  if(repDirty && !(await uiConfirm('You have unsaved changes in this report. Switch facility and discard them?'))) return;
   repDirty = false;
   moFacility = facility;
   { const fb=document.getElementById('mo-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
@@ -4309,7 +4360,7 @@ async function moLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function moSaveReport(status, silent){
-  if(facReadOnly(moFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(moFacility)+' reports.'); return; }
+  if(facReadOnly(moFacility)){ if(!silent) uiAlert('You have view-only access to the '+facLabel(moFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('mo-statusMsg');
   const periodStart = document.getElementById('mo-periodStart').value;
   const periodEnd = document.getElementById('mo-periodEnd').value;
@@ -4375,7 +4426,7 @@ async function moOnPastReportChange(id){
     await moLoadDraftForCurrentSelection();
     return;
   }
-  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !(await uiConfirm('You have unsaved changes in the current draft. Discard them to view a past report?'))){
     document.getElementById('mo-pastReportSelect').value='';
     return;
   }
@@ -4577,8 +4628,8 @@ async function renderOperationalReport(){
   await Promise.all([_draftP, opPopulatePastReportsDropdown()]);
 }
 
-function opSetFacility(facility){
-  if(repDirty && !confirm('You have unsaved changes in this report. Switch facility and discard them?')) return;
+async function opSetFacility(facility){
+  if(repDirty && !(await uiConfirm('You have unsaved changes in this report. Switch facility and discard them?'))) return;
   repDirty = false;
   opFacility = facility;
   { const fb=document.getElementById('op-fac-badge'); if(fb) fb.textContent = facility==='truck' ? 'Mobile Truck' : 'Kigumo'; }
@@ -4734,7 +4785,7 @@ async function opLoadDraftForCurrentSelection(){
 
 // ---------- Save / submit ----------
 async function opSaveReport(status, silent){
-  if(facReadOnly(opFacility)){ if(!silent) alert('You have view-only access to the '+facLabel(opFacility)+' reports.'); return; }
+  if(facReadOnly(opFacility)){ if(!silent) uiAlert('You have view-only access to the '+facLabel(opFacility)+' reports.'); return; }
   const statusMsg = document.getElementById('op-statusMsg');
   const periodStart = document.getElementById('op-periodStart').value;
   const periodEnd = document.getElementById('op-periodEnd').value;
@@ -4798,7 +4849,7 @@ async function opOnPastReportChange(id){
     await opLoadDraftForCurrentSelection();
     return;
   }
-  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !(await uiConfirm('You have unsaved changes in the current draft. Discard them to view a past report?'))){
     document.getElementById('op-pastReportSelect').value='';
     return;
   }
@@ -5238,7 +5289,7 @@ async function docOnPastReportChange(id){
     await docLoadDraftForCurrentSelection();
     return;
   }
-  if(!isViewer && repDirty && !confirm('You have unsaved changes in the current draft. Discard them to view a past report?')){
+  if(!isViewer && repDirty && !(await uiConfirm('You have unsaved changes in the current draft. Discard them to view a past report?'))){
     document.getElementById('doc-pastReportSelect').value='';
     return;
   }
@@ -5736,7 +5787,7 @@ function openEditPatient(id){
   document.getElementById('patient-modal').classList.add('open');
 }
 async function savePatient(){
-  if(currentUser&&currentUser.role==='viewer'){alert('Viewers do not have permission to add or edit patients.');return;}
+  if(currentUser&&currentUser.role==='viewer'){uiAlert('Viewers do not have permission to add or edit patients.');return;}
   const ip=document.getElementById('f-ip').value.trim();
   const name=document.getElementById('f-name').value.trim();
   const yob=parseInt(document.getElementById('f-yob').value);
@@ -5782,12 +5833,12 @@ async function savePatient(){
     if(pid){ const {error:de}=await db.rpc('rr_patient_death_set',{p_session:sessionToken,p_patient_id:String(pid),p_place:status==='Deceased'?(deathPlace||null):null}); deathErr=de; }
   }
   closeModal('patient-modal');await renderPatients();
-  if(deathErr&&status==='Deceased') alert('The patient was saved, but the place of death could not be stored ('+(deathErr.message||'error')+'). Ask the administrator to run renal_roads_death_place.sql in Supabase.');
+  if(deathErr&&status==='Deceased') uiAlert('The patient was saved, but the place of death could not be stored ('+(deathErr.message||'error')+'). Ask the administrator to run renal_roads_death_place.sql in Supabase.');
 }
 function deathLabel(id){const v=deathPlaces[id];return v==='facility'?'In our facility':v==='outside'?'Outside the facility':'Place not recorded';}
 function deathChip(id){const v=deathPlaces[id];const cls=v==='facility'?'at':v==='outside'?'out':'none';return `<span class="death-chip ${cls}">${deathLabel(id)}</span>`;}
 async function deletePatient(id){
-  if(!confirm('Permanently delete this patient record?'))return;
+  if(!(await uiConfirm('Permanently delete this patient record?')))return;
   showLoading('Deleting...');
   const {error:delErr}=await db.rpc('rr_patient_delete',{p_session:sessionToken,p_id:id});
   hideLoading();
@@ -6232,7 +6283,7 @@ async function saveSupply(){
   closeModal('supply-modal');await renderSupplies();
 }
 async function deleteSupply(id){
-  if(!confirm('Delete this supply item?'))return;
+  if(!(await uiConfirm('Delete this supply item?')))return;
   showLoading('Deleting...');
   const {error:delErr}=await db.rpc('rr_supply_delete',{p_session:sessionToken,p_id:id});
   hideLoading();
@@ -6244,8 +6295,8 @@ async function archiveSupply(id,archive){
   const s=(archive?supplies:archivedSupplies).find(x=>x.id===id);if(!s)return;
   if(archive){
     const st=getStock(s);
-    if(st!==0){alert('Stock must be 0 before an item can be archived (currently '+st+' '+s.unit+').\n\nRecord the remaining stock as OUT first (for example as wastage or returned to supplier).');return;}
-    if(!confirm('Archive "'+s.name+'"? It will be hidden from the list and from requests, but its full history is kept and you can restore it later.'))return;
+    if(st!==0){uiAlert('Stock must be 0 before an item can be archived (currently '+st+' '+s.unit+').\n\nRecord the remaining stock as OUT first (for example as wastage or returned to supplier).');return;}
+    if(!(await uiConfirm('Archive "'+s.name+'"? It will be hidden from the list and from requests, but its full history is kept and you can restore it later.')))return;
   }
   showLoading(archive?'Archiving...':'Restoring...');
   const {error}=await db.rpc('rr_supply_archive',{p_session:sessionToken,p_id:id,p_archive:archive});
@@ -6257,7 +6308,7 @@ let multiState=null;
 function openMulti(supplyId,type){
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
   const rows=type==='IN'?[{brand:'',qty:''},{brand:'',qty:''}]:brandBuckets(s).filter(b=>b.qty>0).map(b=>({brand:b.brand,qty:''}));
-  if(!rows.length){alert('There is no stock to take out.');return;}
+  if(!rows.length){uiAlert('There is no stock to take out.');return;}
   closeModal('movement-modal');
   multiState={supplyId,type,rows};
   const today=localISO();
@@ -6294,33 +6345,33 @@ async function confirmMulti(){
   const s=supplies.find(x=>x.id===multiState.supplyId);if(!s)return;
   const type=multiState.type, today=localISO();
   const date=document.getElementById('multi-date').value||today;
-  if(date>today){alert('That date cannot be in the future.');return;}
+  if(date>today){uiAlert('That date cannot be in the future.');return;}
   const notes=document.getElementById('multi-notes').value.trim();
   const byUser=document.getElementById('multi-by').value.trim()||'Nurse';
   const work=[];
   for(let i=0;i<multiState.rows.length;i++){
     const brand=type==='IN'?canonBrand(s,multiState.rows[i].brand):(multiState.rows[i].brand||'').trim(), qtyRaw=multiState.rows[i].qty, qty=parseInt(qtyRaw);
-    if(qtyRaw!==''&&qtyRaw!=null&&!/^\d+$/.test(String(qtyRaw).trim())){alert('Quantities must be whole numbers.');return;}
+    if(qtyRaw!==''&&qtyRaw!=null&&!/^\d+$/.test(String(qtyRaw).trim())){uiAlert('Quantities must be whole numbers.');return;}
     if(type==='IN'){
       if(!brand&&!qtyRaw)continue;
-      if(!brand){alert('Enter a brand name for every row that has a quantity.');return;}
-      if(!qty||qty<1){alert('Enter a quantity for '+brand+'.');return;}
+      if(!brand){uiAlert('Enter a brand name for every row that has a quantity.');return;}
+      if(!qty||qty<1){uiAlert('Enter a quantity for '+brand+'.');return;}
     } else {
       if(!qtyRaw)continue;
-      if(!qty||qty<1){alert('Enter a valid quantity for '+(brand||'No brand')+'.');return;}
-      if(qty>brandAvail(s,brand)){alert('Only '+brandAvail(s,brand)+' '+s.unit+' of '+(brand||'items with no brand')+' available.');return;}
+      if(!qty||qty<1){uiAlert('Enter a valid quantity for '+(brand||'No brand')+'.');return;}
+      if(qty>brandAvail(s,brand)){uiAlert('Only '+brandAvail(s,brand)+' '+s.unit+' of '+(brand||'items with no brand')+' available.');return;}
     }
     work.push({i,brand,qty});
   }
-  if(!work.length){alert('Enter at least one brand and quantity.');return;}
+  if(!work.length){uiAlert('Enter at least one brand and quantity.');return;}
   const names=work.map(w=>w.brand.toLowerCase());
-  if(type==='IN'&&new Set(names).size!==names.length){alert('The same brand is listed twice. Combine them into one row.');return;}
+  if(type==='IN'&&new Set(names).size!==names.length){uiAlert('The same brand is listed twice. Combine them into one row.');return;}
   if(type==='OUT'&&s.daily_limit){
     const total=work.reduce((a,w)=>a+w.qty,0);
     const dayTotal=liveMovements(s).filter(m=>m.type==='OUT'&&localISO(new Date(m.created_at))===date).reduce((a,m)=>a+m.qty,0)+total;
     if(dayTotal>s.daily_limit){
-      if(!notes){alert('This takes '+date+' to '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'. Please enter a reason in Notes before saving.');return;}
-      if(!confirm('Usage for '+date+' will total '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'.\n\nReason: "'+notes+'"\n\nSave these movements?'))return;
+      if(!notes){uiAlert('This takes '+date+' to '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'. Please enter a reason in Notes before saving.');return;}
+      if(!(await uiConfirm('Usage for '+date+' will total '+dayTotal+' '+s.unit+', over the expected daily limit of '+s.daily_limit+'.\n\nReason: "'+notes+'"\n\nSave these movements?')))return;
     }
   }
   const note=date===today?notes:(notes?notes+' — ':'')+'Backdated entry: '+(type==='IN'?'received ':'used ')+date+', recorded '+today;
@@ -6350,15 +6401,15 @@ async function assignBrand(supplyId){
   if(!currentUser||currentUser.role!=='admin')return;
   const s=supplies.find(x=>x.id===supplyId);if(!s)return;
   const avail=brandAvail(s,'');
-  if(avail<=0){alert('There is no stock without a brand to assign.');return;}
+  if(avail<=0){uiAlert('There is no stock without a brand to assign.');return;}
   const known=itemBrands(s);
-  const brand=prompt('Which brand is the existing stock of "'+s.name+'"?'+(known.length?'\nExisting brands: '+known.join(', '):'')+'\n\n'+avail+' '+s.unit+' currently has no brand.');
+  const brand=(await uiPrompt('Which brand is the existing stock of "'+s.name+'"?'+(known.length?'\nExisting brands: '+known.join(', '):'')+'\n\n'+avail+' '+s.unit+' currently has no brand.'));
   if(brand===null)return;
-  if(!brand.trim()){alert('Enter a brand name.');return;}
-  const q=prompt('How many '+s.unit+' are '+brand.trim()+'? (up to '+avail+')',String(avail));
+  if(!brand.trim()){uiAlert('Enter a brand name.');return;}
+  const q=(await uiPrompt('How many '+s.unit+' are '+brand.trim()+'? (up to '+avail+')',String(avail)));
   if(q===null)return;
   const qty=parseInt(q);
-  if(!qty||qty<1||qty>avail){alert('Enter a quantity between 1 and '+avail+'.');return;}
+  if(!qty||qty<1||qty>avail){uiAlert('Enter a quantity between 1 and '+avail+'.');return;}
   showLoading('Saving...');
   const {error}=await db.rpc('rr_stock_assign_brand',{p_session:sessionToken,p_supply_id:supplyId,p_brand:canonBrand(s,brand),p_qty:qty,p_by_user:currentUser.name||'Admin'});
   hideLoading();
@@ -6515,15 +6566,15 @@ function emDrugTable(drugs,manage){
     h+=`<tr><td><b>${repEsc(x.name)}</b> ${x.critical?emPill('#991b1b','critical'):''}<div style="font-size:11.5px;color:var(--text3,#6b7280)">${repEsc([x.strength,x.form,x.location].filter(Boolean).join(' · '))}</div>${(manage&&currentUser&&currentUser.hidden)?`<button class="btn btn-sm" style="margin-top:6px;color:#b91c1c" onclick="emDrugDelete('${x.id}')"><i class="ti ti-trash"></i> Delete drug</button>`:''}</td><td><b style="color:${short?'#dc2626':'inherit'}">${x.usable}</b></td><td>${x.trolley_qty}</td><td>${x.min_level}</td><td>${(x.batches||[]).map(b=>{const e=emExp(b.expiry);return `<div style="margin:2px 0">${emPill(b.quarantined?'#6b7280':e.c,b.quarantined?'Quarantined':e.t)} ${repEsc(b.batch_no||'no batch')} · ${b.qty} · ${b.expiry}${manage?` <a href="#" onclick="emBatchAct('${b.id}',${b.qty});return false">manage</a>`:''}</div>`}).join('')||'—'}</td><td>${low?emPill('#dc2626','Low stock'):short?emPill('#d97706','Below trolley qty'):emPill('#16a34a','OK')}</td></tr>`;});
   return h+`</tbody></table></div>`;
 }
-async function emCall(fn,args,what,ok){ if(emReadOnly()){ alert('You have view-only access to the '+EM.branch+' emergency trolley.'); return null; } showLoading('Saving...'); const {data,error}=await db.rpc(fn,Object.assign({p_session:sessionToken},args)); hideLoading(); if(rpcFailed(error,what))return null; if(ok)alert(ok); return data===null?true:data; }
+async function emCall(fn,args,what,ok){ if(emReadOnly()){ uiAlert('You have view-only access to the '+EM.branch+' emergency trolley.'); return null; } showLoading('Saving...'); const {data,error}=await db.rpc(fn,Object.assign({p_session:sessionToken},args)); hideLoading(); if(rpcFailed(error,what))return null; if(ok)uiAlert(ok); return data===null?true:data; }
 async function emDailySubmit(){
-  if(emSun(emLocalIso())){alert('Closed on Sundays — no daily check is recorded.');return;}
+  if(emSun(emLocalIso())){uiAlert('Closed on Sundays — no daily check is recorded.');return;}
   const sign=(document.getElementById('emd-signname').value||'').trim();
-  if(!document.getElementById('emd-confirm').checked){alert('Please tick the box to confirm this inspection was done by you.');return;}
-  if(sign.length<3){alert('Please type your full name — it is required.');document.getElementById('emd-signname').focus();return;}
+  if(!document.getElementById('emd-confirm').checked){uiAlert('Please tick the box to confirm this inspection was done by you.');return;}
+  if(sign.length<3){uiAlert('Please type your full name — it is required.');document.getElementById('emd-signname').focus();return;}
   const a={signed_name:sign}; EM_CHECKS.forEach(([k])=>a[k]=document.getElementById('emd-'+k).value); a.seal_no=document.getElementById('emd-seal_no').value; a.oxygen_pressure=document.getElementById('emd-oxygen_pressure').value;
   const r=await emCall('rr_em_daily_submit',{p_branch:EM.branch,p_answers:a,p_issues:document.getElementById('emd-issues').value,p_actions:document.getElementById('emd-actions').value,p_confirmed:document.getElementById('emd-confirm').checked},'saving the daily check');
-  if(!r)return; alert('Daily check saved: '+(emSt[r.status]||[0,r.status])[1].toUpperCase()+((r.flags||[]).length?'\n\n'+r.flags.join('\n'):'')); EM.view='dash'; renderEmergency();
+  if(!r)return; uiAlert('Daily check saved: '+(emSt[r.status]||[0,r.status])[1].toUpperCase()+((r.flags||[]).length?'\n\n'+r.flags.join('\n'):'')); EM.view='dash'; renderEmergency();
 }
 function emReadFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('read failed')); r.readAsDataURL(f); }); }
 async function emPrepFile(f){   // returns {name,type,data} or null; images are compressed, PDFs limited to 1 MB
@@ -6538,44 +6589,44 @@ function emViewFile(i){ const f=(EM.ledger[i]||{}).detail&&EM.ledger[i].detail.d
   const b=atob(f.data.split(',')[1]), u=new Uint8Array(b.length); for(let k=0;k<b.length;k++)u[k]=b.charCodeAt(k);
   window.open(URL.createObjectURL(new Blob([u],{type:f.type})),'_blank'); }
 async function emUse(){
-  const g=k=>document.getElementById('emu-'+k).value, q=parseInt(g('qty'),10); if(!g('drug')||!(q>0)){alert('Choose the drug and enter the quantity used.');return;}
-  if(EM.branch==='Mobile Truck'&&!emStation()){alert('Select the station where the drug was used.');return;}
-  let file=null; try{ file=await emPrepFile((document.getElementById('emu-file')||{}).files&&document.getElementById('emu-file').files[0]); }catch(e){ alert(e.message); return; }
+  const g=k=>document.getElementById('emu-'+k).value, q=parseInt(g('qty'),10); if(!g('drug')||!(q>0)){uiAlert('Choose the drug and enter the quantity used.');return;}
+  if(EM.branch==='Mobile Truck'&&!emStation()){uiAlert('Select the station where the drug was used.');return;}
+  let file=null; try{ file=await emPrepFile((document.getElementById('emu-file')||{}).files&&document.getElementById('emu-file').files[0]); }catch(e){ uiAlert(e.message); return; }
   const r=await emCall('rr_em_use',{p_drug:g('drug'),p_qty:q,p_detail:{station:emStation(),patient:g('patient'),incident:g('incident'),dose:g('dose'),route:g('route'),authoriser:g('authoriser'),doc_ref:g('docref'),remarks:g('remarks'),doc_file:file}},'recording the usage');
-  if(!r)return; alert('Recorded ('+r.ref+'). '+r.deducted+' deducted from stock.'+(r.shortfall?'\n\nWARNING: '+r.shortfall+' more than usable stock was used — raise a replenishment/adjustment.':'')); EM.view='dash'; renderEmergency();
+  if(!r)return; uiAlert('Recorded ('+r.ref+'). '+r.deducted+' deducted from stock.'+(r.shortfall?'\n\nWARNING: '+r.shortfall+' more than usable stock was used — raise a replenishment/adjustment.':'')); EM.view='dash'; renderEmergency();
 }
 async function emWeekly(){
   const lines=[...document.querySelectorAll('tr[data-id]')].map(tr=>({drug_id:tr.dataset.id,physical:tr.querySelector('.emw-ph').value,note:tr.querySelector('.emw-note').value}));
-  if(lines.some(l=>l.physical==='')){alert('Enter a physical count for every drug (0 if none).');return;}
+  if(lines.some(l=>l.physical==='')){uiAlert('Enter a physical count for every drug (0 if none).');return;}
   const sign=(document.getElementById('emw-signname').value||'').trim();
-  if(!document.getElementById('emw-confirm').checked){alert('Please tick the box to confirm this count was done by you.');return;}
-  if(sign.length<3){alert('Please type your full name — it is required.');document.getElementById('emw-signname').focus();return;}
+  if(!document.getElementById('emw-confirm').checked){uiAlert('Please tick the box to confirm this count was done by you.');return;}
+  if(sign.length<3){uiAlert('Please type your full name — it is required.');document.getElementById('emw-signname').focus();return;}
   const cm=document.getElementById('emw-comments').value.trim();
   const r=await emCall('rr_em_weekly_submit',{p_branch:EM.branch,p_lines:lines,p_comments:'Counted by (typed name): '+sign+(cm?'\n'+cm:''),p_confirmed:document.getElementById('emw-confirm').checked},'saving the weekly verification');
-  if(!r)return; alert(r.discrepancies?r.discrepancies+' stock discrepanc'+(r.discrepancies>1?'ies':'y')+' found — please investigate; an administrator can correct stock with a documented adjustment.':'Verification saved. Physical stock matches the system.'); EM.view='dash'; renderEmergency();
+  if(!r)return; uiAlert(r.discrepancies?r.discrepancies+' stock discrepanc'+(r.discrepancies>1?'ies':'y')+' found — please investigate; an administrator can correct stock with a documented adjustment.':'Verification saved. Physical stock matches the system.'); EM.view='dash'; renderEmergency();
 }
 async function emDrugDelete(id){
-  if(!currentUser||!currentUser.hidden){ alert('Only the super admin can delete a drug.'); return; }
+  if(!currentUser||!currentUser.hidden){ uiAlert('Only the super admin can delete a drug.'); return; }
   const x=((EM.d&&EM.d.drugs)||[]).find(d=>String(d.id)===String(id)); if(!x) return;
-  if(!confirm('Delete "'+x.name+'" from the '+EM.branch+' emergency trolley?\n\nIt will disappear from all lists. Its past stock and usage records are kept for audit.')) return;
-  const why=prompt('Reason for deleting (required):')||''; if(!why.trim()){ alert('A reason is required.'); return; }
+  if(!(await uiConfirm('Delete "'+x.name+'" from the '+EM.branch+' emergency trolley?\n\nIt will disappear from all lists. Its past stock and usage records are kept for audit.'))) return;
+  const why=(await uiPrompt('Reason for deleting (required):'))||''; if(!why.trim()){ uiAlert('A reason is required.'); return; }
   if(await emCall('rr_em_drug_delete',{p_drug:id,p_reason:why.trim()},'deleting the drug')) renderEmergency();
 }
 async function emDrugAdd(){
   const g=k=>document.getElementById('emg-'+k).value, drug={branch:EM.branch,critical:document.getElementById('emg-critical').checked};
-  ['name','generic_name','category','strength','form','unit','min_level','trolley_qty','storage','location'].forEach(k=>drug[k]=g(k)); if(!drug.name.trim()){alert('Drug name is required.');return;}
+  ['name','generic_name','category','strength','form','unit','min_level','trolley_qty','storage','location'].forEach(k=>drug[k]=g(k)); if(!drug.name.trim()){uiAlert('Drug name is required.');return;}
   ['min_level','trolley_qty'].forEach(k=>{ const n=parseInt(drug[k],10); drug[k]=(Number.isFinite(n)&&n>=0)?n:0; });   // blank number fields would reach the database as "" and fail the integer cast
   if(await emCall('rr_em_drug_save',{p_drug:drug},'saving the drug')) renderEmergency();
 }
 async function emReceive(){
-  const g=k=>document.getElementById('emr-'+k).value; if(!g('exp')||!(parseInt(g('qty'),10)>0)){alert('Expiry date and quantity are required.');return;}
+  const g=k=>document.getElementById('emr-'+k).value; if(!g('exp')||!(parseInt(g('qty'),10)>0)){uiAlert('Expiry date and quantity are required.');return;}
   if(await emCall('rr_em_receive',{p_drug:g('drug'),p_batch:g('batch'),p_expiry:g('exp'),p_qty:parseInt(g('qty'),10),p_manufacturer:g('man'),p_supplier:g('sup')},'receiving stock')) renderEmergency();
 }
 async function emBatchAct(id,qty){
-  const c=prompt('Type: discard, adjust, quarantine or release'); if(!c)return; const why=prompt('Reason (required):'); if(!why||!why.trim())return;
+  const c=(await uiPrompt('Type: discard, adjust, quarantine or release')); if(!c)return; const why=(await uiPrompt('Reason (required):')); if(!why||!why.trim())return;
   let ok=null;
-  if(c==='discard'){ const n=parseInt(prompt('Quantity to discard (max '+qty+'):'),10); if(n>0) ok=await emCall('rr_em_discard',{p_batch:id,p_qty:n,p_reason:why},'discarding'); }
-  else if(c==='adjust'){ if(!emIsAdmin()){alert('Administrator only.');return;} const n=parseInt(prompt('Correct quantity for this batch:'),10); if(n>=0) ok=await emCall('rr_em_adjust',{p_batch:id,p_new_qty:n,p_reason:why},'adjusting'); }
+  if(c==='discard'){ const n=parseInt((await uiPrompt('Quantity to discard (max '+qty+'):')),10); if(n>0) ok=await emCall('rr_em_discard',{p_batch:id,p_qty:n,p_reason:why},'discarding'); }
+  else if(c==='adjust'){ if(!emIsAdmin()){uiAlert('Administrator only.');return;} const n=parseInt((await uiPrompt('Correct quantity for this batch:')),10); if(n>=0) ok=await emCall('rr_em_adjust',{p_batch:id,p_new_qty:n,p_reason:why},'adjusting'); }
   else if(c==='quarantine'||c==='release') ok=await emCall('rr_em_batch_quarantine',{p_batch:id,p_on:c==='quarantine',p_reason:why},'updating the batch');
   if(ok) renderEmergency();
 }
@@ -6593,7 +6644,7 @@ function emCellFill(v){ const s=String(v==null?'':v);
   if(/Incomplete|Not answered/.test(s)) return EM_FILL.amber; if(/^Expired|Quarantined/.test(s)) return EM_FILL.grey;
   const m=s.match(/^(\d+)d left$/); if(m) return +m[1]<90?EM_FILL.red:EM_FILL.amber; if(/ mo left$/.test(s)) return EM_FILL.green; return null; }
 async function emBook(sheets,fn){
-  try{await needLib('xlsx');}catch(e){alert('The Excel export tool could not load. Check your internet connection and try again.');return;}
+  try{await needLib('xlsx');}catch(e){uiAlert('The Excel export tool could not load. Check your internet connection and try again.');return;}
   const wb=XLSX.utils.book_new(), thin={style:'thin',color:{rgb:'BFC5D2'}}, bd={top:thin,bottom:thin,left:thin,right:thin};
   sheets.forEach(sh=>{
     const meta=[['Benacare Renal Roads — '+sh.title],['Branch',EM.branch],['Reporting period',sh.period||'Current stock position'],['Generated',new Date().toLocaleString()],['Prepared by',(currentUser&&currentUser.name)||'']];
@@ -6648,7 +6699,7 @@ const emOpen=r=>!['confirmed','rejected'].includes(r.status);
 function emReqView(){
   const drugs=(EM.d.drugs||[]).filter(x=>x.active), reqs=EM.reqs||[], pending=new Set(reqs.filter(emOpen).map(r=>r.drug_id));
   const short=drugs.filter(x=>x.usable<x.trolley_qty&&!pending.has(x.id)), w=emCanWrite(), adm=emIsAdmin()&&!isInch();
-  let h=`<p style="color:var(--text3,#6b7280);font-size:13px">Flow: nurse requests → nurse in charge reviews → administrator approves → stores records the stock received → nurse confirms the trolley is replenished.</p>`;
+  let h=`<p style="color:var(--text3,#6b7280);font-size:13px">Flow: nurse requests → nurse in charge reviews (and can send it to Procurement) → administrator approves → stores records the stock received → nurse confirms the trolley is replenished.</p>`;
   if(short.length&&w) h+=`<div style="background:#fff7ed;border:1px solid #d97706;border-radius:10px;padding:10px 14px;margin-bottom:12px"><b>Suggested requests</b> (below trolley quantity, no open request)<div style="margin-top:6px">${short.map(x=>`<div style="margin:3px 0">${repEsc(x.name)} — usable ${x.usable}/${x.trolley_qty} <button class="btn btn-sm" onclick="emReqNew('${x.id}',${x.trolley_qty-x.usable})">Request ${x.trolley_qty-x.usable}</button></div>`).join('')}</div></div>`;
   if(w&&drugs.length) h+=`<button class="btn" style="margin-bottom:12px" onclick="emReqNew()">+ Manual request</button>`;
   h+=`<div class="table-wrapper"><table><thead><tr><th>Ref / date</th><th>Drug</th><th>Qty</th><th>Reason</th><th>Status</th><th>Trail</th><th></th></tr></thead><tbody>`+(reqs.map(r=>{const s=EM_RS[r.status],btn=[];
@@ -6661,13 +6712,13 @@ function emReqView(){
   return h;
 }
 // The person doing a step must TYPE their own name (never pre-filled); the step is cancelled if they don't.
-function emAskName(what){
-  for(;;){ const n=prompt('Type your full name to '+what+' (required):'); if(n===null)return null;
-    if(n.trim().length>=3&&/[A-Za-z]/.test(n)) return n.trim(); alert('Please type your full name — it cannot be left blank.'); }
+async function emAskName(what){
+  for(;;){ const n=(await uiPrompt('Type your full name to '+what+' (required):')); if(n===null)return null;
+    if(n.trim().length>=3&&/[A-Za-z]/.test(n)) return n.trim(); await uiAlert('Please type your full name — it cannot be left blank.'); }
 }
 // Replenishment request form (one screen: drug dropdown, quantity, reason, your typed name)
 function emReqNew(drug,qty){
-  const drugs=(EM.d.drugs||[]).filter(x=>x.active); if(!drugs.length){alert('No emergency drugs are registered for this branch yet.');return;}
+  const drugs=(EM.d.drugs||[]).filter(x=>x.active); if(!drugs.length){uiAlert('No emergency drugs are registered for this branch yet.');return;}
   let m=document.getElementById('em-req-modal');
   if(!m){ m=document.createElement('div'); m.className='modal-bg'; m.id='em-req-modal'; document.body.appendChild(m); }
   const reasons=['Used during an emergency','Expired','Damaged or compromised','Below trolley quantity','Stock discrepancy','Other'];
@@ -6687,16 +6738,65 @@ async function emReqSubmit(){
   if(nm.length<3||!/[A-Za-z]/.test(nm)){err.textContent='Type your full name — it cannot be left blank.';return;}
   const why=g('reason')+(g('note').trim()?': '+g('note').trim():'');
   const ok=await emCall('rr_em_req_create',{p_branch:EM.branch,p_drug:g('drug'),p_qty:q,p_reason:why,p_name:nm},'creating the request');
-  if(ok){ closeModal('em-req-modal'); EM.view='req'; renderEmergency(); }
+  if(ok){
+    closeModal('em-req-modal'); EM.view='req'; renderEmergency(); }
+}
+// Prompt screen shown after the nurse in charge reviews a request: resolves true (send) or false (not now)
+function emProcPrompt(id){
+  return new Promise(resolve=>{
+    const r=(EM.reqs||[]).find(x=>String(x.id)===String(id))||{};
+    const dr=((EM.d&&EM.d.drugs)||[]).find(x=>x.name===r.drug&&(x.strength||'')===(r.strength||''))||((EM.d&&EM.d.drugs)||[]).find(x=>x.name===r.drug)||{};
+    const unit=dr.unit||'units', urgent=!!dr.critical;
+    const row=(l,v)=>`<div style="display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--border,#e5e7eb);font-size:13.5px"><span style="color:var(--text3,#6b7280)">${l}</span><span style="text-align:right;font-weight:600">${v}</span></div>`;
+    let m=document.getElementById('em-proc-modal');
+    if(!m){ m=document.createElement('div'); m.className='modal-bg'; m.id='em-proc-modal'; document.body.appendChild(m); }
+    m.innerHTML=`<div class="modal" style="width:min(460px,94vw)">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <span style="flex:none;width:46px;height:46px;border-radius:12px;background:#e0e7ff;color:#1E1D70;display:flex;align-items:center;justify-content:center;font-size:24px"><i class="ti ti-truck-delivery"></i></span>
+        <div><h2 style="margin:0;font-size:19px">Send to Procurement?</h2><div style="font-size:13px;color:var(--text3,#6b7280)">The administrator will approve the purchase in Procurement.</div></div>
+      </div>
+      <div style="background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px"><i class="ti ti-circle-check"></i> Review recorded${r.ref?' for '+repEsc(r.ref):''}.</div>
+      <div style="border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:2px 14px;margin-bottom:14px">
+        ${row('Drug',repEsc(r.drug||'')+(r.strength?' <span style="font-weight:400;color:var(--text3,#6b7280)">'+repEsc(r.strength)+'</span>':''))}
+        ${row('Quantity',repEsc(String(r.qty||''))+' '+repEsc(unit))}
+        ${row('Priority',urgent?emPill('#dc2626','Urgent — critical drug'):emPill('#6b7280','Routine'))}
+        ${row('Branch',repEsc(EM.branch))}
+        <div style="padding:8px 0;font-size:13.5px"><span style="color:var(--text3,#6b7280)">Reason</span><div style="font-weight:600;margin-top:2px">${repEsc(r.reason||'—')}</div></div>
+      </div>
+      <div class="modal-footer"><button class="btn" id="emp-no">Not now</button><button class="btn btn-primary" id="emp-yes"><i class="ti ti-send"></i> Send to Procurement</button></div>
+    </div>`;
+    const onKey=e=>{ if(e.key==='Escape') done(false); };
+    const done=v=>{ m.classList.remove('open'); document.removeEventListener('keydown',onKey); resolve(v); };
+    m.querySelector('#emp-no').onclick=()=>done(false);
+    m.querySelector('#emp-yes').onclick=()=>done(true);
+    m.onclick=e=>{ if(e.target===m) done(false); };
+    document.addEventListener('keydown',onKey);
+    m.classList.add('open');
+    setTimeout(()=>{ const b=m.querySelector('#emp-yes'); if(b) b.focus(); },50);
+  });
+}
+// When the nurse in charge reviews a replenishment request, it can be sent on to Procurement; the administrator then handles it there
+async function emReqToProc(id){
+  const r=(EM.reqs||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  const dr=((EM.d&&EM.d.drugs)||[]).find(x=>x.name===r.drug&&(x.strength||'')===(r.strength||''))||((EM.d&&EM.d.drugs)||[]).find(x=>x.name===r.drug)||{};
+  const item=(r.drug+(r.strength?' '+r.strength:'')).trim(), unit=dr.unit||'units';
+  const {error}=await db.rpc('rr_proc_create',{p_session:sessionToken,p_item:item,p_brand:null,p_qty:r.qty,p_unit:unit,
+    p_urgency:(dr.critical?'urgent':'routine'),
+    p_note:'Emergency Trolley replenishment ('+EM.branch+(r.ref?', ref '+r.ref:'')+'): '+(r.reason||'')+' — sent by '+((currentUser&&currentUser.name)||'nurse in charge'),
+    p_by_user:(currentUser&&currentUser.name)||'Unknown'});
+  if(error){ uiAlert('The request was reviewed, but it could not be sent to Procurement:\n\n'+error.message+'\n\nPlease add it in Procurement manually.'); return; }
+  try{ showToast('Request sent',repEsc(item)+' — '+r.qty+' '+repEsc(unit)+' has been sent to Procurement.'); }catch(e){}
+  try{ if(typeof procLoad==='function') await procLoad(); }catch(e){}
 }
 async function emReqAct(a,id,qty){
   let ok=null;
-  if(a==='review'){ const nm=emAskName('record that you reviewed this request'); if(!nm)return; ok=await emCall('rr_em_req_review',{p_id:id,p_name:nm},'reviewing'); }
-  else if(a==='approve'||a==='reject'){ const n=prompt(a==='approve'?'Approval note (optional):':'Reason for rejecting:')||''; if(a==='reject'&&!n.trim())return; const nm=emAskName(a==='approve'?'approve this request':'reject this request'); if(!nm)return; ok=await emCall('rr_em_req_decide',{p_id:id,p_approve:a==='approve',p_note:n,p_name:nm},'saving the decision'); }
-  else if(a==='receive'){ const b=prompt('Batch number:'); if(b===null)return; const e=prompt('Expiry date (YYYY-MM-DD):'); if(!/^\d{4}-\d{2}-\d{2}$/.test(e||'')){alert('Enter the expiry as YYYY-MM-DD.');return;} const q=parseInt(prompt('Quantity received:',qty),10); if(!(q>0))return;
-    const nm=emAskName('record this stock as received'); if(!nm)return;
+  if(a==='review'){ const nm=await emAskName('record that you reviewed this request'); if(!nm)return; ok=await emCall('rr_em_req_review',{p_id:id,p_name:nm},'reviewing');
+    if(ok&&await emProcPrompt(id)) await emReqToProc(id); }
+  else if(a==='approve'||a==='reject'){ const n=(await uiPrompt(a==='approve'?'Approval note (optional):':'Reason for rejecting:'))||''; if(a==='reject'&&!n.trim())return; const nm=await emAskName(a==='approve'?'approve this request':'reject this request'); if(!nm)return; ok=await emCall('rr_em_req_decide',{p_id:id,p_approve:a==='approve',p_note:n,p_name:nm},'saving the decision'); }
+  else if(a==='receive'){ const b=(await uiPrompt('Batch number:')); if(b===null)return; const e=(await uiPrompt('Expiry date (YYYY-MM-DD):')); if(!/^\d{4}-\d{2}-\d{2}$/.test(e||'')){uiAlert('Enter the expiry as YYYY-MM-DD.');return;} const q=parseInt((await uiPrompt('Quantity received:',qty)),10); if(!(q>0))return;
+    const nm=await emAskName('record this stock as received'); if(!nm)return;
     ok=await emCall('rr_em_req_receive',{p_id:id,p_batch:b,p_expiry:e,p_qty:q,p_manufacturer:'',p_supplier:'',p_name:nm},'recording received stock'); }
-  else if(a==='confirm'){ const nm=emAskName('confirm the trolley has been replenished'); if(!nm)return; ok=await emCall('rr_em_req_confirm',{p_id:id,p_name:nm},'confirming'); }
+  else if(a==='confirm'){ const nm=await emAskName('confirm the trolley has been replenished'); if(!nm)return; ok=await emCall('rr_em_req_confirm',{p_id:id,p_name:nm},'confirming'); }
   if(ok) renderEmergency();
 }
 // ---- charts (plain SVG, no library) ----
@@ -6777,7 +6877,7 @@ function rbRender(){
 }
 async function rbRestore(id){
   const r=(window.__rbRows||[]).find(x=>x.id===id); if(!r)return;
-  if(!confirm('Restore "'+(r.label||r.record_id)+'" ('+rbTypeLabel(r.source_table)+')? It will go back exactly as it was when deleted.'))return;
+  if(!(await uiConfirm('Restore "'+(r.label||r.record_id)+'" ('+rbTypeLabel(r.source_table)+')? It will go back exactly as it was when deleted.')))return;
   showLoading('Restoring...');
   const {error}=await db.rpc('rr_recycle_restore',{p_session:sessionToken,p_id:id});
   hideLoading();
@@ -6787,8 +6887,8 @@ async function rbRestore(id){
 }
 async function rbPurge(id){
   const r=(window.__rbRows||[]).find(x=>x.id===id); if(!r)return;
-  if(r.source_table==='rr_em_drug'){ alert('Emergency drugs can be restored but never deleted forever.'); return; }
-  if(!confirm('Permanently delete "'+(r.label||r.record_id)+'"?\n\nThe saved copy of its data is wiped and cannot be restored. A line stays in the history showing what was deleted, by whom and when.'))return;
+  if(r.source_table==='rr_em_drug'){ uiAlert('Emergency drugs can be restored but never deleted forever.'); return; }
+  if(!(await uiConfirm('Permanently delete "'+(r.label||r.record_id)+'"?\n\nThe saved copy of its data is wiped and cannot be restored. A line stays in the history showing what was deleted, by whom and when.')))return;
   showLoading('Deleting...');
   const {error}=await db.rpc('rr_recycle_purge',{p_session:sessionToken,p_id:id});
   hideLoading();
@@ -6873,13 +6973,13 @@ function updateNetSummary(){
 async function confirmMovement(){
   if(!pendingMovement)return;
   const qty=parseInt(document.getElementById('m-qty').value);
-  if(!qty||qty<=0){alert('Enter a valid quantity.');return;}
-  if(!/^\d+$/.test(String(document.getElementById('m-qty').value).trim())){alert('Quantity must be a whole number.');return;}
+  if(!qty||qty<=0){uiAlert('Enter a valid quantity.');return;}
+  if(!/^\d+$/.test(String(document.getElementById('m-qty').value).trim())){uiAlert('Quantity must be a whole number.');return;}
   const s=supplies.find(x=>x.id===pendingMovement.supplyId);if(!s)return;
   const brand=pendingMovement.type==='IN'?canonBrand(s,document.getElementById('m-brand').value):(document.getElementById('m-brand-group').style.display!=='none'?document.getElementById('m-brand-select').value:'');
   if(pendingMovement.type==='OUT'){
     const avail=hasBrands(s)?brandAvail(s,brand):getStock(s);
-    if(qty>avail){alert('Insufficient stock'+(hasBrands(s)?' of '+(brand||'items with no brand'):'')+'. Available: '+avail+' '+s.unit);return;}
+    if(qty>avail){uiAlert('Insufficient stock'+(hasBrands(s)?' of '+(brand||'items with no brand'):'')+'. Available: '+avail+' '+s.unit);return;}
   }
   const notesVal=document.getElementById('m-notes').value.trim();
   const today=localISO();
@@ -6888,17 +6988,17 @@ async function confirmMovement(){
   let effectiveDate=null, usageRows=[];
   if(isBackdated){
     effectiveDate=document.getElementById('m-received-date').value;
-    if(!effectiveDate){alert(pendingMovement.type==='IN'?'Enter the date this stock was actually received.':'Enter the date this was actually used.');return;}
-    if(effectiveDate>today){alert('That date cannot be in the future.');return;}
+    if(!effectiveDate){uiAlert(pendingMovement.type==='IN'?'Enter the date this stock was actually received.':'Enter the date this was actually used.');return;}
+    if(effectiveDate>today){uiAlert('That date cannot be in the future.');return;}
     if(pendingMovement.type==='IN'){
       usageRows=(pendingMovement.usageRows||[]).filter(r=>r.qty&&parseInt(r.qty)>0);
       for(const r of usageRows){
-        if(!r.date){alert('Enter a date for each usage entry.');return;}
-        if(r.date<effectiveDate){alert('A usage date cannot be before the date received.');return;}
-        if(r.date>today){alert('A usage date cannot be in the future.');return;}
+        if(!r.date){uiAlert('Enter a date for each usage entry.');return;}
+        if(r.date<effectiveDate){uiAlert('A usage date cannot be before the date received.');return;}
+        if(r.date>today){uiAlert('A usage date cannot be in the future.');return;}
       }
       const usedTotal=usageRows.reduce((t,r)=>t+parseInt(r.qty),0);
-      if(usedTotal>qty){alert(`The usage breakdown (${usedTotal} ${s.unit}) can't exceed the quantity received (${qty} ${s.unit}).`);return;}
+      if(usedTotal>qty){uiAlert(`The usage breakdown (${usedTotal} ${s.unit}) can't exceed the quantity received (${qty} ${s.unit}).`);return;}
     }
   }
 
@@ -6908,8 +7008,8 @@ async function confirmMovement(){
     if(dayTotal>s.daily_limit){
       const overBy=dayTotal-s.daily_limit;
       const dayLabel = isBackdated ? `usage on ${effectiveDate}` : "today's usage";
-      if(!notesVal){alert(`This pushes ${dayLabel} for ${s.name} to ${dayTotal} ${s.unit} — ${overBy} over the expected daily limit of ${s.daily_limit}. Please enter a reason in Notes before saving.`);return;}
-      if(!confirm(`${dayLabel[0].toUpperCase()+dayLabel.slice(1)} for ${s.name} will total ${dayTotal} ${s.unit}, ${overBy} over the expected daily limit of ${s.daily_limit}.\n\nReason: "${notesVal}"\n\nSave this movement?`))return;
+      if(!notesVal){uiAlert(`This pushes ${dayLabel} for ${s.name} to ${dayTotal} ${s.unit} — ${overBy} over the expected daily limit of ${s.daily_limit}. Please enter a reason in Notes before saving.`);return;}
+      if(!(await uiConfirm(`${dayLabel[0].toUpperCase()+dayLabel.slice(1)} for ${s.name} will total ${dayTotal} ${s.unit}, ${overBy} over the expected daily limit of ${s.daily_limit}.\n\nReason: "${notesVal}"\n\nSave this movement?`)))return;
     }
   }
   showLoading('Saving...');
@@ -6982,10 +7082,10 @@ async function showMovements(supplyId){
   document.getElementById('movements-view-modal').classList.add('open');
 }
 async function reverseMovement(supplyId,movementId){
-  if(!currentUser||currentUser.role!=='admin'){alert('Only an admin can reverse a movement.');return;}
-  const reason=prompt('Why is this movement being reversed? (required)');
+  if(!currentUser||currentUser.role!=='admin'){uiAlert('Only an admin can reverse a movement.');return;}
+  const reason=(await uiPrompt('Why is this movement being reversed? (required)'));
   if(reason===null)return;
-  if(!reason.trim()){alert('A reason is required to reverse a movement.');return;}
+  if(!reason.trim()){uiAlert('A reason is required to reverse a movement.');return;}
   showLoading('Reversing...');
   const {error}=await db.rpc('rr_movement_reverse',{p_session:sessionToken,p_id:movementId,p_reason:reason.trim(),p_by_user:currentUser.name||'Admin'});
   hideLoading();
@@ -7002,12 +7102,12 @@ function openRequestModal(){
 async function submitRequest(){
   const supplyId=document.getElementById('r-item').value;
   const qty=parseInt(document.getElementById('r-qty').value);
-  if(!supplyId||!qty||qty<1){alert('Select an item and a valid quantity.');return;}
+  if(!supplyId||!qty||qty<1){uiAlert('Select an item and a valid quantity.');return;}
   showLoading('Submitting...');
   const {error:reqErr}=await db.rpc('rr_request_submit',{p_session:sessionToken,p_supply_id:supplyId,p_qty:qty,p_requested_by:document.getElementById('r-by').value.trim(),p_notes:document.getElementById('r-notes').value.trim()});
   hideLoading();
   if(rpcFailed(reqErr,'this supply request'))return;
-  closeModal('request-modal');await updateBadge();alert('Request submitted successfully.');
+  closeModal('request-modal');await updateBadge();uiAlert('Request submitted successfully.');
 }
 async function renderRequests(){
   showLoading('Loading requests...');
@@ -7097,7 +7197,7 @@ async function confirmApprove() {
   await updateBadge();
 }
 async function rejectRequest(id){
-  const reason=prompt('Reason for rejecting this request (optional):');
+  const reason=(await uiPrompt('Reason for rejecting this request (optional):'));
   if(reason===null)return;
   showLoading('Rejecting...');
   const {error:rjErr}=await db.rpc('rr_request_reject',{p_session:sessionToken,p_id:id,p_reason:reason.trim()||null});
@@ -7238,7 +7338,7 @@ async function renderUsers(){
   document.getElementById('main-content').innerHTML=h;
 }
 function openAddUser(){
-  if(!currentUser||!currentUser.hidden){alert('You do not have permission to register users.');return;}
+  if(!currentUser||!currentUser.hidden){uiAlert('You do not have permission to register users.');return;}
   ['u-name','u-username','u-password'].forEach(k=>document.getElementById(k).value='');document.getElementById('u-role').value='staff';document.getElementById('user-error').classList.remove('show');document.getElementById('user-modal').classList.add('open');
 }
 async function saveUser(){
@@ -7256,7 +7356,7 @@ async function saveUser(){
 async function toggleUser(id,active){showLoading(active?'Activating...':'Deactivating...');await db.rpc('rr_set_active',{p_session:sessionToken,p_id:id,p_active:active});hideLoading();await renderUsers();}
 async function deleteUser(id){
   if(!currentUser||!currentUser.hidden)return;
-  if(!confirm('Permanently remove this user?'))return;showLoading('Removing...');await db.rpc('rr_delete_user',{p_session:sessionToken,p_id:id});hideLoading();await renderUsers();
+  if(!(await uiConfirm('Permanently remove this user?')))return;showLoading('Removing...');await db.rpc('rr_delete_user',{p_session:sessionToken,p_id:id});hideLoading();await renderUsers();
 }
 let resetPasswordUserId=null;
 function openResetPassword(id,name){
@@ -7421,21 +7521,21 @@ window.addEventListener('load',checkResetLink);
 async function approveSignup(id){
   if(!currentUser||!currentUser.hidden)return;
   const role=document.getElementById('sr-role-'+id).value;
-  if(!role){alert('Please choose a role before approving.');return;}
+  if(!role){uiAlert('Please choose a role before approving.');return;}
   showLoading('Approving...');
   const {error}=await db.rpc('rr_signup_approve',{p_session:sessionToken,p_id:id,p_role:role});
   hideLoading();
-  if(error){alert(authMsg(error)+(/duplicate|23505/i.test(error.message||'')?' (The username or email was taken in the meantime.)':''));}
+  if(error){uiAlert(authMsg(error)+(/duplicate|23505/i.test(error.message||'')?' (The username or email was taken in the meantime.)':''));}
   await renderUsers();
 }
 async function rejectSignup(id){
   if(!currentUser||!currentUser.hidden)return;
-  const reason=prompt('Reason for rejecting (optional):','');
+  const reason=(await uiPrompt('Reason for rejecting (optional):',''));
   if(reason===null)return;
   showLoading('Rejecting...');
   const {error}=await db.rpc('rr_signup_reject',{p_session:sessionToken,p_id:id,p_reason:reason});
   hideLoading();
-  if(error)alert(authMsg(error));
+  if(error)uiAlert(authMsg(error));
   await renderUsers();
 }
 let setEmailUserId=null;
@@ -7455,7 +7555,7 @@ async function saveUserEmail(){
 
 // EXPORT (always as real Excel .xlsx files, via SheetJS)
 async function dlXLSX(headers,rows,fn,sheetName){
-  try{await needLib('xlsx');}catch(e){alert('The Excel export tool could not load. Check your internet connection and try again.');return;}
+  try{await needLib('xlsx');}catch(e){uiAlert('The Excel export tool could not load. Check your internet connection and try again.');return;}
   const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,sheetName||'Sheet1');
@@ -7490,7 +7590,7 @@ function exportPatients(){
     'patients_'+localISO()+'.xlsx','Patients');
 }
 async function dlXLSXMulti(sheets,fn){
-  try{await needLib('xlsx');}catch(e){alert('The Excel export tool could not load. Check your internet connection and try again.');return;}
+  try{await needLib('xlsx');}catch(e){uiAlert('The Excel export tool could not load. Check your internet connection and try again.');return;}
   const wb=XLSX.utils.book_new();
   sheets.forEach(sh=>{
     const aoa=sh.aoa||[sh.headers,...sh.rows];
@@ -7659,10 +7759,10 @@ function repAdminAfterLoad(p,id){
   btn.onclick=function(){ repAdminEditStart(p); };
   const holder=banner.querySelector('div')||banner; holder.appendChild(btn);
 }
-function repAdminEditStart(p){
+async function repAdminEditStart(p){
   if(!repAdminIsAdmin()) return;
   const sel=document.getElementById(p+'-pastReportSelect'); const id=sel&&sel.value; if(!id) return;
-  if(!confirm('Edit this SUBMITTED report as admin?\n\nYour changes will replace what the nurses submitted. You can also correct the report dates. Make sure you save when done.')) return;
+  if(!(await uiConfirm('Edit this SUBMITTED report as admin?\n\nYour changes will replace what the nurses submitted. You can also correct the report dates. Make sure you save when done.'))) return;
   repAdminSetDraftId(p,id);
   window[p+'SetFormEditable'](true);
   // The reporting dates stay editable so a wrongly dated week/month can be corrected (see the date-change guard below)
@@ -7683,11 +7783,11 @@ function repAdminEditStart(p){
 async function repAdminEditSave(p){
   const id=document.getElementById(p+'-pastReportSelect').value; if(!id) return;
   { const ps=(document.getElementById(p+'-periodStart')||{}).value, pe=(document.getElementById(p+'-periodEnd')||{}).value;
-    if(!ps||!pe){ alert('Please set both report dates.'); return; }
-    if(ps>pe){ alert('The "From" date must be on or before the "To" date.'); return; }
+    if(!ps||!pe){ uiAlert('Please set both report dates.'); return; }
+    if(ps>pe){ uiAlert('The "From" date must be on or before the "To" date.'); return; }
     const sel=document.getElementById(p+'-pastReportSelect'), want=ps+' to '+pe;
     const clash=sel&&[...sel.options].some(o=>o.value&&o.value!==id&&(o.textContent||'').trim()===want);
-    if(clash && !confirm('Another submitted report already exists for '+want+'.\n\nSave these dates anyway?')) return; }
+    if(clash && !(await uiConfirm('Another submitted report already exists for '+want+'.\n\nSave these dates anyway?'))) return; }
   repDirty=true;                              // the save functions clear this only on success
   await window[p+'SaveReport']('submitted');  // same id + status 'submitted' => updates the existing row in place
   if(repDirty){ return; }                     // failed — the save function already showed the error; stay in edit mode
@@ -7989,16 +8089,16 @@ async function renderHeparin(){
      </div>${hepEntriesCard()}</div>`;
 }
 async function hepSave(){
-  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
+  if(facReadOnly(hepState.hub)){ uiAlert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const hub=hepState.hub, g=id=>document.getElementById(id).value.trim();
   const date=g('hep-date'),qty=parseInt(g('hep-qty')),note=g('hep-note'),today=hepLocalToday();
   const limit=hepLimits[hub]||null;
-  if(!qty||qty<1){alert('Enter the quantity used.');return;}
-  if(!/^\d+$/.test(g('hep-qty'))){alert('Quantity must be a whole number of vials.');return;}
-  if(!date||date>today){alert('Choose today or an earlier date.');return;}
+  if(!qty||qty<1){uiAlert('Enter the quantity used.');return;}
+  if(!/^\d+$/.test(g('hep-qty'))){uiAlert('Quantity must be a whole number of vials.');return;}
+  if(!date||date>today){uiAlert('Choose today or an earlier date.');return;}
   if(limit){
     const tot=(hepUsage[hub]||[]).filter(r=>String(r.usage_date).slice(0,10)===date).reduce((t,r)=>t+Number(r.qty),0)+qty;
-    if(tot>limit&&!note){alert(`That brings ${date} to ${tot} ${'vials'}, over the daily limit of ${limit}. Please add a reason in Notes.`);return;}
+    if(tot>limit&&!note){uiAlert(`That brings ${date} to ${tot} ${'vials'}, over the daily limit of ${limit}. Please add a reason in Notes.`);return;}
   }
   showLoading('Saving...');
   const {error}=await db.rpc('rr_heparin_usage_add',{p_session:sessionToken,p_hub:hub,p_date:date,p_qty:qty,p_note:note||null,p_by_user:(currentUser&&currentUser.name)||'Nurse'});
@@ -8007,13 +8107,13 @@ async function hepSave(){
   await renderHeparin();
 }
 async function hepSaveLimit(){
-  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
+  if(facReadOnly(hepState.hub)){ uiAlert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const v=document.getElementById('hep-daily-limit').value;
   hepLimits[hepState.hub]=v?parseInt(v):null;
   showLoading('Saving...');
   const {error}=await db.rpc('rr_heparin_settings_save',{p_session:sessionToken,p_hub:hepState.hub,p_daily_limit:v?parseInt(v):null});
   hideLoading();
-  if(error){alert('Daily limit could not be saved to the database (it will reset on reload): '+error.message);}
+  if(error){uiAlert('Daily limit could not be saved to the database (it will reset on reload): '+error.message);}
   await renderHeparin();
 }
 function hepExport(){
@@ -8024,7 +8124,7 @@ function hepExport(){
 }
 function hepPrint(){
   const m=hepModel();const f=x=>Math.round(x*10)/10,u=m.unit,isMonth=m.gran==='month';
-  const w=window.open('','_blank');if(!w){alert('Allow pop-ups to print.');return;}
+  const w=window.open('','_blank');if(!w){uiAlert('Allow pop-ups to print.');return;}
   const row=(p,t)=>`<tr><td>${isMonth?hepLabelOf(p.date,'month'):p.date}</td><td>${t}</td><td>${f(p.v)}</td></tr>`;
   const modeLabel=m.mode==='week'?'Weekly':m.mode==='month'?'Monthly':'Yearly';
   w.document.write(`<html><head><title>Heparin ${m.mode}ly report</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#222}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #ccc;padding:4px 8px;text-align:left}</style></head><body>
@@ -8260,14 +8360,14 @@ async function shaMarkNotified(id){
   showLoading('Saving...');
   const {error} = await db.rpc('rr_sha_mark_notified',{p_session:sessionToken,p_patient_id:id,p_by_user:(currentUser&&currentUser.name)||'Admin'});
   hideLoading();
-  if(error){ alert('Failed: '+error.message); return; }
+  if(error){ uiAlert('Failed: '+error.message); return; }
   await shaLoad(); shaUpdateBadge(); shaRenderView();
 }
 function shaSms(id){
   const p = shaPatients.find(x=>x.id===id); if(!p) return;
   const i = shaInfo(p), r = i.rec||{};
   const phone = (r.payer_phone || p.next_of_kin_phone || p.phone || '').replace(/[^\d+]/g,'');
-  if(!phone){ alert('No phone number on file.'); return; }
+  if(!phone){ uiAlert('No phone number on file.'); return; }
   const when = i.state==='expired' ? `expired on ${disFormatDate(String(r.expiry_date).slice(0,10))}` : `expires on ${disFormatDate(String(r.expiry_date).slice(0,10))}`;
   const msg = `Hello${r.payer_name?' '+r.payer_name:''}, this is Renal Roads. The SHA cover for ${p.name} ${when}. Please update the SHA premium so dialysis services are not interrupted. Thank you.`;
   window.location.href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
@@ -8305,7 +8405,7 @@ function hepEditOpen(id){
   document.getElementById('hep-edit-modal').classList.add('open');
 }
 async function hepEditSave(){
-  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
+  if(facReadOnly(hepState.hub)){ uiAlert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const err=m=>{document.getElementById('hep-edit-error-msg').textContent=m;document.getElementById('hep-edit-error').classList.add('show');};
   const date=document.getElementById('hep-edit-date').value, qty=parseInt(document.getElementById('hep-edit-qty').value), note=document.getElementById('hep-edit-note').value.trim();
   if(!date||date>hepLocalToday()){err('Choose today or an earlier date.');return;}
@@ -8318,13 +8418,13 @@ async function hepEditSave(){
   await renderHeparin();
 }
 async function hepDelete(id){
-  if(facReadOnly(hepState.hub)){ alert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
+  if(facReadOnly(hepState.hub)){ uiAlert('You have view-only access to the '+facLabel(hepState.hub)+' heparin records.'); return; }
   const r=(hepEntries[hepState.hub]||[]).find(x=>String(x[hepEntriesPk])===id); if(!r) return;
-  if(!confirm(`Delete the entry of ${r.qty} vials on ${String(r.usage_date).slice(0,10)}? This cannot be undone.`)) return;
+  if(!(await uiConfirm(`Delete the entry of ${r.qty} vials on ${String(r.usage_date).slice(0,10)}? This cannot be undone.`))) return;
   showLoading('Deleting...');
   const {error}=await db.rpc('rr_heparin_entry_delete',{p_session:sessionToken,p_id:id});
   hideLoading();
-  if(error){alert('Delete failed: '+error.message);return;}
+  if(error){uiAlert('Delete failed: '+error.message);return;}
   await renderHeparin();
 }
 
@@ -8461,19 +8561,19 @@ async function procSubmit(){
 }
 async function procSetStatus(id,status,askNote){
   let note=null;
-  if(askNote){note=prompt('Reason for declining (optional):');if(note===null) return;}
+  if(askNote){note=(await uiPrompt('Reason for declining (optional):'));if(note===null) return;}
   showLoading('Saving...');
   const {error}=await db.rpc('rr_proc_set_status',{p_session:sessionToken,p_id:id,p_status:status,p_admin_note:note,p_by_user:(currentUser&&currentUser.name)||'Admin',p_qty:null});
   hideLoading();
-  if(error){alert('Failed: '+error.message);return;}
+  if(error){uiAlert('Failed: '+error.message);return;}
   await renderProcurement();
 }
 async function procDelete(id){
-  if(!confirm('Remove this restock request?')) return;
+  if(!(await uiConfirm('Remove this restock request?'))) return;
   showLoading('Removing...');
   const {error}=await db.rpc('rr_proc_delete',{p_session:sessionToken,p_id:id,p_by_user:(currentUser&&currentUser.name)||''});
   hideLoading();
-  if(error){alert('Failed: '+error.message);return;}
+  if(error){uiAlert('Failed: '+error.message);return;}
   await renderProcurement();
 }
 
@@ -9113,7 +9213,7 @@ function ncMarkAllRead(silent){
   const a=ncLoad(); a.forEach(n=>n.read=true); ncSave(a); ncRefreshBell();
   if(!silent) ncRender();
 }
-function ncClearLog(){ if(!confirm('Clear the notification log on this device?')) return; ncSave([]); ncRefreshBell(); ncRender(); }
+async function ncClearLog(){ if(!(await uiConfirm('Clear the notification log on this device?'))) return; ncSave([]); ncRefreshBell(); ncRender(); }
 function ncGo(tab){ document.getElementById('nc-panel').style.display='none'; ncMarkAllRead(true); if(tab&&typeof switchTab==='function') switchTab(tab); }
 document.addEventListener('click',e=>{ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'&&!p.contains(e.target)&&!e.target.closest('#nc-bell')){ p.style.display='none'; ncMarkAllRead(true); } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const p=document.getElementById('nc-panel'); if(p&&p.style.display!=='none'){ p.style.display='none'; ncMarkAllRead(true); } } });
@@ -9248,7 +9348,7 @@ async function loadMyPerms(){
 // Super admin: edit one user's pages
 let permsUserId=null;
 function openPerms(id){
-  if(!currentUser||!currentUser.hidden){ alert('Only the super admin can change page access.'); return; }
+  if(!currentUser||!currentUser.hidden){ uiAlert('Only the super admin can change page access.'); return; }
   const u=(window.__usersList||[]).find(x=>String(x.id)===String(id)); if(!u) return;
   permsUserId=String(u.id);
   const saved=window.__permsMap&&window.__permsMap[permsUserId];

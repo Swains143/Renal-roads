@@ -2824,8 +2824,9 @@ async function fbRenderResults(host){
   host.innerHTML=ctl+'<div style="color:var(--text3,#6b7280)">Loading…</div>';
   const a={p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter};
   const otherSite=FBV.site==='kigumo'?'truck':'kigumo';
-  const [r,c,ug,orr]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a),db.rpc('rr_feedback_urgent_list',{p_session:sessionToken,p_site:FBV.site}),db.rpc('rr_feedback_results',Object.assign({},a,{p_site:otherSite}))]);
+  const [r,c,ug,orr,rf]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a),db.rpc('rr_feedback_urgent_list',{p_session:sessionToken,p_site:FBV.site}),db.rpc('rr_feedback_results',Object.assign({},a,{p_site:otherSite})),db.rpc('rr_feedback_refs',a)]);
   if(my!==FBV.tok) return;     // the filters changed while loading
+  FBV.refMap=null; if(rf&&!rf.error&&Array.isArray(rf.data)){ FBV.refMap={}; rf.data.forEach(m=>{ FBV.refMap[m.id]=m; }); }
   if(r.error){ host.innerHTML=ctl+fbErrBox('Could not load the results: '+(r.error.message||'')); return; }
   const res=r.data||{}, F=(res.forms||{})[FBV.grp]||{total:0,partial:0}, inv=res.invited;
   const rows={}; (res.questions||[]).filter(x=>x.respondent===FBV.grp).forEach(x=>{ rows[x.q]=x; });
@@ -2866,13 +2867,17 @@ async function fbRenderResults(host){
   let cm='';
   if(c.error) cm='<div class="fbr-note">Could not load comments: '+repEsc(c.error.message||'')+'</div>';
   else{
-    const list=c.data||[], canDel=!!(currentUser&&(currentUser.hidden||(currentUser.role==='admin'&&!isInch())));
-    const item=x=>`<div class="fbr-cmt"><div class="fbr-meta"><span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${new Date(x.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span>${canDel?`<a href="#" style="margin-left:auto;color:#b91c1c" onclick="fbDelete('${x.id}');return false">Delete</a>`:''}</div>
+    const list=(FBV.cList=c.data||[]), canDel=!!(currentUser&&(currentUser.hidden||(currentUser.role==='admin'&&!isInch())));
+    const item=x=>`<div class="fbr-cmt"${x.followup&&!x.followup_done?' style="border:2px solid #d97706;border-left:8px solid #d97706"':''}><div class="fbr-meta">${x.followup&&!x.followup_done?'<span class="fbr-pill" style="background:#d97706;color:#fff">FOLLOW-UP NEEDED</span>':''}<span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${new Date(x.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span><b>${fbRef(x)}</b><a href="#" style="margin-left:auto" onclick="fbPrintOne('c','${x.id}');return false"><i class="ti ti-printer"></i> Print</a>${canDel?`<a href="#" style="margin-left:10px;color:#b91c1c" onclick="fbDelete('${x.id}');return false">Delete</a>`:''}</div>
       ${x.comment?`<div style="white-space:pre-wrap;word-break:break-word">${repEsc(x.comment)}</div>`:'<div style="color:var(--text3,#6b7280)">No comment written.</div>'}
-      ${x.followup?`<div style="margin-top:6px"><b>Asked for follow-up:</b> ${x.contact?repEsc(x.contact):'<i>no contact details given</i>'} ${x.followup_done?`<span class="fbr-pill" style="background:#15803d;color:#fff">Contacted</span> <span class="fbr-low">by ${repEsc(x.followup_by||'')}${x.followup_at?' on '+new Date(x.followup_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</span> <a href="#" onclick="fbFuSet('${x.id}',false);return false">Undo</a>`:`<span class="fbr-pill" style="background:#d97706;color:#fff">To contact</span> <a href="#" onclick="fbFuSet('${x.id}',true);return false"><b>Mark contacted</b></a>`}</div>`:''}</div>`;
-    const fu=list.filter(x=>x.followup).sort((a,b)=>(a.followup_done?1:0)-(b.followup_done?1:0)), co=list.filter(x=>x.comment);
-    cm=`<h3 class="fbr-sec">Follow-up requests (${fu.length}${fu.filter(x=>!x.followup_done).length?' · '+fu.filter(x=>!x.followup_done).length+' to contact':''})</h3>${fu.map(item).join('')||'<div class="fbr-note">Nobody asked to be contacted this quarter.</div>'}
-        <h3 class="fbr-sec">Comments (${co.length})</h3>${co.map(item).join('')||'<div class="fbr-note">No comments yet.</div>'}
+      ${x.followup?`<div style="margin-top:6px"><b>Asked for follow-up:</b> ${x.contact?repEsc(x.contact):'<i>no contact details given</i>'} ${x.followup_done?`<span class="fbr-pill" style="background:#15803d;color:#fff">Contacted</span> <span class="fbr-low">by ${repEsc(x.followup_by||'')}${x.followup_at?' on '+new Date(x.followup_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</span> <a href="#" onclick="fbFuSet('${x.id}',false);return false">Undo</a>`:`<span class="fbr-pill" style="background:#d97706;color:#fff">To contact</span> <a href="#" onclick="fbFuSet('${x.id}',true);return false"><b>Mark contacted</b></a>`}</div>${fbStatusHtml(x)}`:''}</div>`;
+    const all=list.filter(x=>x.comment||x.followup), rank=x=>x.followup&&!x.followup_done?0:x.followup?1:2;
+    all.sort((a,b)=>rank(a)-rank(b)||new Date(b.created_at)-new Date(a.created_at));
+    const open=all.filter(x=>x.followup&&!x.followup_done).length, nc=all.filter(x=>x.comment).length;
+    cm=`<h3 class="fbr-sec">Comments and follow-up requests (${all.length}${open?' · '+open+' to contact':''})</h3>
+        <div class="fbr-note" style="margin:0 0 8px">Each form is listed once. Forms where the patient asked to be contacted are highlighted and shown first, then the other comments.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px">${open?'<button class="btn btn-sm" onclick="fbPrintFollowups()"><i class="ti ti-printer"></i> Print open follow-ups list</button>':''}${nc?'<button class="btn btn-sm" onclick="fbPrintComments()"><i class="ti ti-printer"></i> Print comments report (no contact details)</button>':''}</div>
+        ${all.map(item).join('')||'<div class="fbr-note">No comments or follow-up requests yet.</div>'}
         <div class="fbr-note">Report themes without naming patients or staff. A patient who reports an urgent care or safety concern must be referred through the clinical or complaints process straight away; do not wait for the quarterly summary.</div>`;
   }
   FBV.print={head:`<h1>Patient feedback results</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${FBV.grp==='patient'?'Patients':'Caregivers'}</div><p>Forms returned: <b>${F.total||0}</b> · Patients invited: <b>${inv==null?'—':inv}</b> · Response rate: <b>${rate==null?'—':rate+'%'}</b> · Overall experience (Q15): <b>${q15&&mean(q15)!=null?mean(q15).toFixed(1)+'/4 ('+ge(q15)+'% Good or Excellent)':'—'}</b></p>`,table:table+q15tbl,trend};
@@ -2940,6 +2945,66 @@ function fbCompareHtml(res,orr,otherSite){
     rowsH+=`<tr><td>${i}. ${repEsc(FB_Q[i-1][0])}</td><td>${cell(a)}</td><td>${cell(b)}</td><td>${gap(a,b)}</td></tr>`; }
   return head+`<div class="fbr-note" style="margin:0 0 8px">${FBV.year} Quarter ${FBV.quarter} · ${g==='patient'?'Patients':'Caregivers'}. The last column is Kigumo minus Mobile Truck. Compare with care when a site has few forms.</div>
     <div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Measure</th><th>Kigumo</th><th>Mobile Truck</th><th>Difference</th></tr></thead><tbody>${rowsH}</tbody></table></div>`;
+}
+// ---- Unique references and separate printing of comments and follow-ups ----
+function fbRef(x,urg){
+  const mm=!urg&&FBV.refMap&&FBV.refMap[x.id];
+  if(mm&&mm.ref_no!=null) return (FBV.site==='kigumo'?'KIG':'MTR')+'-'+String(FBV.year).slice(2)+'Q'+FBV.quarter+'-'+String(mm.ref_no).padStart(4,'0');
+  const d=new Date(x.created_at), site=FBV.site==='kigumo'?'KIG':'MTR', raw=String(x.id==null?'':x.id).replace(/-/g,'');
+  const idp=/^\d+$/.test(raw)?raw.padStart(4,'0'):raw.slice(0,6).toUpperCase();
+  return site+'-'+String(d.getFullYear()).slice(2)+'Q'+(Math.floor(d.getMonth()/3)+1)+'-'+(urg?'U':'')+idp;
+}
+const FB_SLIP_CSS='h1{font-size:22px;margin:0 0 2px;color:#1E1D70}.conf{font-size:12px;font-weight:700;color:#991b1b;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left;vertical-align:top}th{background:#eef0f7;width:30%}.bx{border:1px solid #666;min-height:70px;padding:8px;font-size:14px;white-space:pre-wrap;word-break:break-word}.ln{border-bottom:1px solid #555;height:24px}.cb{display:inline-block;width:12px;height:12px;border:1px solid #333;margin:0 6px -2px 14px}h3{font-size:14px;margin:14px 0 4px}.urg{background:#fee2e2;color:#991b1b;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block}.col th{width:auto;font-size:12px}.col td{font-size:12px}';
+const fbFd=d=>d?new Date(d).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const fbWho=r=>r==='caregiver'?'Caregiver':'Patient';
+function fbPrintOne(kind,id){
+  const x=((kind==='u'?FBV.uList:FBV.cList)||[]).find(a=>String(a.id)===String(id)); if(!x) return;
+  const w=window.open('','_blank'); if(!w){ uiAlert('Please allow pop-ups to print.'); return; }
+  const urg=kind==='u', text=urg?x.note:x.comment, contact=x.contact, wants=urg||x.followup;
+  const done=urg?x.reviewed:x.followup_done, by=urg?x.reviewed_by:x.followup_by, at=urg?x.reviewed_at:x.followup_at;
+  const body=`<h1>${wants?'Patient feedback: follow-up request':'Patient feedback: comment'}</h1><div class="conf">CONFIDENTIAL: patient feedback. Do not leave this page unattended.</div>
+  ${urg?'<div class="urg">URGENT follow-up requested</div>':''}
+  <table><tr><th>Reference</th><td><b>${repEsc(fbRef(x,urg))}</b></td></tr><tr><th>Site</th><td>${repEsc(FB_SITES[FBV.site])}</td></tr><tr><th>Received</th><td>${fbFd(x.created_at)}</td></tr><tr><th>Respondent</th><td>${fbWho(x.respondent)}</td></tr>${done?`<tr><th>Already contacted</th><td>${repEsc(by||'')} on ${fbFd(at)}</td></tr>`:''}</table>
+  <h3>What they wrote</h3><div class="bx">${text?repEsc(text):'No comment written.'}</div>
+  ${wants?`<h3>How to reach them</h3><div class="bx" style="min-height:30px">${contact?repEsc(contact):'No contact details given.'}</div>
+  <h3>Handling (fill in by hand)</h3><table><tr><th>Assigned to</th><td class="ln">${repEsc(((FBV.refMap&&FBV.refMap[x.id])||{}).assigned_to||'')}</td></tr><tr><th>Date and time contacted</th><td class="ln"></td></tr><tr><th>What was said or done</th><td><div class="ln">${repEsc(((FBV.refMap&&FBV.refMap[x.id])||{}).status_note||'')}</div><div class="ln"></div><div class="ln"></div></td></tr>
+  <tr><th>Outcome</th><td><span class="cb"></span>Resolved <span class="cb"></span>Referred (clinical / complaints) <span class="cb"></span>No answer, try again</td></tr><tr><th>Completed by (name, signature, date)</th><td class="ln"></td></tr></table>`:''}
+  <div style="font-size:11px;color:#555;margin-top:10px">Printed ${fbFd(new Date())}. An urgent care or safety concern must go through the clinical or complaints process straight away.</div>`;
+  fbPrintDoc(w,'Feedback '+fbRef(x,urg),FB_SLIP_CSS,body);
+}
+function fbPrintFollowups(){
+  const u=(FBV.uList||[]).filter(x=>!x.reviewed).map(x=>({x,urg:true,t:x.note})), c=(FBV.cList||[]).filter(x=>x.followup&&!x.followup_done).map(x=>({x,urg:false,t:x.comment}));
+  const all=[...u,...c]; if(!all.length){ uiAlert('There are no open follow-up requests to print.'); return; }
+  const w=window.open('','_blank'); if(!w){ uiAlert('Please allow pop-ups to print.'); return; }
+  const rows=all.map(r=>`<tr><td><b>${repEsc(fbRef(r.x,r.urg))}</b>${r.urg?'<br><span class="urg">URGENT</span>':''}</td><td>${fbFd(r.x.created_at)}</td><td>${fbWho(r.x.respondent)}</td><td>${r.x.contact?repEsc(r.x.contact):'—'}</td><td>${r.t?repEsc(String(r.t).slice(0,300)):'—'}</td><td style="min-width:90px"><span class="cb" style="margin-left:0"></span>Done<br><br>Who/when:<div class="ln"></div></td></tr>`).join('');
+  fbPrintDoc(w,'Open follow-ups',FB_SLIP_CSS,`<h1>Open follow-up requests</h1><div class="conf">CONFIDENTIAL: contains contact details. Keep with the clinical team only.</div><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${all.length} waiting · urgent first · printed ${fbFd(new Date())}</div><table class="col"><thead><tr><th>Reference</th><th>Received</th><th>From</th><th>How to reach</th><th>Comment</th><th>Follow-up</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+function fbPrintComments(){
+  const l=(FBV.cList||[]).filter(x=>x.comment); if(!l.length){ uiAlert('There are no comments to print.'); return; }
+  const w=window.open('','_blank'); if(!w){ uiAlert('Please allow pop-ups to print.'); return; }
+  const rows=l.map(x=>`<tr><td><b>${repEsc(fbRef(x))}</b></td><td>${new Date(x.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td><td>${fbWho(x.respondent)}</td><td style="white-space:pre-wrap;word-break:break-word">${repEsc(x.comment)}</td></tr>`).join('');
+  fbPrintDoc(w,'Comments report',FB_SLIP_CSS,`<h1>Patient comments</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${l.length} comment${l.length===1?'':'s'}</div><div style="font-size:12px;color:#555;margin:4px 0 8px">No contact details are included. Report themes without naming patients or staff.</div><table class="col"><thead><tr><th>Reference</th><th>Date</th><th>From</th><th>Comment</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+// ---- Follow-up status: New / Contacted / Resolved, with who it is assigned to and a note ----
+function fbStatusHtml(x){
+  const m=FBV.refMap&&FBV.refMap[x.id]; if(!m) return '';
+  const st=m.status||'new', age=(Date.now()-new Date(x.created_at).getTime())/864e5;
+  const col={new:'#d97706',contacted:'#2563eb',resolved:'#15803d'}[st];
+  const od=st==='new'&&age>3?'<span class="fbr-pill" style="background:#dc2626;color:#fff">Overdue: '+Math.floor(age)+' days</span> ':'';
+  const o=(v,l)=>`<option value="${v}" ${st===v?'selected':''}>${l}</option>`;
+  return `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border,#e5e7eb)"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <span class="fbr-pill" style="background:${col};color:#fff">${st==='new'?'New':st==='contacted'?'Contacted':'Resolved'}</span>${od}
+    <select id="fbs-st-${x.id}" style="font-size:12px;height:28px;padding:2px 8px;box-sizing:border-box;width:auto;min-width:0"><option value="new" ${st==='new'?'selected':''}>New</option><option value="contacted" ${st==='contacted'?'selected':''}>Contacted</option><option value="resolved" ${st==='resolved'?'selected':''}>Resolved</option></select>
+    <input id="fbs-as-${x.id}" maxlength="120" placeholder="Assigned to" value="${repEsc(m.assigned_to||'')}" style="font-size:12px;height:28px;padding:2px 8px;box-sizing:border-box;width:120px">
+    <input id="fbs-nt-${x.id}" maxlength="600" placeholder="What was done" value="${repEsc(m.status_note||'')}" style="font-size:12px;height:28px;padding:2px 8px;box-sizing:border-box;flex:1;min-width:140px">
+    <button class="btn btn-sm btn-primary" style="font-size:12px;height:28px;padding:2px 8px;box-sizing:border-box;" onclick="fbStatusSave('${x.id}')">Save</button></div>
+    ${m.status_by?`<div class="fbr-low" style="margin-top:2px;font-size:11px">Last updated by ${repEsc(m.status_by)}${m.status_at?' on '+new Date(m.status_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</div>`:''}</div>`;
+}
+async function fbStatusSave(id){
+  const g=k=>document.getElementById('fbs-'+k+'-'+id).value;
+  const {error}=await db.rpc('rr_feedback_status_set',{p_session:sessionToken,p_id:id,p_status:g('st'),p_assigned:g('as'),p_note:g('nt')});
+  if(error){ uiAlert('Could not save the status: '+(error.message||'')); return; }
+  fbRenderResults(document.getElementById('fb-host'));
 }
 async function fbSaveInvited(){
   const v=document.getElementById('fbr-inv').value.trim();
@@ -3145,20 +3210,20 @@ function fbUrgHtml(ug){
       ? '<div class="fbr-note">Urgent follow-up and follow-up tracking are not switched on yet: run <b>feedback_extras.sql</b> in Supabase.</div>'
       : fbErrBox('Could not load urgent concerns: '+m);
   }
-  const list=ug.data||[], open=list.filter(x=>!x.reviewed), done=list.filter(x=>x.reviewed);
+  const list=(FBV.uList=ug.data||[]), open=list.filter(x=>!x.reviewed), done=list.filter(x=>x.reviewed);
   if(!list.length) return '';
   const fdt=d=>new Date(d).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const meta=x=>`<div class="fbr-meta"><span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${fdt(x.created_at)}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span></div>`;
+  const meta=x=>`<div class="fbr-meta"><span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${fdt(x.created_at)}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span><b>${fbRef(x,true)}</b><a href="#" style="margin-left:auto" onclick="fbPrintOne('u','${x.id}');return false"><i class="ti ti-printer"></i> Print</a></div>`;
   const body=x=>`${x.note?`<div style="white-space:pre-wrap;word-break:break-word">${repEsc(x.note)}</div>`:'<div style="color:var(--text3,#6b7280)">No comment written.</div>'}${x.contact?`<div style="margin-top:6px"><b>How to reach them:</b> ${repEsc(x.contact)}</div>`:''}`;
-  const openCard=x=>`<div class="fbr-cmt" style="border-color:#fca5a5;background:#fff">${meta(x)}${body(x)}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px"><input id="fbu-n-${x.id}" maxlength="600" placeholder="What was done (optional)" style="flex:1;min-width:200px"><button class="btn btn-sm btn-primary" onclick="fbUrgReview('${x.id}')">Mark reviewed</button></div></div>`;
+  const openCard=x=>`<div class="fbr-cmt" style="border-color:#fca5a5;background:#fff;padding:6px 10px;margin-bottom:6px;font-size:13px">${meta(x)}<div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${x.note?repEsc(x.note):'No comment written.'}</div>${x.contact?`<div><b>Reach them:</b> ${repEsc(x.contact)}</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px"><input id="fbu-n-${x.id}" maxlength="600" placeholder="What was done (optional)" style="flex:1;min-width:200px"><button class="btn btn-sm btn-primary" onclick="fbUrgReview('${x.id}')">Mark reviewed</button></div></div>`;
   const doneCard=x=>`<div class="fbr-cmt">${meta(x)}${body(x)}
       <div style="margin-top:6px;color:#15803d"><b>Reviewed</b> by ${repEsc(x.reviewed_by||'')} on ${x.reviewed_at?fdt(x.reviewed_at):''}${x.review_note?': '+repEsc(x.review_note):''} · <a href="#" onclick="fbUrgReopen('${x.id}');return false">Reopen</a></div></div>`;
-  if(!open.length) return `<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:14px;padding:12px 16px;margin:0 0 16px"><b style="color:#15803d">No urgent follow-up requests waiting at ${repEsc(FB_SITES[FBV.site])}.</b>
+  if(!open.length) return `<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:6px 12px;margin:0 0 10px;font-size:13px"><b style="color:#15803d">No urgent follow-up requests waiting at ${repEsc(FB_SITES[FBV.site])}.</b>
       <details style="margin-top:6px"><summary style="cursor:pointer">Reviewed in the last 90 days (${done.length})</summary>${done.map(doneCard).join('')}</details></div>`;
-  return `<div style="border:2px solid #dc2626;background:#fef2f2;border-radius:14px;padding:14px 16px;margin:0 0 16px">
-    <h3 style="margin:0 0 4px;color:#b91c1c"><i class="ti ti-alert-triangle"></i> Urgent follow-up requests at ${repEsc(FB_SITES[FBV.site])} (${open.length} to contact)</h3>
-    <div class="fbr-note" style="margin:0 0 10px">Patients who asked for urgent follow-up on the feedback form and gave a way to reach them. Contact them today through the clinical or complaints process, then mark it reviewed. These are not tied to a quarter.</div>
+  return `<div style="border:2px solid #dc2626;background:#fef2f2;border-radius:10px;padding:8px 12px;margin:0 0 10px">
+    <h3 style="margin:0 0 4px;font-size:14px;color:#b91c1c"><i class="ti ti-alert-triangle"></i> Urgent follow-up requests at ${repEsc(FB_SITES[FBV.site])} (${open.length} to contact)</h3>
+    <div class="fbr-note" style="margin:0 0 6px;font-size:12px">Contact them today through the clinical or complaints process, then mark reviewed.</div>
     ${open.map(openCard).join('')}
     ${done.length?`<details style="margin-top:8px"><summary style="cursor:pointer">Reviewed in the last 90 days (${done.length})</summary>${done.map(doneCard).join('')}</details>`:''}</div>`;
 }

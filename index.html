@@ -2774,7 +2774,7 @@ async function renderFeedback(){
   const vn={results:'Results',actions:'Actions',links:'Links & QR codes'}[FBV.view]||'Results';
   const mc=document.getElementById('main-content');
   mc.innerHTML=`<div class="em-page"><h2 style="margin:0 0 4px">Patient feedback: ${vn.replace('&','&amp;')}</h2>
-    <div style="font-size:13.5px;color:var(--text3,#6b7280);margin-bottom:12px">Quarterly patient survey in English and Kiswahili. Use the Patient Feedback menu on the left to switch between Results, Actions and Links &amp; QR codes.</div>
+    <div style="font-size:13.5px;color:var(--text3,#6b7280);margin-bottom:12px">Quarterly patient survey in English and Kiswahili.</div>
     <div id="fb-host"></div></div>`;
   fbSideSync();
   const host=document.getElementById('fb-host');
@@ -2823,7 +2823,8 @@ async function fbRenderResults(host){
     <button class="btn btn-sm" onclick="fbPrint()"><i class="ti ti-printer"></i> Print summary</button></div>`;
   host.innerHTML=ctl+'<div style="color:var(--text3,#6b7280)">Loading…</div>';
   const a={p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter};
-  const [r,c,ug]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a),db.rpc('rr_feedback_urgent_list',{p_session:sessionToken,p_site:FBV.site})]);
+  const otherSite=FBV.site==='kigumo'?'truck':'kigumo';
+  const [r,c,ug,orr]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a),db.rpc('rr_feedback_urgent_list',{p_session:sessionToken,p_site:FBV.site}),db.rpc('rr_feedback_results',Object.assign({},a,{p_site:otherSite}))]);
   if(my!==FBV.tok) return;     // the filters changed while loading
   if(r.error){ host.innerHTML=ctl+fbErrBox('Could not load the results: '+(r.error.message||'')); return; }
   const res=r.data||{}, F=(res.forms||{})[FBV.grp]||{total:0,partial:0}, inv=res.invited;
@@ -2875,7 +2876,70 @@ async function fbRenderResults(host){
         <div class="fbr-note">Report themes without naming patients or staff. A patient who reports an urgent care or safety concern must be referred through the clinical or complaints process straight away; do not wait for the quarterly summary.</div>`;
   }
   FBV.print={head:`<h1>Patient feedback results</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${FBV.grp==='patient'?'Patients':'Caregivers'}</div><p>Forms returned: <b>${F.total||0}</b> · Patients invited: <b>${inv==null?'—':inv}</b> · Response rate: <b>${rate==null?'—':rate+'%'}</b> · Overall experience (Q15): <b>${q15&&mean(q15)!=null?mean(q15).toFixed(1)+'/4 ('+ge(q15)+'% Good or Excellent)':'—'}</b></p>`,table:table+q15tbl,trend};
-  host.innerHTML=ctl+fbUrgHtml(ug)+tiles+table+q15tbl+trend+cm;
+  const insights=fbInsightsHtml(rows,mean,ge);
+  const chart=fbTrendChart(tr);
+  const cmp=fbCompareHtml(res,orr,otherSite);
+  host.innerHTML=ctl+fbUrgHtml(ug)+tiles+insights+table+q15tbl+trend+chart+cmp+cm;
+}
+// ---- Service scorecard: strongest areas and areas needing attention ----
+function fbInsightsHtml(rows,mean,ge){
+  const scored=[];
+  for(let i=1;i<=14;i++){ const x=rows[i]; if(x&&x.n>=1&&mean(x)!=null) scored.push({i,n:x.n,m:mean(x),g:ge(x)}); }
+  if(!scored.length) return '';
+  const isFlag=s=>s.m<2.5||(s.g!=null&&s.g<60);
+  const flagged=scored.filter(isFlag).sort((a,b)=>a.m-b.m);
+  const best=scored.filter(s=>!isFlag(s)).sort((a,b)=>b.m-a.m).slice(0,3);
+  const worst=flagged.length?flagged:[...scored].sort((a,b)=>a.m-b.m).slice(0,3);
+  const li=(s,act)=>`<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border,#e5e7eb)"><span class="fbr-chip" style="background:${fbMeanColor(s.m)}">${s.m.toFixed(1)}/4</span><span style="flex:1;min-width:0">${s.i}. ${repEsc(FB_Q[s.i-1][0])}<span class="fbr-low"> · ${s.g==null?'—':s.g+'% Good or Excellent'} · ${s.n} valid</span></span>${act?`<button class="btn btn-sm" onclick="fbQuickAction(${s.i})"><i class="ti ti-plus"></i> Create action</button>`:''}</div>`;
+  const few=scored.some(s=>s.n<5)?'<div class="fbr-note" style="margin-top:8px">Some areas have fewer than 5 answers, so treat their scores with care.</div>':'';
+  return `<h3 class="fbr-sec">Service scorecard</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+    <div class="fbr-cmt"><b style="color:#15803d"><i class="ti ti-thumb-up"></i> Strongest areas</b>${best.map(s=>li(s,false)).join('')||'<div class="fbr-note">No area is clearly strong yet.</div>'}</div>
+    <div class="fbr-cmt"><b style="color:#dc2626"><i class="ti ti-alert-triangle"></i> ${flagged.length?'Needs attention':'Lowest scoring (none flagged)'}</b>${worst.map(s=>li(s,true)).join('')}</div></div>${few}`;
+}
+async function fbQuickAction(i){
+  const q=FB_Q[i-1][0];
+  const ex=await db.rpc('rr_feedback_actions_list',{p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter});
+  if(!ex.error&&(ex.data||[]).some(a=>(a.theme||'')===q.slice(0,200))){ uiAlert('There is already an action for this area this quarter. Open Actions in the Patient Feedback menu.'); return; }
+  if(!(await uiConfirm('Create an action for:\n\n'+q+'\n\nIt is added to the Actions list for this quarter. You can set the person responsible and due date there.'))) return;
+  const {error}=await db.rpc('rr_feedback_action_save',{p_session:sessionToken,p_id:null,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter,p_theme:q.slice(0,200),p_action:'Review why this area scored low and agree an improvement.',p_owner:null,p_due:null,p_status:'open'});
+  if(error){ uiAlert('Could not create the action: '+(error.message||'')); return; }
+  uiAlert('Action added. Open Actions in the Patient Feedback menu to set the person responsible and due date.');
+}
+// ---- Quarterly trend chart (patients) ----
+function fbTrendChart(tr){
+  const pts=[...(tr||[])].sort((a,b)=>a.year-b.year||a.quarter-b.quarter);
+  if(pts.length<2) return '<h3 class="fbr-sec">Trend chart</h3><div class="fbr-note">The chart appears once there are at least two quarters of patient forms.</div>';
+  const W=560,H=220,L=34,R=14,T=14,B=34, x=i=>L+(W-L-R)*i/(pts.length-1), y=v=>T+(H-T-B)*(4-v)/3;
+  const line=(k,col)=>{ const p=pts.map((t,i)=>t[k]==null?null:[x(i),y(Number(t[k]))]); const seg=p.filter(Boolean);
+    return `<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${seg.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}"/>`+seg.map(q=>`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="4" fill="${col}"/>`).join(''); };
+  const grid=[1,2,3,4].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".15"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="currentColor" opacity=".7">${v}</text>`).join('');
+  const labs=pts.map((t,i)=>`<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="11" fill="currentColor" opacity=".7">${t.year} Q${t.quarter}</text>`).join('');
+  return `<h3 class="fbr-sec">Trend chart (patients, ${repEsc(FB_SITES[FBV.site])})</h3><div class="fbr-scroll"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:640px;color:var(--text,#111827)" role="img" aria-label="Quarterly trend of overall experience and services average">${grid}${labs}${line('svc','#0d9488')}${line('q15','#1E1D70')}</svg></div>
+    <div style="font-size:12.5px"><span style="color:#1E1D70">●</span> Overall experience (Q15) &nbsp; <span style="color:#0d9488">●</span> Services Q1–14 mean &nbsp; <span style="color:var(--text3,#6b7280)">Scale 1 (Poor) to 4 (Excellent)</span></div>`;
+}
+// ---- Kigumo and Mobile Truck side by side (same quarter and group) ----
+function fbSiteStats(res,grp){
+  const rs={}; ((res&&res.questions)||[]).filter(x=>x.respondent===grp).forEach(x=>{ rs[x.q]=x; });
+  const F=((res&&res.forms)||{})[grp]||{total:0}; let sum=0,c=0;
+  for(let i=1;i<=14;i++){ const x=rs[i]; if(x&&x.n&&x.mean!=null){ sum+=Number(x.mean); c++; } }
+  const q=rs[15];
+  return {rs,forms:F.total||0,svc:c?sum/c:null,q15:q&&q.mean!=null?Number(q.mean):null,q15g:q&&q.n?Math.round(100*((q.c3||0)+(q.c4||0))/q.n):null};
+}
+function fbCompareHtml(res,orr,otherSite){
+  const head='<h3 class="fbr-sec">Kigumo and Mobile Truck compared</h3>';
+  if(!orr||orr.error) return head+'<div class="fbr-note">Could not load the other site for comparison.</div>';
+  const g=FBV.grp, cur=fbSiteStats(res,g), oth=fbSiteStats(orr.data||{},g);
+  const A=FBV.site==='kigumo'?cur:oth, Bq=FBV.site==='kigumo'?oth:cur;   // A = Kigumo, Bq = Mobile Truck
+  const cell=m=>m==null?'—':`<span class="fbr-chip" style="background:${fbMeanColor(m)}">${m.toFixed(1)}/4</span>`;
+  const gap=(a,b)=>a==null||b==null?'—':(a-b>0?'+':'')+(a-b).toFixed(1);
+  let rowsH=`<tr><td><b>Forms returned</b></td><td>${A.forms}</td><td>${Bq.forms}</td><td></td></tr>
+    <tr><td><b>Overall experience (Q15)</b></td><td>${cell(A.q15)}</td><td>${cell(Bq.q15)}</td><td>${gap(A.q15,Bq.q15)}</td></tr>
+    <tr><td><b>Q15 Good or Excellent</b></td><td>${A.q15g==null?'—':A.q15g+'%'}</td><td>${Bq.q15g==null?'—':Bq.q15g+'%'}</td><td></td></tr>
+    <tr><td><b>Services Q1–14 mean</b></td><td>${cell(A.svc)}</td><td>${cell(Bq.svc)}</td><td>${gap(A.svc,Bq.svc)}</td></tr>`;
+  for(let i=1;i<=14;i++){ const a=A.rs[i]&&A.rs[i].n&&A.rs[i].mean!=null?Number(A.rs[i].mean):null, b=Bq.rs[i]&&Bq.rs[i].n&&Bq.rs[i].mean!=null?Number(Bq.rs[i].mean):null;
+    rowsH+=`<tr><td>${i}. ${repEsc(FB_Q[i-1][0])}</td><td>${cell(a)}</td><td>${cell(b)}</td><td>${gap(a,b)}</td></tr>`; }
+  return head+`<div class="fbr-note" style="margin:0 0 8px">${FBV.year} Quarter ${FBV.quarter} · ${g==='patient'?'Patients':'Caregivers'}. The last column is Kigumo minus Mobile Truck. Compare with care when a site has few forms.</div>
+    <div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Measure</th><th>Kigumo</th><th>Mobile Truck</th><th>Difference</th></tr></thead><tbody>${rowsH}</tbody></table></div>`;
 }
 async function fbSaveInvited(){
   const v=document.getElementById('fbr-inv').value.trim();

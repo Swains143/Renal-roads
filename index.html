@@ -1590,7 +1590,12 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
       <div class="side-sub-item" data-em="Mobile Truck" onclick="emSideOpen('Mobile Truck')">Mobile Truck</div>
       <div class="side-sub-item" data-em="Kigumo" onclick="emSideOpen('Kigumo')">Kigumo</div>
     </div>
-    <div class="tab" onclick="switchTab('feedback')" id="tab-feedback" style="display:none"><i class="ti ti-message-2-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patient Feedback<span class="badge" id="fb-badge" style="display:none"></span></div>
+    <div class="tab side-fac" onclick="fbSideToggle()" id="tab-feedback" style="display:none"><i class="ti ti-message-2-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patient Feedback<span class="badge" id="fb-badge" style="display:none;margin-left:6px"></span><i class="ti ti-chevron-down side-chev"></i></div>
+    <div class="side-sub" id="side-sub-feedback">
+      <div class="side-sub-item" data-fbv="results" onclick="fbSideOpen('results')">Results</div>
+      <div class="side-sub-item" data-fbv="actions" onclick="fbSideOpen('actions')">Actions</div>
+      <div class="side-sub-item" data-fbv="links" onclick="fbSideOpen('links')">Links &amp; QR codes</div>
+    </div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
@@ -2435,8 +2440,9 @@ function charGestureReset(){
 function applyRoleTabVisibility(role){
   document.getElementById('tab-requests').style.display=(role==='admin'&&!isInch())?'':'none';
   const noUsers=!!(currentUser&&currentUser.realRole==='incharge');   // Nurse in charge never sees User Access
-  document.getElementById('tab-feedback').style.display=(role==='admin')?'':'none';
-  document.getElementById('opt-feedback').hidden=(role!=='admin');
+  document.getElementById('tab-feedback').style.display=fbRoleOk(role)?'':'none';
+  { const sf=document.getElementById('side-sub-feedback'); if(sf) sf.style.display=fbRoleOk(role)?'':'none'; }
+  document.getElementById('opt-feedback').hidden=!fbRoleOk(role);
   document.getElementById('tab-users').style.display=(role==='admin'&&!noUsers)?'':'none';
   { const sa=!!(currentUser&&currentUser.hidden); const rt=document.getElementById('tab-recycle'), ro=document.getElementById('opt-recycle'); if(rt) rt.style.display=sa?'':'none'; if(ro) ro.hidden=!sa; }
   document.getElementById('opt-requests').hidden=(role!=='admin'||isInch());
@@ -2765,14 +2771,37 @@ function fbEnsureCss(){
 }
 async function renderFeedback(){
   fbEnsureCss();
+  const vn={results:'Results',actions:'Actions',links:'Links & QR codes'}[FBV.view]||'Results';
   const mc=document.getElementById('main-content');
-  mc.innerHTML=`<div class="em-page"><h2 style="margin:0 0 4px">Patient feedback</h2>
-    <div style="font-size:13.5px;color:var(--text3,#6b7280)">Quarterly patient survey in English and Kiswahili.</div>
-    <div class="fbr-tabs"><button class="${FBV.view==='results'?'on':''}" onclick="fbSetView('results')">Results</button><button class="${FBV.view==='actions'?'on':''}" onclick="fbSetView('actions')">Actions</button><button class="${FBV.view==='links'?'on':''}" onclick="fbSetView('links')">Links &amp; QR codes</button></div>
+  mc.innerHTML=`<div class="em-page"><h2 style="margin:0 0 4px">Patient feedback: ${vn.replace('&','&amp;')}</h2>
+    <div style="font-size:13.5px;color:var(--text3,#6b7280);margin-bottom:12px">Quarterly patient survey in English and Kiswahili. Use the Patient Feedback menu on the left to switch between Results, Actions and Links &amp; QR codes.</div>
     <div id="fb-host"></div></div>`;
+  fbSideSync();
   const host=document.getElementById('fb-host');
   if(FBV.view==='links') await fbRenderLinks(host); else if(FBV.view==='actions') await fbRenderActions(host); else await fbRenderResults(host);
 }
+// ── Sidebar: Patient Feedback dropdown (Results / Actions / Links & QR codes), same design as the report dropdowns ──
+function fbSideToggle(){
+  const sb=document.getElementById('app-sidebar');
+  if(sb&&sb.classList.contains('collapsed')&&window.innerWidth>680&&typeof toggleSidebarCollapse==='function') toggleSidebarCollapse();
+  const h=document.getElementById('tab-feedback'); if(!h) return;
+  h.classList.toggle('is-open');
+  setTimeout(()=>{ if(typeof moveSideIndicator==='function') moveSideIndicator(true); },30);
+}
+function fbSideOpen(view){
+  if(typeof closeSidebar==='function') closeSidebar();
+  if(currentTab==='feedback'){ FBV.view=view; renderFeedback(); return; }
+  const prev=FBV.view; FBV.view=view; switchTab('feedback');
+  if(currentTab!=='feedback') FBV.view=prev;
+}
+let fbSideWasOn=false;
+function fbSideSync(){
+  const on=currentTab==='feedback', h=document.getElementById('tab-feedback');
+  document.querySelectorAll('#side-sub-feedback .side-sub-item').forEach(it=>it.classList.toggle('active',on&&it.dataset.fbv===FBV.view));
+  if(h&&on&&!fbSideWasOn) h.classList.add('is-open');   // auto-open on entering; never re-open after you close it
+  fbSideWasOn=on;
+}
+(function(){ const h=document.getElementById('tab-feedback'); if(h) new MutationObserver(fbSideSync).observe(h,{attributes:true,attributeFilter:['class']}); })();
 function fbSetView(v){ FBV.view=v; renderFeedback(); }
 function fbErrBox(msg){ return '<div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:12px">'+repEsc(msg)+'<br><br>If this is the first time, run the feedback database scripts (feedback_setup.sql, feedback_results.sql, then feedback_actions.sql for the action tracker) in Supabase.</div>'; }
 
@@ -2889,7 +2918,7 @@ async function fbRenderLinks(host){
           <button class="btn btn-sm btn-primary" onclick="fbCopy('${s}')"><i class="ti ti-copy"></i> Copy link</button>
           <button class="btn btn-sm" onclick="window.open(FB_LINKS['${s}'],'_blank')"><i class="ti ti-external-link"></i> Open form</button>
           <button class="btn btn-sm" onclick="fbPrintPoster('${s}')"><i class="ti ti-printer"></i> Print poster</button>
-          <button class="btn btn-sm" style="color:#b91c1c" onclick="fbNewCode('${s}')"><i class="ti ti-refresh"></i> New code</button>
+          ${fbCanReset()?`<button class="btn btn-sm" style="color:#b91c1c" onclick="fbNewCode('${s}')"><i class="ti ti-refresh"></i> New code</button>`:''}
         </div></div></div>`;
   });
   host.innerHTML=`${cards||'<div>No sites found. Run the feedback database script in Supabase first.</div>'}
@@ -2898,7 +2927,7 @@ async function fbRenderLinks(host){
       <div style="font-size:13px;color:var(--text3,#6b7280);margin-bottom:10px">For patients without a phone. Print as many as needed, then type each returned form into the online form (use <b>Open form</b> above) so it is counted in the results. Handle any urgent concern ticked on a paper form straight away.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('en')"><i class="ti ti-printer"></i> English</button><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('sw')"><i class="ti ti-printer"></i> Kiswahili</button><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('both')"><i class="ti ti-printer"></i> English + Kiswahili</button></div></div>
     
-    <div class="fbr-note">Anyone who has a link can send a form, so share it only with patients. If a link is shared by mistake, press <b>New code</b>: the old link and printed QR code stop working and you must print the new one.</div>`;
+    <div class="fbr-note">Anyone who has a link can send a form, so share it only with patients. If a link is shared by mistake, ${fbCanReset()?'press <b>New code</b>':'ask an admin or the Nurse in charge to press <b>New code</b>'}: the old link and printed QR code stop working and the new one must be printed.</div>`;
 }
 async function fbCopy(s){
   const l=FB_LINKS[s]; if(!l) return;
@@ -3085,10 +3114,14 @@ async function fbFuSet(id,done){
   if(error){ uiAlert('Could not save: '+(error.message||'')); return; }
   fbRenderResults(document.getElementById('fb-host'));
 }
+// Who can open Patient Feedback: admins and the Nurse in charge (role 'admin' here), Nurses ('staff') and Doctors. Viewers cannot.
+function fbRoleOk(role){ return role==='admin'||role==='staff'||role==='doctor'; }
+// Only admins and the Nurse in charge may create a new QR code
+function fbCanReset(){ return !!(currentUser&&(currentUser.hidden||currentUser.role==='admin')); }
 let fbBadgeTimer=null, fbToastShown=false;
 async function fbBadgeInit(quiet){
   try{
-    if(!currentUser||currentUser.role!=='admin') return;
+    if(!currentUser||!fbRoleOk(currentUser.role)) return;
     const {data,error}=await db.rpc('rr_feedback_urgent_count',{p_session:sessionToken});
     if(error||!data) return;
     const n=(data.kigumo||0)+(data.truck||0), b=document.getElementById('fb-badge');
@@ -3184,7 +3217,7 @@ async function doLogin(){
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
-    if(data.role==='admin') fbBadgeInit();
+    if(fbRoleOk(data.role)) fbBadgeInit();
     localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
     startRequestNotifyMonitor();
@@ -3283,7 +3316,7 @@ async function restoreSession(){
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
-    if(data.role==='admin') fbBadgeInit();
+    if(fbRoleOk(data.role)) fbBadgeInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     prefetchTabData();
@@ -3316,7 +3349,7 @@ async function _renderInner(){
   else if(currentTab==='procurement' && currentUser && currentUser.role!=='viewer') await renderProcurement();
   else if(currentTab==='disinfection') await renderDisinfection();
   else if(currentTab==='emergency') await renderEmergency();
-  else if(currentTab==='feedback' && currentUser && currentUser.role==='admin') await renderFeedback();
+  else if(currentTab==='feedback' && currentUser && fbRoleOk(currentUser.role)) await renderFeedback();
   else if(currentTab==='report') await renderReport();
   else if(currentTab==='monthlyreport') await renderMonthlyReportTab();
 }
@@ -9932,7 +9965,7 @@ function pageAllowed(k){
   return list.includes(k);
 }
 function tabAllowed(t){
-  if(t==='feedback') return !!(currentUser&&currentUser.role==='admin');
+  if(t==='feedback') return !!(currentUser&&fbRoleOk(currentUser.role));
   if(t==='users'&&currentUser&&currentUser.realRole==='incharge') return false;
   if(t==='home'||t==='users'||!currentUser) return true;
   if(['report','monthlyreport','heparin','operational'].includes(t)) return pageAllowed('fac-truck')||pageAllowed('fac-kigumo');

@@ -1590,7 +1590,7 @@ html:not([data-theme="dark"]) #login-page .login-footer strong{color:#3F6B0E}
       <div class="side-sub-item" data-em="Mobile Truck" onclick="emSideOpen('Mobile Truck')">Mobile Truck</div>
       <div class="side-sub-item" data-em="Kigumo" onclick="emSideOpen('Kigumo')">Kigumo</div>
     </div>
-    <div class="tab" onclick="switchTab('feedback')" id="tab-feedback" style="display:none"><i class="ti ti-message-2-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patient Feedback</div>
+    <div class="tab" onclick="switchTab('feedback')" id="tab-feedback" style="display:none"><i class="ti ti-message-2-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>Patient Feedback<span class="badge" id="fb-badge" style="display:none"></span></div>
     <div class="tab" onclick="switchTab('sha')" id="tab-sha" style="display:none"><i class="ti ti-shield-heart" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>SHA Cover<span class="badge" id="sha-badge" style="display:none"></span></div>
   </div>
   <div class="side-group"><div class="side-label">Admin</div>
@@ -2571,7 +2571,8 @@ const FB_T={
      contact:'Name and preferred contact or way to reach you (optional)',submit:'Send feedback',sending:'Sending…',
      thanks:'Thank you for helping us improve your care.',reset:'This screen will reset for the next person.',again:'Start a new form',
      errNone:'Please answer at least one question or write a comment.',errSend:'We could not send your feedback. Please check your connection and try again.',
-     errMany:'Too many forms were sent just now. Please wait a few minutes and try again.',errLink:'This feedback link is not valid or has expired. Please ask a member of staff for the current QR code.',site:'Site'},
+     errMany:'Too many forms were sent just now. Please wait a few minutes and try again.',errLink:'This feedback link is not valid or has expired. Please ask a member of staff for the current QR code.',site:'Site',
+     urgentFlag:'This is urgent: please contact me today',urgentTell:'If this is an emergency, please tell a nurse at the unit right now.',urgentThanks:'Staff will review your urgent request. If it cannot wait, please tell a nurse now.',errUrgent:'Please add how a nurse can reach you, or tell a nurse at the unit right now.'},
  sw:{title:'Maoni ya wagonjwa',intro:'Maoni yako yanatusaidia kuboresha huduma. Kushiriki ni hiari na hakutaathiri huduma zako. Unaweza kuruka swali lolote. Si lazima uandike jina lako. Inachukua takribani dakika 5.',
      who:'Mimi ni:',patient:'Mgonjwa',caregiver:'Mlezi anayejibu kwa niaba ya mgonjwa',start:'Anza',think:'Fikiria huduma ulizopata katika kituo hiki katika miezi mitatu iliyopita.',
      qn:'Swali',of:'kati ya',back:'Rudi',skip:'Ruka',next:'Endelea',more:'Tueleze zaidi',moreQ:'Ni nini kilifanywa vizuri au kinahitaji kuboreshwa? Eleza jambo lolote maalumu.',
@@ -2579,9 +2580,10 @@ const FB_T={
      contact:'Jina na njia unayopendelea ya kuwasiliana nawe (si lazima)',submit:'Tuma maoni',sending:'Inatuma…',
      thanks:'Asante kwa kutusaidia kuboresha huduma zako.',reset:'Skrini hii itajiwekea upya kwa mtu anayefuata.',again:'Anza fomu mpya',
      errNone:'Tafadhali jibu angalau swali moja au andika maoni.',errSend:'Imeshindikana kutuma maoni yako. Tafadhali angalia mtandao na ujaribu tena.',
-     errMany:'Fomu nyingi zimetumwa muda mfupi uliopita. Tafadhali subiri dakika chache kisha ujaribu tena.',errLink:'Kiungo hiki si sahihi au kimeisha muda. Tafadhali mwombe mhudumu msimbo wa QR wa sasa.',site:'Kituo'}
+     errMany:'Fomu nyingi zimetumwa muda mfupi uliopita. Tafadhali subiri dakika chache kisha ujaribu tena.',errLink:'Kiungo hiki si sahihi au kimeisha muda. Tafadhali mwombe mhudumu msimbo wa QR wa sasa.',site:'Kituo',
+     urgentFlag:'Ni jambo la dharura: tafadhali wasiliana nami leo',urgentTell:'Ikiwa jambo hili ni la dharura, tafadhali mwambie nesi aliye hapa sasa hivi.',urgentThanks:'Wafanyakazi wataangalia ombi lako la dharura. Kama haliwezi kusubiri, tafadhali mwambie nesi sasa hivi.',errUrgent:'Tafadhali andika jinsi nesi anavyoweza kukufikia, au mwambie nesi aliye hapa sasa hivi.'}
 };
-let FBP={site:null,code:null,lang:'en',step:0,resp:'patient',ans:{},comment:'',follow:null,contact:'',busy:false,err:'',lock:false};
+let FBP={site:null,code:null,lang:'en',step:0,resp:'patient',ans:{},comment:'',follow:null,contact:'',urgent:false,urgentSent:false,lastUrgent:false,busy:false,err:'',lock:false};
 let fbpTimer=null;
 
 function fbIsPublic(){ try{ const p=new URLSearchParams(location.search); return p.has('f')&&p.has('c'); }catch(e){ return false; } }
@@ -2648,7 +2650,7 @@ function fbpTouch(){
 }
 function fbpReset(){
   clearTimeout(fbpTimer);
-  FBP.step=0; FBP.ans={}; FBP.comment=''; FBP.follow=null; FBP.contact=''; FBP.resp='patient'; FBP.err=''; FBP.busy=false; FBP.lock=false;
+  FBP.step=0; FBP.ans={}; FBP.comment=''; FBP.follow=null; FBP.contact=''; FBP.urgent=false; FBP.urgentSent=false; FBP.lastUrgent=false; FBP.resp='patient'; FBP.err=''; FBP.busy=false; FBP.lock=false;
   fbpRender();
 }
 function fbpLang(l){ FBP.lang=l; fbpRender(); }
@@ -2661,22 +2663,32 @@ function fbpAnswer(v){
 }
 function fbpSkip(){ delete FBP.ans[FBP.step]; FBP.step++; fbpRender(); }
 function fbpBack(){ if(FBP.step>0){ FBP.step--; FBP.err=''; fbpRender(); } }
-function fbpFollow(b){ FBP.follow=b; fbpRender(); }
+function fbpFollow(b){ FBP.follow=b; if(b!==true) FBP.urgent=false; fbpRender(); }
+function fbpUrgent(b){ FBP.urgent=b; fbpRender(); }
 async function fbpSubmit(){
   if(FBP.busy) return;
   const ratings={}; Object.keys(FBP.ans).forEach(k=>{ ratings[k]=FBP.ans[k]; });
-  const comment=FBP.comment.trim();
-  if(!Object.keys(ratings).length && !comment){ FBP.err='errNone'; fbpRender(); return; }
+  const comment=FBP.comment.trim(), urgent=FBP.follow===true&&FBP.urgent===true;
+  const hasMain=Object.keys(ratings).length>0||!!comment;
+  if(!hasMain && !urgent){ FBP.err='errNone'; fbpRender(); return; }
+  if(urgent && !FBP.contact.trim()){ FBP.err='errUrgent'; fbpRender(); return; }
   FBP.busy=true; FBP.err=''; fbpRender();
   let error=null;
   try{
-    const r=await db.rpc('rr_feedback_submit',{p_site:FBP.site,p_code:FBP.code,p_payload:{
-      lang:FBP.lang,respondent:FBP.resp,ratings,comment,followup:FBP.follow===true,contact:FBP.follow===true?FBP.contact.trim():''}});
-    error=r.error;
+    // the urgent concern goes first and on its own, so it is never lost and is not linked to the rating form
+    if(urgent && !FBP.urgentSent){
+      const u=await db.rpc('rr_feedback_urgent_submit',{p_site:FBP.site,p_code:FBP.code,p_payload:{lang:FBP.lang,respondent:FBP.resp,note:comment.slice(0,600),contact:FBP.contact.trim()}});
+      if(u.error) error=u.error; else FBP.urgentSent=true;
+    }
+    if(!error && hasMain){
+      const r=await db.rpc('rr_feedback_submit',{p_site:FBP.site,p_code:FBP.code,p_payload:{
+        lang:FBP.lang,respondent:FBP.resp,ratings,comment,followup:FBP.follow===true,contact:FBP.follow===true?FBP.contact.trim():''}});
+      error=r.error;
+    }
   }catch(e){ error={message:String(e&&e.message||e)}; }
   FBP.busy=false;
   if(error){ const m=String(error.message||''); FBP.err=/invalid link/i.test(m)?'errLink':/too many/i.test(m)?'errMany':'errSend'; fbpRender(); return; }
-  FBP.step=17; FBP.ans={}; FBP.comment=''; FBP.contact=''; FBP.follow=null;
+  FBP.lastUrgent=urgent; FBP.step=17; FBP.ans={}; FBP.comment=''; FBP.contact=''; FBP.follow=null; FBP.urgent=false; FBP.urgentSent=false;
   fbpRender(); clearTimeout(fbpTimer); fbpTimer=setTimeout(fbpReset,25000);
 }
 function fbpRender(){
@@ -2707,11 +2719,11 @@ function fbpRender(){
       <div class="fbp-small" style="margin-top:6px">${fbT('noNames')}</div>
       <label class="fbp-lab">${fbT('follow')}</label>
       <div class="fbp-opt"><button type="button" class="${FBP.follow===true?'on':''}" onclick="fbpFollow(true)">${fbT('yes')}</button><button type="button" class="${FBP.follow===false?'on':''}" onclick="fbpFollow(false)">${fbT('no')}</button></div>
-      ${FBP.follow===true?`<label class="fbp-lab" for="fbp-contact">${fbT('contact')}</label><input type="text" id="fbp-contact" maxlength="200" autocomplete="off" value="${fbEsc(FBP.contact)}" oninput="FBP.contact=this.value">`:''}
+      ${FBP.follow===true?`<label class="fbp-lab" for="fbp-contact">${fbT('contact')}</label><input type="text" id="fbp-contact" maxlength="200" autocomplete="off" value="${fbEsc(FBP.contact)}" oninput="FBP.contact=this.value"><button type="button" onclick="fbpUrgent(${FBP.urgent?'false':'true'})" style="margin-top:12px;width:100%;text-align:left;min-height:58px;border:2px solid ${FBP.urgent?'#dc2626':'#d1d5db'};background:${FBP.urgent?'#fef2f2':'#fff'};border-radius:15px;font:inherit;font-size:16.5px;font-weight:700;padding:10px 14px;color:${FBP.urgent?'#991b1b':'#111827'};cursor:pointer"><i class="ti ${FBP.urgent?'ti-checkbox':'ti-square'}" style="font-size:24px;vertical-align:middle;margin-right:8px"></i>${fbT('urgentFlag')}</button>${FBP.urgent?`<div class="fbp-small" style="margin-top:8px;font-weight:700;color:#991b1b">${fbT('urgentTell')}</div>`:''}`:''}
       ${errTxt}
       <div class="fbp-nav"><button type="button" class="fbp-btn" onclick="fbpBack()" ${FBP.busy?'disabled':''}><i class="ti ti-arrow-left"></i> ${fbT('back')}</button><button type="button" class="fbp-btn go" onclick="fbpSubmit()" ${FBP.busy?'disabled':''}>${FBP.busy?fbT('sending'):fbT('submit')}</button></div></div>`;
   } else {
-    body=`<div class="fbp-card" style="text-align:center"><div class="fbp-tick"><i class="ti ti-check"></i></div><h1>${fbT('thanks')}</h1><p class="fbp-small">${fbT('reset')}</p>
+    body=`<div class="fbp-card" style="text-align:center"><div class="fbp-tick"><i class="ti ti-check"></i></div><h1>${fbT('thanks')}</h1>${FBP.lastUrgent?`<p style="font-weight:700;color:#991b1b">${fbT('urgentThanks')}</p>`:''}<p class="fbp-small">${fbT('reset')}</p>
       <div class="fbp-nav" style="justify-content:center"><button type="button" class="fbp-btn pri" onclick="fbpReset()">${fbT('again')}</button></div></div>`;
   }
   el.innerHTML=`<div class="fbp-wrap">${head}${body}</div>`;
@@ -2782,7 +2794,7 @@ async function fbRenderResults(host){
     <button class="btn btn-sm" onclick="fbPrint()"><i class="ti ti-printer"></i> Print summary</button></div>`;
   host.innerHTML=ctl+'<div style="color:var(--text3,#6b7280)">Loading…</div>';
   const a={p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter};
-  const [r,c]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a)]);
+  const [r,c,ug]=await Promise.all([db.rpc('rr_feedback_results',a),db.rpc('rr_feedback_comments',a),db.rpc('rr_feedback_urgent_list',{p_session:sessionToken,p_site:FBV.site})]);
   if(my!==FBV.tok) return;     // the filters changed while loading
   if(r.error){ host.innerHTML=ctl+fbErrBox('Could not load the results: '+(r.error.message||'')); return; }
   const res=r.data||{}, F=(res.forms||{})[FBV.grp]||{total:0,partial:0}, inv=res.invited;
@@ -2827,14 +2839,14 @@ async function fbRenderResults(host){
     const list=c.data||[], canDel=!!(currentUser&&(currentUser.hidden||(currentUser.role==='admin'&&!isInch())));
     const item=x=>`<div class="fbr-cmt"><div class="fbr-meta"><span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${new Date(x.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span>${canDel?`<a href="#" style="margin-left:auto;color:#b91c1c" onclick="fbDelete('${x.id}');return false">Delete</a>`:''}</div>
       ${x.comment?`<div style="white-space:pre-wrap;word-break:break-word">${repEsc(x.comment)}</div>`:'<div style="color:var(--text3,#6b7280)">No comment written.</div>'}
-      ${x.followup?`<div style="margin-top:6px"><b>Asked for follow-up:</b> ${x.contact?repEsc(x.contact):'<i>no contact details given</i>'}</div>`:''}</div>`;
-    const fu=list.filter(x=>x.followup), co=list.filter(x=>x.comment);
-    cm=`<h3 class="fbr-sec">Follow-up requests (${fu.length})</h3>${fu.map(item).join('')||'<div class="fbr-note">Nobody asked to be contacted this quarter.</div>'}
+      ${x.followup?`<div style="margin-top:6px"><b>Asked for follow-up:</b> ${x.contact?repEsc(x.contact):'<i>no contact details given</i>'} ${x.followup_done?`<span class="fbr-pill" style="background:#15803d;color:#fff">Contacted</span> <span class="fbr-low">by ${repEsc(x.followup_by||'')}${x.followup_at?' on '+new Date(x.followup_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</span> <a href="#" onclick="fbFuSet('${x.id}',false);return false">Undo</a>`:`<span class="fbr-pill" style="background:#d97706;color:#fff">To contact</span> <a href="#" onclick="fbFuSet('${x.id}',true);return false"><b>Mark contacted</b></a>`}</div>`:''}</div>`;
+    const fu=list.filter(x=>x.followup).sort((a,b)=>(a.followup_done?1:0)-(b.followup_done?1:0)), co=list.filter(x=>x.comment);
+    cm=`<h3 class="fbr-sec">Follow-up requests (${fu.length}${fu.filter(x=>!x.followup_done).length?' · '+fu.filter(x=>!x.followup_done).length+' to contact':''})</h3>${fu.map(item).join('')||'<div class="fbr-note">Nobody asked to be contacted this quarter.</div>'}
         <h3 class="fbr-sec">Comments (${co.length})</h3>${co.map(item).join('')||'<div class="fbr-note">No comments yet.</div>'}
         <div class="fbr-note">Report themes without naming patients or staff. A patient who reports an urgent care or safety concern must be referred through the clinical or complaints process straight away; do not wait for the quarterly summary.</div>`;
   }
   FBV.print={head:`<h1>Patient feedback results</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${FBV.grp==='patient'?'Patients':'Caregivers'}</div><p>Forms returned: <b>${F.total||0}</b> · Patients invited: <b>${inv==null?'—':inv}</b> · Response rate: <b>${rate==null?'—':rate+'%'}</b> · Overall experience (Q15): <b>${q15&&mean(q15)!=null?mean(q15).toFixed(1)+'/4 ('+ge(q15)+'% Good or Excellent)':'—'}</b></p>`,table:table+q15tbl,trend};
-  host.innerHTML=ctl+tiles+table+q15tbl+trend+cm;
+  host.innerHTML=ctl+fbUrgHtml(ug)+tiles+table+q15tbl+trend+cm;
 }
 async function fbSaveInvited(){
   const v=document.getElementById('fbr-inv').value.trim();
@@ -2881,6 +2893,11 @@ async function fbRenderLinks(host){
         </div></div></div>`;
   });
   host.innerHTML=`${cards||'<div>No sites found. Run the feedback database script in Supabase first.</div>'}
+    <div style="border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:16px;margin-bottom:14px">
+      <h3 style="margin:0 0 4px">Paper form</h3>
+      <div style="font-size:13px;color:var(--text3,#6b7280);margin-bottom:10px">For patients without a phone. Print as many as needed, then type each returned form into the online form (use <b>Open form</b> above) so it is counted in the results. Handle any urgent concern ticked on a paper form straight away.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('en')"><i class="ti ti-printer"></i> English</button><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('sw')"><i class="ti ti-printer"></i> Kiswahili</button><button class="btn btn-sm btn-primary" onclick="fbPrintBlank('both')"><i class="ti ti-printer"></i> English + Kiswahili</button></div></div>
+    
     <div class="fbr-note">Anyone who has a link can send a form, so share it only with patients. If a link is shared by mistake, press <b>New code</b>: the old link and printed QR code stop working and you must print the new one.</div>`;
 }
 async function fbCopy(s){
@@ -3027,6 +3044,86 @@ async function fbXlsx(){
   XLSX.writeFile(wb,FBV.csv.name.replace(/\.csv$/,'.xlsx'));
 }
 
+// ---- Urgent concerns, follow-up tracking, badge, paper form ----
+function fbUrgHtml(ug){
+  if(ug.error){
+    const m=String(ug.error.message||'');
+    return /schema cache|does not exist|could not find/i.test(m)
+      ? '<div class="fbr-note">Urgent follow-up and follow-up tracking are not switched on yet: run <b>feedback_extras.sql</b> in Supabase.</div>'
+      : fbErrBox('Could not load urgent concerns: '+m);
+  }
+  const list=ug.data||[], open=list.filter(x=>!x.reviewed), done=list.filter(x=>x.reviewed);
+  if(!list.length) return '';
+  const fdt=d=>new Date(d).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const meta=x=>`<div class="fbr-meta"><span class="fbr-pill">${x.respondent==='caregiver'?'Caregiver':'Patient'}</span><span>${fdt(x.created_at)}</span><span>${x.lang==='sw'?'Kiswahili':x.lang==='both'?'English + Kiswahili':'English'}</span></div>`;
+  const body=x=>`${x.note?`<div style="white-space:pre-wrap;word-break:break-word">${repEsc(x.note)}</div>`:'<div style="color:var(--text3,#6b7280)">No comment written.</div>'}${x.contact?`<div style="margin-top:6px"><b>How to reach them:</b> ${repEsc(x.contact)}</div>`:''}`;
+  const openCard=x=>`<div class="fbr-cmt" style="border-color:#fca5a5;background:#fff">${meta(x)}${body(x)}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px"><input id="fbu-n-${x.id}" maxlength="600" placeholder="What was done (optional)" style="flex:1;min-width:200px"><button class="btn btn-sm btn-primary" onclick="fbUrgReview('${x.id}')">Mark reviewed</button></div></div>`;
+  const doneCard=x=>`<div class="fbr-cmt">${meta(x)}${body(x)}
+      <div style="margin-top:6px;color:#15803d"><b>Reviewed</b> by ${repEsc(x.reviewed_by||'')} on ${x.reviewed_at?fdt(x.reviewed_at):''}${x.review_note?': '+repEsc(x.review_note):''} · <a href="#" onclick="fbUrgReopen('${x.id}');return false">Reopen</a></div></div>`;
+  if(!open.length) return `<div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:14px;padding:12px 16px;margin:0 0 16px"><b style="color:#15803d">No urgent follow-up requests waiting at ${repEsc(FB_SITES[FBV.site])}.</b>
+      <details style="margin-top:6px"><summary style="cursor:pointer">Reviewed in the last 90 days (${done.length})</summary>${done.map(doneCard).join('')}</details></div>`;
+  return `<div style="border:2px solid #dc2626;background:#fef2f2;border-radius:14px;padding:14px 16px;margin:0 0 16px">
+    <h3 style="margin:0 0 4px;color:#b91c1c"><i class="ti ti-alert-triangle"></i> Urgent follow-up requests at ${repEsc(FB_SITES[FBV.site])} (${open.length} to contact)</h3>
+    <div class="fbr-note" style="margin:0 0 10px">Patients who asked for urgent follow-up on the feedback form and gave a way to reach them. Contact them today through the clinical or complaints process, then mark it reviewed. These are not tied to a quarter.</div>
+    ${open.map(openCard).join('')}
+    ${done.length?`<details style="margin-top:8px"><summary style="cursor:pointer">Reviewed in the last 90 days (${done.length})</summary>${done.map(doneCard).join('')}</details>`:''}</div>`;
+}
+async function fbUrgReview(id){
+  const n=(document.getElementById('fbu-n-'+id)||{}).value||'';
+  const {error}=await db.rpc('rr_feedback_urgent_review',{p_session:sessionToken,p_id:id,p_reviewed:true,p_note:n});
+  if(error){ uiAlert('Could not save: '+(error.message||'')); return; }
+  fbBadgeInit(true); fbRenderResults(document.getElementById('fb-host'));
+}
+async function fbUrgReopen(id){
+  const {error}=await db.rpc('rr_feedback_urgent_review',{p_session:sessionToken,p_id:id,p_reviewed:false,p_note:null});
+  if(error){ uiAlert('Could not reopen: '+(error.message||'')); return; }
+  fbBadgeInit(true); fbRenderResults(document.getElementById('fb-host'));
+}
+async function fbFuSet(id,done){
+  const {error}=await db.rpc('rr_feedback_followup_set',{p_session:sessionToken,p_id:id,p_done:done});
+  if(error){ uiAlert('Could not save: '+(error.message||'')); return; }
+  fbRenderResults(document.getElementById('fb-host'));
+}
+let fbBadgeTimer=null, fbToastShown=false;
+async function fbBadgeInit(quiet){
+  try{
+    if(!currentUser||currentUser.role!=='admin') return;
+    const {data,error}=await db.rpc('rr_feedback_urgent_count',{p_session:sessionToken});
+    if(error||!data) return;
+    const n=(data.kigumo||0)+(data.truck||0), b=document.getElementById('fb-badge');
+    if(b){ if(n>0){ b.style.display='inline'; b.textContent=n; } else b.style.display='none'; }
+    if(n>0&&!fbToastShown&&!quiet){ fbToastShown=true; showToast('Urgent follow-up request',`${n} patient${n>1?'s have':' has'} asked for urgent follow-up on the feedback form. Open <b>Patient Feedback</b> to contact ${n>1?'them':'them'}.`,'rejected'); }
+    if(!fbBadgeTimer) fbBadgeTimer=setInterval(()=>fbBadgeInit(true),300000);
+  }catch(e){}
+}
+// Paper version of the form (English, Kiswahili or both)
+function fbPrintBlank(lang){
+  const w=window.open('','_blank'); if(!w){ uiAlert('Please allow pop-ups to print the form.'); return; }
+  const T=(en,sw)=>lang==='sw'?fbEsc(sw):lang==='both'?fbEsc(en)+'<span class="sw">'+fbEsc(sw)+'</span>':fbEsc(en);
+  const E=FB_T.en, S=FB_T.sw, bx='<span class="b"></span>';
+  const rates=FB_RATE.map(r=>r.v===0?['N/A','N/A']:[r.en,r.sw]);
+  const head='<tr><th style="width:26px">#</th><th>'+T('Question','Swali')+'</th>'+rates.map(r=>'<th class="c">'+T(r[0],r[1])+'</th>').join('')+'</tr>';
+  const rows=FB_Q.map((q,i)=>'<tr><td>'+(i+1)+'</td><td>'+T(q[0],q[1])+'</td>'+rates.map(()=>'<td class="c">'+bx+'</td>').join('')+'</tr>').join('');
+  const lines=n=>Array(n+1).join('<div class="ln"></div>');
+  const css='.pg{font-size:12.5px;line-height:1.35}h1{margin:0 0 2px;color:#1E1D70;font-size:21px}.sw{display:block;font-size:.88em;color:#555}p{margin:5px 0}'
+    +'table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #999;padding:5px 6px;vertical-align:middle;text-align:left}th{background:#e8e9f8}.c{text-align:center;width:62px}'
+    +'.b{display:inline-block;width:15px;height:15px;border:1.5px solid #333;border-radius:3px;vertical-align:middle;margin-right:5px}.ln{border-bottom:1px solid #888;height:22px}'
+    +'tr{page-break-inside:avoid}.box{border:1px solid #999;border-radius:6px;padding:8px 10px;margin:10px 0;page-break-inside:avoid}.urg{border-color:#dc2626;background:#fff7f7}.opt{display:inline-block;margin-right:18px}';
+  const body='<h1>'+T('Patient feedback','Maoni ya wagonjwa')+'</h1>'
+    +'<p>'+T(E.intro,S.intro)+'</p>'
+    +'<p><b>'+T('Site','Kituo')+':</b> <span class="opt">'+bx+'Kigumo</span><span class="opt">'+bx+'Mobile Truck</span> &nbsp; <b>'+T('Quarter','Robo')+':</b> ____ &nbsp; <b>'+T('Year','Mwaka')+':</b> ______</p>'
+    +'<p><b>'+T(E.who,S.who)+'</b> <span class="opt">'+bx+T(E.patient,S.patient)+'</span><span class="opt">'+bx+T(E.caregiver,S.caregiver)+'</span></p>'
+    +'<p>'+T(E.think,S.think)+'</p>'
+    +'<p><b>'+T('Tick one box for each question. You may leave a question blank.','Weka alama kwenye kisanduku kimoja kwa kila swali. Unaweza kuacha swali bila jibu.')+'</b></p>'
+    +'<table><thead>'+head+'</thead><tbody>'+rows+'</tbody></table>'
+    +'<div class="box"><b>'+T(E.more,S.more)+'</b><br>'+T(E.moreQ,S.moreQ)+lines(4)+'<div style="font-size:11px;color:#555;margin-top:4px">'+T(E.noNames,S.noNames)+'</div></div>'
+    +'<div class="box"><b>'+T(E.follow,S.follow)+'</b> <span class="opt">'+bx+T(E.yes,S.yes)+'</span><span class="opt">'+bx+T(E.no,S.no)+'</span>'
+    +'<div style="margin-top:6px">'+T(E.contact,S.contact)+'</div>'+lines(1)+'<div style="margin-top:8px">'+bx+'<b>'+T(E.urgentFlag,S.urgentFlag)+'</b></div><div style="margin-top:2px;font-weight:700;color:#991b1b;font-size:11.5px">'+T(E.urgentTell,S.urgentTell)+'</div></div>'
+    +'<p style="text-align:center"><b>'+T(E.thanks,S.thanks)+'</b></p>';
+  fbPrintDoc(w,'Patient feedback form',css,body);
+}
+
 // ---- Printable quarterly summary (scores, trend and actions; no comments or contact details) ----
 async function fbPrint(){
   if(!FBV.print){ uiAlert('Open the results first.'); return; }
@@ -3087,6 +3184,7 @@ async function doLogin(){
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
+    if(data.role==='admin') fbBadgeInit();
     localStorage.setItem('rr_session', JSON.stringify({token:sessionToken}));
     startIdleMonitor();
     startRequestNotifyMonitor();
@@ -3185,6 +3283,7 @@ async function restoreSession(){
     if(data.role==='admin'||data.role==='viewer') updateCommentDot();
     if(data.role==='admin'&&!isInch()) shaInit();
     if(data.role==='admin') procInit();
+    if(data.role==='admin') fbBadgeInit();
     await loadDisData(); updateDisinfectionAlertDot();
     await render();
     prefetchTabData();

@@ -2585,6 +2585,7 @@ let FBP={site:null,code:null,lang:'en',step:0,resp:'patient',ans:{},comment:'',f
 let fbpTimer=null;
 
 function fbIsPublic(){ try{ const p=new URLSearchParams(location.search); return p.has('f')&&p.has('c'); }catch(e){ return false; } }
+function fbLogo(){ const l=document.querySelector('.login-logo'); return l&&l.src?l.src:''; }
 function fbEsc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // text in the chosen language; "both" shows English with Kiswahili underneath
 function fbTx(en,sw){ return FBP.lang==='sw'?fbEsc(sw):FBP.lang==='both'?fbEsc(en)+'<span class="fbp-alt">'+fbEsc(sw)+'</span>':fbEsc(en); }
@@ -2603,6 +2604,7 @@ function fbPublicStart(){
 .fbp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .fbp-brand{font-weight:800;color:#1E1D70;font-size:16px;letter-spacing:.2px}
 .fbp-brand small{display:block;font-weight:500;color:#6b7280;font-size:12px}
+.fbp-logo{display:block;width:170px;max-width:100%;height:auto;margin-bottom:4px}
 .fbp-lang{display:flex;gap:6px}
 .fbp-lang button{border:1.5px solid #c7cbe8;background:#fff;border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:700;color:#1E1D70;cursor:pointer;touch-action:manipulation}
 .fbp-lang button.on{background:#1E1D70;color:#fff;border-color:#1E1D70}
@@ -2681,7 +2683,7 @@ function fbpRender(){
   const el=document.getElementById('fbp'); if(!el) return;
   const siteName=FB_SITES[FBP.site];
   const langBar=['en','sw','both'].map(l=>`<button type="button" class="${FBP.lang===l?'on':''}" onclick="fbpLang('${l}')">${l==='en'?'English':l==='sw'?'Kiswahili':'EN + SW'}</button>`).join('');
-  const head=`<div class="fbp-head"><div class="fbp-brand">Renal Roads<small>${siteName?fbEsc(siteName):''}</small></div><div class="fbp-lang">${langBar}</div></div>`;
+  const head=`<div class="fbp-head"><div class="fbp-brand">${fbLogo()?`<img class="fbp-logo" src="${fbLogo()}" alt="Renal Roads by Benacare">`:'Renal Roads'}<small>${siteName?fbEsc(siteName):''}</small></div><div class="fbp-lang">${langBar}</div></div>`;
   let body='';
   if(!siteName){
     body=`<div class="fbp-card"><h2>${fbT('title')}</h2><div class="fbp-err">${fbT('errLink')}</div></div>`;
@@ -2776,6 +2778,7 @@ async function fbRenderResults(host){
     <select onchange="fbFilter('grp',this.value)">${opt('patient','Patients',FBV.grp==='patient')}${opt('caregiver','Caregivers',FBV.grp==='caregiver')}</select>
     <button class="btn btn-sm" onclick="fbRenderResults(document.getElementById('fb-host'))"><i class="ti ti-refresh"></i> Refresh</button>
     <button class="btn btn-sm" onclick="fbCsv()"><i class="ti ti-download"></i> Download CSV</button>
+    <button class="btn btn-sm" onclick="fbXlsx()"><i class="ti ti-file-spreadsheet"></i> Download Excel</button>
     <button class="btn btn-sm" onclick="fbPrint()"><i class="ti ti-printer"></i> Print summary</button></div>`;
   host.innerHTML=ctl+'<div style="color:var(--text3,#6b7280)">Loading…</div>';
   const a={p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter};
@@ -2808,7 +2811,14 @@ async function fbRenderResults(host){
   FBV.csv={rows:csv,name:'feedback-'+FBV.site+'-'+FBV.year+'-Q'+FBV.quarter+'-'+FBV.grp+'s.csv',meta:[['Renal Roads patient feedback'],['Site',FB_SITES[FBV.site]],['Period',FBV.year+' Quarter '+FBV.quarter],['Group',FBV.grp==='patient'?'Patients':'Caregivers'],['Forms returned',F.total||0],['Patients invited',inv==null?'':inv],['Response rate',rate==null?'':rate+'%'],['']]};
   const table=`<h3 class="fbr-sec">Questions 1–14 by service area</h3><div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Service or experience</th><th>Valid</th><th>Mean</th><th>Poor · Average · Good · Excellent</th><th>Good / Excellent</th><th></th></tr></thead><tbody>${trs}</tbody></table></div>
     <div class="fbr-note">Poor = 1, Average = 2, Good = 3, Excellent = 4. N/A, blank and skipped answers are not counted. <b>Review</b> marks a mean below 2.5 or fewer than 60% Good or Excellent.</div>`;
-  const tr=(res.trend||[]);
+  const q15tbl=(()=>{
+    const x=q15, q=FB_Q[14], n=x?x.n:0, m=mean(x), g=ge(x);
+    const seg=[[x&&x.c1,'#dc2626','Poor'],[x&&x.c2,'#d97706','Average'],[x&&x.c3,'#65a30d','Good'],[x&&x.c4,'#15803d','Excellent']];
+    const bar=n?`<div class="fbr-bar">${seg.map(s=>{ const p=pct(s[0]||0,n); return p?`<i style="width:${100*(s[0]||0)/n}%;background:${s[1]}" title="${s[2]}: ${s[0]} (${p}%)">${p>=12?p+'%':''}</i>`:''; }).join('')}</div>`:'<span style="color:var(--text3,#6b7280)">No answers</span>';
+    const flag=n&&((m!=null&&m<2.5)||(g!=null&&g<60))?'<span class="fbr-flag">Review</span>':(n&&n<5?'<span class="fbr-low">Few answers</span>':'');
+    return `<h3 class="fbr-sec">Question 15: overall experience</h3><div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Question</th><th>Valid</th><th>Mean</th><th>Poor · Average · Good · Excellent</th><th>Good / Excellent</th><th></th></tr></thead><tbody><tr><td>15. ${repEsc(q[0])}<span class="fbr-sw">${repEsc(q[1])}</span></td><td>${n}</td><td>${m==null?'—':`<span class="fbr-chip" style="background:${fbMeanColor(m)}">${m.toFixed(1)}/4</span>`}</td><td style="min-width:190px">${bar}</td><td>${g==null?'—':g+'%'}</td><td>${flag}</td></tr></tbody></table></div>`;
+  })();
+  const tr=(res.trend||[]); FBV.trend=tr;
   const trend=`<h3 class="fbr-sec">Last quarters (patients, ${repEsc(FB_SITES[FBV.site])})</h3><div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Quarter</th><th>Forms</th><th>Overall (Q15)</th><th>% Good or Excellent</th><th>Services Q1–14 mean</th></tr></thead><tbody>${tr.map(t=>`<tr><td>${t.year} Q${t.quarter}</td><td>${t.forms}</td><td>${t.q15==null?'—':Number(t.q15).toFixed(1)+'/4'}</td><td>${t.q15ge==null?'—':t.q15ge+'%'}</td><td>${t.svc==null?'—':Number(t.svc).toFixed(1)+'/4'}</td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--text3,#6b7280)">No forms yet</td></tr>'}</tbody></table></div>`;
   // comments and follow-ups
   let cm='';
@@ -2823,8 +2833,8 @@ async function fbRenderResults(host){
         <h3 class="fbr-sec">Comments (${co.length})</h3>${co.map(item).join('')||'<div class="fbr-note">No comments yet.</div>'}
         <div class="fbr-note">Report themes without naming patients or staff. A patient who reports an urgent care or safety concern must be referred through the clinical or complaints process straight away; do not wait for the quarterly summary.</div>`;
   }
-  FBV.print={head:`<h1>Patient feedback results</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${FBV.grp==='patient'?'Patients':'Caregivers'}</div><p>Forms returned: <b>${F.total||0}</b> · Patients invited: <b>${inv==null?'—':inv}</b> · Response rate: <b>${rate==null?'—':rate+'%'}</b> · Overall experience (Q15): <b>${q15&&mean(q15)!=null?mean(q15).toFixed(1)+'/4 ('+ge(q15)+'% Good or Excellent)':'—'}</b></p>`,table,trend};
-  host.innerHTML=ctl+tiles+table+trend+cm;
+  FBV.print={head:`<h1>Patient feedback results</h1><div>${repEsc(FB_SITES[FBV.site])} · ${FBV.year} Quarter ${FBV.quarter} · ${FBV.grp==='patient'?'Patients':'Caregivers'}</div><p>Forms returned: <b>${F.total||0}</b> · Patients invited: <b>${inv==null?'—':inv}</b> · Response rate: <b>${rate==null?'—':rate+'%'}</b> · Overall experience (Q15): <b>${q15&&mean(q15)!=null?mean(q15).toFixed(1)+'/4 ('+ge(q15)+'% Good or Excellent)':'—'}</b></p>`,table:table+q15tbl,trend};
+  host.innerHTML=ctl+tiles+table+q15tbl+trend+cm;
 }
 async function fbSaveInvited(){
   const v=document.getElementById('fbr-inv').value.trim();
@@ -2884,11 +2894,22 @@ async function fbNewCode(s){
   if(error){ uiAlert('Could not create a new code: '+(error.message||'')); return; }
   fbRenderLinks(document.getElementById('fb-host'));
 }
+// Opens a print window with the Renal Roads letterhead header at the top and the faint logo watermark behind the page.
+function fbPrintDoc(w,title,css,body){
+  const bar='<div class="noprint" style="position:sticky;top:0;z-index:5;background:#1E1D70;padding:10px;text-align:center"><button onclick="print()" style="font:inherit;font-weight:700;font-size:15px;padding:9px 20px;border:0;border-radius:8px;background:#8cc63f;color:#111;cursor:pointer">Print / Save as PDF</button> <button onclick="window.close()" style="font:inherit;font-size:15px;padding:9px 16px;border:1px solid #fff;border-radius:8px;background:transparent;color:#fff;cursor:pointer">Close</button></div>';
+  const base='@page{size:auto;margin:10mm}html,body{margin:0}body{font-family:Arial,sans-serif;color:#111;background:#fff}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'.sheet{position:relative;max-width:190mm;margin:0 auto;padding:10px 0 24px}.lh{display:block;width:100%;height:auto;margin-bottom:4mm;position:relative;z-index:1}'
+    +'.wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:104.5mm;height:auto;z-index:0;pointer-events:none}.pg{position:relative;z-index:1}'
+    +'@media print{.noprint{display:none!important}.sheet{padding:0}}';
+  w.document.write('<!doctype html><meta charset="utf-8"><title>'+title+'</title><style>'+css+base+'</style>'+bar
+    +'<img class="wm" src="'+REP_LETTERHEAD_WATERMARK+'" alt=""><div class="sheet"><img class="lh" src="'+REP_LETTERHEAD_HEADER+'" alt=""><div class="pg">'+body+'</div></div>');
+  w.document.close();
+}
 function fbPrintPoster(s){
   const l=FB_LINKS[s]; if(!l) return;
   const w=window.open('','_blank'); if(!w){ uiAlert('Please allow pop-ups to print the poster.'); return; }
-  w.document.write('<!doctype html><meta charset="utf-8"><title>Feedback poster</title><style>body{font-family:Arial,sans-serif;text-align:center;margin:0;padding:40px;color:#111}h1{font-size:40px;margin:0;color:#1E1D70}h2{font-size:30px;margin:6px 0 26px;font-weight:600}svg{width:360px;height:360px}p{font-size:20px;margin:14px 0}.s{font-size:16px;color:#555}</style><h1>Share your feedback</h1><h2>Toa maoni yako</h2>'+fbQr(l)+'<p><b>Scan with your phone camera</b><br>Changanua kwa kamera ya simu</p><p class="s">Renal Roads — '+fbEsc(FB_SITES[s])+'<br>Takes about 5 minutes · Inachukua takribani dakika 5<br>Voluntary and anonymous · Ni hiari na hakuna jina linalohitajika</p><script>setTimeout(function(){print()},400)<\/script>');
-  w.document.close();
+  const css='.pg{text-align:center}h1{font-size:40px;margin:14px 0 0;color:#1E1D70}h2{font-size:30px;margin:6px 0 22px;font-weight:600}svg{width:340px;height:340px;background:#fff;padding:10px;position:relative;z-index:1}p{font-size:20px;margin:14px 0}.s{font-size:16px;color:#555}';
+  fbPrintDoc(w,'Feedback poster',css,'<h1>Share your feedback</h1><h2>Toa maoni yako</h2>'+fbQr(l)+'<p><b>Scan with your phone camera</b><br>Changanua kwa kamera ya simu</p><p class="s">Renal Roads — '+fbEsc(FB_SITES[s])+'<br>Takes about 5 minutes · Inachukua takribani dakika 5<br>Voluntary and anonymous · Ni hiari na hakuna jina linalohitajika</p>');
 }
 // ---- Action tracker ----
 let FBA={edit:null,list:[],ctl:''};
@@ -2970,6 +2991,42 @@ async function fbActDelete(id){
   fbRenderActions(document.getElementById('fb-host'));
 }
 
+// ---- Excel export of the results (scores, trend and actions; no comments or contact details) ----
+async function fbXlsx(){
+  if(!FBV.csv){ uiAlert('Open the results first.'); return; }
+  try{ await needLib('xlsx'); }catch(e){ uiAlert('The Excel export tool could not load. Check your internet connection and try again.'); return; }
+  const ar=await db.rpc('rr_feedback_actions_list',{p_session:sessionToken,p_site:FBV.site,p_year:FBV.year,p_quarter:FBV.quarter});
+  const acts=ar.error?[]:(ar.data||[]);
+  const NAVY='1E1D70', thin={style:'thin',color:{rgb:'BFC5D2'}}, bd={top:thin,bottom:thin,left:thin,right:thin};
+  const fillFor=m=>(m===''||m==null||isNaN(m))?null:(m>=3.5?'C6EFCE':m>=2.5?'FFEB9C':'FFC7CE');
+  const mkSheet=(top,headers,rows,widths,meanCol)=>{
+    const aoa=[...top,...(top.length?[[]]:[]),headers,...rows], hr=top.length?top.length+1:0;
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    top.forEach((r,i)=>{ const a=ws[XLSX.utils.encode_cell({r:i,c:0})]; if(a) a.s=i===0?{font:{bold:true,sz:14,color:{rgb:NAVY}}}:{font:{bold:true}}; });
+    headers.forEach((h,c)=>{ const a=ws[XLSX.utils.encode_cell({r:hr,c})]; if(a) a.s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:NAVY}},alignment:{wrapText:true,vertical:'center'},border:bd}; });
+    rows.forEach((row,ri)=>row.forEach((v,c)=>{
+      const a=ws[XLSX.utils.encode_cell({r:hr+1+ri,c})]; if(!a) return;
+      a.s={border:bd,alignment:{wrapText:true,vertical:'top'}};
+      if(c===meanCol){ const f=fillFor(v); if(f) a.s.fill={fgColor:{rgb:f}}; }
+    }));
+    ws['!cols']=widths.map(w=>({wch:w}));
+    return ws;
+  };
+  const meta=FBV.csv.meta.filter(r=>r.length&&r[0]!=='');
+  const all=FBV.csv.rows, head=all[0], body=all.slice(1);
+  const wb=XLSX.utils.book_new();
+  const s1=mkSheet(meta,head,body,[50,10,12,9,11,9,11,13,7],2);
+  const noteR=meta.length+1+1+body.length+1;
+  XLSX.utils.sheet_add_aoa(s1,[['Poor = 1, Average = 2, Good = 3, Excellent = 4. N/A, blank and skipped answers are not counted. Mean below 2.5 or under 60% Good or Excellent needs review.']],{origin:{r:noteR,c:0}});
+  XLSX.utils.book_append_sheet(wb,s1,'Scores');
+  const tr=(FBV.trend||[]).map(x=>[x.year,x.quarter,x.forms,x.q15==null?'':Number(x.q15),x.q15ge==null?'':Number(x.q15ge),x.svc==null?'':Number(x.svc)]);
+  XLSX.utils.book_append_sheet(wb,mkSheet([['Last quarters (patients, '+FB_SITES[FBV.site]+')']],['Year','Quarter','Forms','Overall (Q15) mean','Q15 % Good or Excellent','Average of Q1-14'],tr,[8,9,8,18,22,18],3),'Trend');
+  const fd=d=>d?String(d).slice(0,10):'';
+  const ac=acts.map(x=>[x.theme,x.action,x.owner||'',fd(x.due_date),(FB_ST[x.status]||FB_ST.open)[0],(x.survey_year!==FBV.year||x.survey_quarter!==FBV.quarter)?x.survey_year+' Q'+x.survey_quarter:'This quarter']);
+  XLSX.utils.book_append_sheet(wb,mkSheet([['Actions ('+FB_SITES[FBV.site]+', '+FBV.year+' Q'+FBV.quarter+')']],['Theme','Action','Responsible','Due','Progress','From'],ac.length?ac:[['No actions recorded','','','','','']],[28,50,20,12,13,14],-1),'Actions');
+  XLSX.writeFile(wb,FBV.csv.name.replace(/\.csv$/,'.xlsx'));
+}
+
 // ---- Printable quarterly summary (scores, trend and actions; no comments or contact details) ----
 async function fbPrint(){
   if(!FBV.print){ uiAlert('Open the results first.'); return; }
@@ -2979,8 +3036,8 @@ async function fbPrint(){
   const css=(document.getElementById('fbr-css')||{}).textContent||'';
   const fd=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
   const at=`<h3 class="fbr-sec">Actions</h3><div class="fbr-scroll"><table class="fbr-t"><thead><tr><th>Theme</th><th>Action</th><th>Responsible</th><th>Due</th><th>Progress</th></tr></thead><tbody>${acts.map(x=>`<tr><td>${repEsc(x.theme)}</td><td>${repEsc(x.action)}</td><td>${repEsc(x.owner||'—')}</td><td>${fd(x.due_date)}</td><td>${(FB_ST[x.status]||FB_ST.open)[0]}</td></tr>`).join('')||'<tr><td colspan="5">No actions recorded</td></tr>'}</tbody></table></div>`;
-  w.document.write('<!doctype html><meta charset="utf-8"><title>Patient feedback summary</title><style>'+css+'body{font-family:Arial,sans-serif;color:#111;margin:22px;background:#fff}h1{margin:0 0 4px;color:#1E1D70;font-size:22px}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.fbr-t td,.fbr-t th{border-bottom:1px solid #ddd}.fbr-scroll{overflow:visible;border:1px solid #ddd}tr{page-break-inside:avoid}</style>'+FBV.print.head+FBV.print.table+FBV.print.trend+at+'<div class="fbr-note">Printed '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'. Individual comments and contact details are not included.</div><script>setTimeout(function(){print()},400)<\/script>');
-  w.document.close();
+  const extra='h1{margin:0 0 4px;color:#1E1D70;font-size:22px}.fbr-t td,.fbr-t th{border-bottom:1px solid #ddd}.fbr-scroll{overflow:visible;border:1px solid #ddd}tr{page-break-inside:avoid}';
+  fbPrintDoc(w,'Patient feedback summary',css+extra,FBV.print.head+FBV.print.table+FBV.print.trend+at+'<div class="fbr-note">Printed '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'. Individual comments and contact details are not included.</div>');
 }
 // ===== END PATIENT FEEDBACK =====
 
